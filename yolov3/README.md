@@ -13,6 +13,8 @@ Following tricks are used in this yolov3,
 - upsample layer is replaced by a deconvolution layer.
 - Batchnorm layer, implemented by scale layer.
 
+For FP16 mode, just need add one line `builder->setFp16Mode(true);`. On my TX1, it's 115ms in fp16, while 145ms in fp32.
+
 ```
 // 1. generate yolov3.wts from [pytorchx/pytorch-yolo-v3](https://github.com/wang-xinyu/pytorchx/tree/master/pytorch-yolo-v3)
 
