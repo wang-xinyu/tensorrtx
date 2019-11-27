@@ -12,6 +12,8 @@
 #include "yololayer.h"
 #include <opencv2/opencv.hpp>
 
+#define USE_FP16  // comment out this if want to use FP32
+
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 320;
 static const int INPUT_W = 320;
@@ -383,6 +385,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     builder->setMaxWorkspaceSize(1 << 20);
+#ifdef USE_FP16
+    builder->setFp16Mode(true);
+#endif
     ICudaEngine* engine = builder->buildCudaEngine(*network);
     std::cout << "build out" << std::endl;
 
