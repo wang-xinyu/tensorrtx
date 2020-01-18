@@ -29,11 +29,11 @@ Following models are implemented, each one also has a readme inside.
 |[lenet](./lenet) | the simplest, as a "hello world" of this project |
 |[alexnet](./alexnet)| easy to implement, all layers are supported in tensorrt |
 |[googlenet](./googlenet)| GoogLeNet (Inception v1) |
-|[inception](./inception)| Inception v3 |
+|[inception](./inceptionv3)| Inception v3 |
 |[mnasnet](./mnasnet)| MNASNet with depth multiplier of 0.5 from the paper |
-|[mobilenet](./mobilenet)| MobileNet V2 |
+|[mobilenet](./mobilenetv2)| MobileNet V2 |
 |[resnet](./resnet)| resnet-18 and resnet-50 are implemented |
-|[shufflenet](./shufflenet)| ShuffleNetV2 with 0.5x output channels |
+|[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
 |[yolov3](./yolov3)| darknet-53, weights from yolov3 authors |
