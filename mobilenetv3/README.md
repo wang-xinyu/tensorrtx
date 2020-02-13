@@ -1,0 +1,37 @@
+# mobilenet v3
+
+MobileNetV3 architecture from
+     "Searching for MobileNetV3" <https://arxiv.org/abs/1905.02244?context=cs>.
+
+For the Pytorch implementation, you can refer to [mobilenetv3.pytorch](https://github.com/d-li14/mobilenetv3.pytorch)
+
+Following tricks are used in this mobilenet,
+
+- Hsigmoid is used in mobilenet v3. We create a plugin in tensorrt.
+- Batchnorm layer, implemented by scale layer.
+
+```
+// 1. generate mbv3_small.wts from pytorch implementation
+
+// 2. put mbv3_small.wts into tensorrtx/mobilenet
+
+// 3. build and run
+
+cd tensorrtx/mobilenetv3
+
+mkdir build
+
+cd build
+
+cmake ..
+
+make
+
+sudo ./mobilenetv3 -s   // serialize model to plan file i.e. 'mobilenetv3_small.engine'
+
+sudo ./mobilenetv3 -d   // deserialize plan file and run inference
+
+// 4. see if the output is same as pytorch implementation
+```
+
+
