@@ -3,7 +3,7 @@
 MobileNetV3 architecture from
      "Searching for MobileNetV3" <https://arxiv.org/abs/1905.02244?context=cs>.
 
-For the Pytorch implementation, you can refer to [mobilenetv3.pytorch](https://github.com/d-li14/mobilenetv3.pytorch)
+For the Pytorch implementation, you can refer to [mobilenetv3.pytorch](https://github.com/chufei1995/mobilenetv3.pytorch)
 
 Following tricks are used in this mobilenet,
 
