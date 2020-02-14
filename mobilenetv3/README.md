@@ -1,23 +1,23 @@
-# mobilenet v2
+# mobilenet v3
 
-MobileNetV2 architecture from
-     "MobileNetV2: Inverted Residuals and Linear Bottlenecks" <https://arxiv.org/abs/1801.04381>.
+MobileNetV3 architecture from
+     "Searching for MobileNetV3" <https://arxiv.org/abs/1905.02244?context=cs>.
 
-For the Pytorch implementation, you can refer to [pytorchx/mobilenet](https://github.com/wang-xinyu/pytorchx/tree/master/mobilenet)
+For the Pytorch implementation, you can refer to [mobilenetv3.pytorch](https://github.com/d-li14/mobilenetv3.pytorch)
 
 Following tricks are used in this mobilenet,
 
-- Relu6 is used in mobilenet v2. We use `Relu6(x) = Relu(x) - Relu(x-6)` in tensorrt.
+- Hsigmoid is used in mobilenet v3. We create a plugin in tensorrt.
 - Batchnorm layer, implemented by scale layer.
 
 ```
-// 1. generate mobilenet.wts from [pytorchx/mobilenet](https://github.com/wang-xinyu/pytorchx/tree/master/mobilenet)
+// 1. generate mbv3_small.wts/mbv3_large.wts from pytorch implementation
 
-// 2. put mobilenet.wts into tensorrtx/mobilenet
+// 2. put mbv3_small.wts/mbv3_large.wts into tensorrtx/mobilenetv3
 
 // 3. build and run
 
-cd tensorrtx/mobilenet
+cd tensorrtx/mobilenetv3
 
 mkdir build
 
@@ -27,11 +27,11 @@ cmake ..
 
 make
 
-sudo ./mobilenet -s   // serialize model to plan file i.e. 'mobilenet.engine'
+sudo ./mobilenetv3 -s small(or large) // serialize model to plan file i.e. 'mobilenetv3_small.engine'
 
-sudo ./mobilenet -d   // deserialize plan file and run inference
+sudo ./mobilenetv3 -d small(or large)  // deserialize plan file and run inference
 
-// 4. see if the output is same as pytorchx/mobilenet
+// 4. see if the output is same as pytorch implementation
 ```
 
 
