@@ -32,7 +32,7 @@ Following models are implemented, each one also has a readme inside.
 |[inception](./inceptionv3)| Inception v3 |
 |[mnasnet](./mnasnet)| MNASNet with depth multiplier of 0.5 from the paper |
 |[mobilenet](./mobilenetv2)| MobileNet V2 |
-|[resnet](./resnet)| resnet-18 and resnet-50 are implemented |
+|[resnet](./resnet)| resnet-18, resnet-50 and resnext50-32x4d are implemented |
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
