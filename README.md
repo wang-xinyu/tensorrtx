@@ -26,8 +26,9 @@ Following models are implemented, each one also has a readme inside.
 |[googlenet](./googlenet)| GoogLeNet (Inception v1) |
 |[inception](./inceptionv3)| Inception v3 |
 |[mnasnet](./mnasnet)| MNASNet with depth multiplier of 0.5 from the paper |
-|[mobilenet](./mobilenetv2)| MobileNet V2 |
+|[mobilenet](./mobilenetv2)| MobileNet V2, V3-small, V3-large. |
 |[resnet](./resnet)| resnet-18, resnet-50 and resnext50-32x4d are implemented |
+|[senet](./senet)| se_resnet50 |
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
