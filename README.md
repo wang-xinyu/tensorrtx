@@ -8,17 +8,12 @@ TensorRTx has a brother project [Pytorchx](https://github.com/wang-xinyu/pytorch
 
 ## Test Environment
 
-Jetson TX1
+1. Jetson TX1 / Ubuntu16.04 / cuda9.0 / cudnn7.1.5 / tensorrt4.0.2 / nvinfer4.1.3
 
-Ubuntu16.04
+2. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0
 
-cuda9.0
+Currently, TX1 ans x86 GTX1080 were tested. trt4 api were using, some api are deprecated in trt7, but still can compile successfully.
 
-cudnn7.1.5
-
-tensorrt4.0.2/nvinfer4.1.3
-
-Currently, I only test it on TX1, But I think it will be totally OK on TX2 with same software version. And also it will be easy be ported to x86.
 
 ## Models
 
@@ -32,7 +27,7 @@ Following models are implemented, each one also has a readme inside.
 |[inception](./inceptionv3)| Inception v3 |
 |[mnasnet](./mnasnet)| MNASNet with depth multiplier of 0.5 from the paper |
 |[mobilenet](./mobilenetv2)| MobileNet V2 |
-|[resnet](./resnet)| resnet-18 and resnet-50 are implemented |
+|[resnet](./resnet)| resnet-18, resnet-50 and resnext50-32x4d are implemented |
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
