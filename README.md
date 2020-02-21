@@ -50,4 +50,5 @@ Some tricky operations encountered in these models, already solved, but might ha
 |leaky relu| I wrote a leaky relu plugin, but PRelu in `NvInferPlugin.h` can be used, see yolov3. |
 |yolo layer| yolo layer is implemented as a plugin, see yolov3. |
 |upsample| replaced by a deconvolution layer, see yolov3. |
+|hsigmoid| hard sigmoid is implemented as a plugin, hsigmoid and hswish are used in mobilenetv3 |
 
