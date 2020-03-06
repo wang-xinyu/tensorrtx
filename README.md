@@ -1,6 +1,8 @@
 # TensorRTx
 
-TensorRTx aims to implement popular deep learning networks with tensorrt network definition APIs. As we know, tensorrt has builtin parsers, including caffeparser, uffparser, onnxparser, etc. But when we use these parsers, we often run into some "unsupported operations or layers" problems, especially some state-of-the-art models are using new type of layers, therefore, sometimes we have no choice but to implement the models with tensorrt network definition APIs.
+TensorRTx aims to implement popular deep learning networks with tensorrt network definition APIs. As we know, tensorrt has builtin parsers, including caffeparser, uffparser, onnxparser, etc. But when we use these parsers, we often run into some "unsupported operations or layers" problems, especially some state-of-the-art models are using new type of layers.
+
+So why don't we just skip all parsers? We just use TensorRT network definition APIs to build the whole network, it's not so complicated.
 
 I wrote this project to get familiar with tensorrt API, and also to share and learn from the community.
 
