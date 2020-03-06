@@ -6,6 +6,10 @@ I wrote this project to get familiar with tensorrt API, and also to share and le
 
 TensorRTx has a brother project [Pytorchx](https://github.com/wang-xinyu/pytorchx). All the models are implemented in pytorch first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference.
 
+## Getting Started
+
+There is a guide for quickly getting started, taking lenet5 as a demo. [Getting_Started.](./getting_started)
+
 ## Test Environment
 
 1. Jetson TX1 / Ubuntu16.04 / cuda9.0 / cudnn7.1.5 / tensorrt4.0.2 / nvinfer4.1.3
