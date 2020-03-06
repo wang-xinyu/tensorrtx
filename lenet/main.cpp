@@ -255,7 +255,7 @@ int main(int argc, char** argv)
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
         auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        //std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
 
     // Destroy the engine
