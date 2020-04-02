@@ -195,33 +195,34 @@ namespace nvinfer1
         //int out_row = input_col;
 
         for (int k = 0; k < 3; ++k) {
+            int class_id = 0;
+            float max_cls_prob = 0.0;
+            for (int i = 5; i < info_len_i; ++i) {
+                float p = Logist(input[input_col + k * info_len_i * total_grid + i * total_grid]);
+                if (p > max_cls_prob) {
+                    max_cls_prob = p;
+                    class_id = i - 5;
+                }
+            }
+            float box_prob = Logist(input[input_col + k * info_len_i * total_grid + 4 * total_grid]);
+            if (max_cls_prob < 0.1 || box_prob < 0.1) continue;
+
             float *res_count = output;
-            if(*res_count > 1000) break;
             int count = (int)atomicAdd(res_count, 1);
             char* data = (char * )res_count + sizeof(float) + count*sizeof(Detection);
             Detection* det =  (Detection*)(data);
 
-            int class_id = 0;
-            float max_prob = 0.0;
-            for (int i = 5; i < info_len_i; ++i) {
-                float p = Logist(input[input_col + k * info_len_i * total_grid + i * total_grid]);
-                if (p > max_prob) {
-                    max_prob = p;
-                    class_id = i - 5;
-                }
-            }
-
             int row = idx / yoloWidth;
             int col = idx % yoloWidth;
 
-        //Location
+            //Location
             det->bbox[0] = (col + Logist(input[input_col + k * info_len_i * total_grid + 0 * total_grid])) * INPUT_W / yoloWidth;
             det->bbox[1] = (row + Logist(input[input_col + k * info_len_i * total_grid + 1 * total_grid])) * INPUT_H / yoloHeight;
             det->bbox[2] = exp(input[input_col + k * info_len_i * total_grid + 2 * total_grid]) * anchors[2*k];
             det->bbox[3] = exp(input[input_col + k * info_len_i * total_grid + 3 * total_grid]) * anchors[2*k + 1];
-            det->det_confidence =  Logist(input[input_col + k * info_len_i * total_grid + 4 * total_grid]);
-            det->class_id =  class_id;
-            det->class_confidence =  max_prob;
+            det->det_confidence = box_prob;
+            det->class_id = class_id;
+            det->class_confidence = max_cls_prob;
         }
     }
    
@@ -247,9 +248,9 @@ namespace nvinfer1
             numElem = yolo.width*yolo.height*batchSize;
             if (numElem < 256)
                 mThreadCount = numElem;
-        CUDA_CHECK(cudaMemcpy(devAnchor, yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
+            CUDA_CHECK(cudaMemcpy(devAnchor, yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
             CalDetection<<< (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount>>>
-                    (inputs[i],output, numElem, yolo.width, yolo.height, (float *)devAnchor, mClassCount ,outputElem);
+                (inputs[i],output, numElem, yolo.width, yolo.height, (float *)devAnchor, mClassCount ,outputElem);
         }
 
         CUDA_CHECK(cudaFree(devAnchor));
