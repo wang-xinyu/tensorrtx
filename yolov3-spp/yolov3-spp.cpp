@@ -14,20 +14,18 @@
 #include <dirent.h>
 
 #define USE_FP16  // comment out this if want to use FP32
+#define DEVICE 0  // GPU id
+
+using namespace nvinfer1;
+using namespace Yolo;
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 256;
 static const int INPUT_W = 416;
 static const int OUTPUT_SIZE = 1000 * 7 + 1;
-
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
-
-using namespace nvinfer1;
-using namespace Yolo;
-
 static Logger gLogger;
-
 
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
@@ -96,7 +94,6 @@ bool cmp(Detection& a, Detection& b) {
     return a.det_confidence > b.det_confidence;
 }
 
-
 void nms(std::vector<Detection>& res, float *output, float nms_thresh = 0.4) {
     std::map<float, std::vector<Detection>> m;
     for (int i = 0; i < output[0]; i++) {
@@ -123,11 +120,9 @@ void nms(std::vector<Detection>& res, float *output, float nms_thresh = 0.4) {
     }
 }
 
-// Load weights from files shared with TensorRT samples.
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file)
-{
+std::map<std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
     std::map<std::string, Weights> weightMap;
 
@@ -219,8 +214,7 @@ ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>&
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
-{
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt) {
     INetworkDefinition* network = builder->createNetwork();
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
@@ -399,8 +393,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
-{
+void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
 
@@ -416,8 +409,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
-{
+void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
@@ -472,36 +464,25 @@ int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_nam
     return 0;
 }
 
-
-int main(int argc, char** argv)
-{
-    std::cout << "beginning" << std::endl;
-    if (argc != 3) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov3-spp -s ./img  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov3-spp -d ./img  // deserialize plan file and run inference" << std::endl;
-        return -1;
-    }
-
+int main(int argc, char** argv) {
+    cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
     char *trtModelStream{nullptr};
     size_t size{0};
 
-    if (std::string(argv[1]) == "-s") {
+    if (argc == 2 && std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
-
         std::ofstream p("yolov3-spp.engine");
-        if (!p)
-        {
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
         modelStream->destroy();
-        return 1;
-    } else if (std::string(argv[1]) == "-d") {
+        return 0;
+    } else if (argc == 3 && std::string(argv[1]) == "-d") {
         std::ifstream file("yolov3-spp.engine", std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
@@ -513,6 +494,9 @@ int main(int argc, char** argv)
             file.close();
         }
     } else {
+        std::cerr << "arguments not right!" << std::endl;
+        std::cerr << "./yolov3-spp -s  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov3-spp -d ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
@@ -539,11 +523,9 @@ int main(int argc, char** argv)
     for (auto f: file_names) {
         fcount++;
         std::cout << fcount << "  " << f << std::endl;
-        //if (fcount < 5700) continue;
         cv::Mat img = cv::imread(std::string(argv[2]) + "/" + f);
         if (img.empty()) continue;
         cv::Mat pr_img = preprocess_img(img);
-        //cv::imwrite("123.jpg", pr_img);
         for (int i = 0; i < INPUT_H * INPUT_W; i++) {
             data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
             data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
@@ -578,21 +560,5 @@ int main(int argc, char** argv)
     context->destroy();
     engine->destroy();
     runtime->destroy();
-
-    // Print histogram of the output distribution
-    //std::cout << "\nOutput:\n\n";
-    //for (unsigned int i = 0; i < OUTPUT_SIZE/7; i++)
-    //{
-    //    if (prob[7 * i + 4] <= 0.5) continue;
-    //    for (int j = 0; j < 7; j++) {
-    //        std::cout << prob[7 * i + j] << ", ";
-    //    }
-    //    std::cout << std::endl;
-
-    //    //std::cout << prob[i] << ", ";
-    //    //if (i % 10 == 0) std::cout << i / 10 << std::endl;
-    //}
-    //std::cout << std::endl;
-
     return 0;
 }

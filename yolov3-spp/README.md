@@ -1,36 +1,47 @@
 # yolov3-spp
 
-For the Pytorch implementation, you can refer to [ultralytics/yolov3](https://github.com/ultralytics/yolov3)
+The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3)
 
 Following tricks are used in this yolov3-spp:
 
-- Yololayer plugin is different from the plugin used in [yolov3](https://github.com/wang-xinyu/tensorrtx/tree/master/yolov3). In this version, I reimplement  the calculation of three yololayer plugins into one to improve speed. And the yololayer detect outputs are limited to maxmium 1000. The first number of output is number of targets in current image.
+- Yololayer plugin is different from the plugin used in [this repo's yolov3](https://github.com/wang-xinyu/tensorrtx/tree/master/yolov3). In this version, three yololayer are implemented in one plugin to improve speed, codes derived from [lewes6369/TensorRT-Yolov3](https://github.com/lewes6369/TensorRT-Yolov3)
 - Batchnorm layer, implemented by scale layer.
-
-
 
 ## Excute:
 
 ```
-// 1. generate yolov3-spp_ultralytics68.wts from pytorch implementation with yolov3-spp.cfg and ultralytics68.pt
+1. generate yolov3-spp_ultralytics68.wts from pytorch implementation with yolov3-spp.cfg and ultralytics68.pt
 
-// 2. put yolov3-spp_ultralytics68.wts into yolov3-spp
+git clone https://github.com/wang-xinyu/tensorrtx.git
+git clone https://github.com/ultralytics/yolov3.git
+// download its weights 'ultralytics68.pt'
+cd yolov3
+cp ../tensorrtx/yolov3-spp/gen_wts.py .
+python gen_wts.py ultralytics68.pt
+// a file 'yolov3-spp_ultralytics68.wts' will be generated.
+// the master branch of yolov3 should work, if not, you can checkout 4ac60018f6e6c1e24b496485f126a660d9c793d8
 
-// 3. build and run
+2. put yolov3-spp_ultralytics68.wts into yolov3-spp, build and run
 
-cd yolov3-spp
-
+mv yolov3-spp_ultralytics68.wts ../tensorrtx/yolov3-spp/
+cd ../tensorrtx/yolov3-spp
 mkdir build
-
 cd build
-
 cmake ..
-
 make
+sudo ./yolov3-spp -s             // serialize model to plan file i.e. 'yolov3-spp.engine'
+sudo ./yolov3-spp -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
 
-sudo ./yolov3-spp -s ../samples // serialize model to plan file i.e. 'yolov3-spp.engine'
-
-sudo ./yolov3-spp -d  ../samples // deserialize plan file and run inference 
-
-// 4. see if the output is same as pytorch implementation, and see the detect result in build
+3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 ```
+
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg">
+</p>
+
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/78247970-60b27c00-751e-11ea-88df-41473fed4823.jpg">
+</p>
+
+
+
