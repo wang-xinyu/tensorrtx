@@ -1,6 +1,6 @@
 # yolov3-spp
 
-The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3)
+The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3). It provides two trained weights of yolov3-spp, `yolov3-spp.pt` and `yolov3-spp-ultralytics.pt`(originally named `ultralytics68.pt`).
 
 Following tricks are used in this yolov3-spp:
 
@@ -10,14 +10,14 @@ Following tricks are used in this yolov3-spp:
 ## Excute:
 
 ```
-1. generate yolov3-spp_ultralytics68.wts from pytorch implementation with yolov3-spp.cfg and ultralytics68.pt
+1. generate yolov3-spp_ultralytics68.wts from pytorch implementation with yolov3-spp.cfg and yolov3-spp-ultralytics.pt
 
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov3.git
-// download its weights 'ultralytics68.pt'
+// download its weights 'yolov3-spp-ultralytics.pt'
 cd yolov3
 cp ../tensorrtx/yolov3-spp/gen_wts.py .
-python gen_wts.py ultralytics68.pt
+python gen_wts.py yolov3-spp-ultralytics.pt
 // a file 'yolov3-spp_ultralytics68.wts' will be generated.
 // the master branch of yolov3 should work, if not, you can checkout 4ac60018f6e6c1e24b496485f126a660d9c793d8
 

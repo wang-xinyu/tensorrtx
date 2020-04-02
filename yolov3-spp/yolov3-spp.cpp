@@ -22,7 +22,7 @@ using namespace Yolo;
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 256;
 static const int INPUT_W = 416;
-static const int OUTPUT_SIZE = 1000 * 7 + 1;
+static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -96,7 +96,7 @@ bool cmp(Detection& a, Detection& b) {
 
 void nms(std::vector<Detection>& res, float *output, float nms_thresh = 0.4) {
     std::map<float, std::vector<Detection>> m;
-    for (int i = 0; i < output[0]; i++) {
+    for (int i = 0; i < output[0] && i < 1000; i++) {
         if (output[1 + 7 * i + 4] <= 0.5) continue;
         Detection det;
         memcpy(&det, &output[1 + 7 * i], 7 * sizeof(float));
@@ -537,6 +537,8 @@ int main(int argc, char** argv) {
         doInference(*context, data, prob, 1);
         std::vector<Detection> res;
         nms(res, prob);
+        auto end = std::chrono::system_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         for (int i=0; i<20; i++) {
             std::cout << prob[i] << ",";
         }
@@ -551,8 +553,6 @@ int main(int argc, char** argv) {
             cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
             cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
         }
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         cv::imwrite("_" + f, img);
     }
 

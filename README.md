@@ -34,11 +34,12 @@ Following models are implemented, each one also has a readme inside.
 |[mnasnet](./mnasnet)| MNASNet with depth multiplier of 0.5 from the paper |
 |[mobilenet](./mobilenetv2)| MobileNet V2, V3-small, V3-large. |
 |[resnet](./resnet)| resnet-18, resnet-50 and resnext50-32x4d are implemented |
-|[senet](./senet)| se_resnet50 |
+|[senet](./senet)| se-resnet50 |
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
 |[yolov3](./yolov3)| darknet-53, weights from yolov3 authors |
+|[yolov3-spp](./yolov3-spp)| darknet-53, weights from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 
 ## Tricky Operations
 
@@ -54,7 +55,18 @@ Some tricky operations encountered in these models, already solved, but might ha
 |channel shuffle| use two shuffle layers to implement `channel_shuffle`, see shufflenet. |
 |adaptive pool| use fixed input dimension, and use regular average pooling, see shufflenet. |
 |leaky relu| I wrote a leaky relu plugin, but PRelu in `NvInferPlugin.h` can be used, see yolov3. |
-|yolo layer| yolo layer is implemented as a plugin, see yolov3. |
+|yolo layer v1| yolo layer is implemented as a plugin, see yolov3. |
+|yolo layer v2| three yolo layers implemented in one plugin, see yolov3-spp. |
 |upsample| replaced by a deconvolution layer, see yolov3. |
 |hsigmoid| hard sigmoid is implemented as a plugin, hsigmoid and hswish are used in mobilenetv3 |
 
+## Speed Benchmark
+
+| Models | Device | BatchSize | Mode | Input Shape(HxW) | FPS |
+|-|-|:-:|:-:|:-:|:-:|
+| yolov3(darknet53) | Xavier | 1 | FP16 | 320x320 | 55 |
+| yolov3-spp(darknet53) | GTX1080 | 1 | FP32 | 256x416 | 94 |
+
+Help wanted, if you got speed results, please add an issue or PR.
+
+Thanks @Kmarconi for yolov3(darknet53) speed test.
