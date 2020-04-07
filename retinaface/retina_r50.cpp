@@ -12,18 +12,17 @@
 //#include "yololayer.h"
 #include <opencv2/opencv.hpp>
 
-#define USE_FP16  // comment out this if want to use FP32
+//#define USE_FP16  // comment out this if want to use FP32
+#define DEVICE 1  // GPU id
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = 360;
+static const int INPUT_H = 384;  // 
 static const int INPUT_W = 640;
-static const int OUTPUT_SIZE = 2048 * 12 * 20;
-
+static const int OUTPUT_SIZE = 256 * 24 * 40;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
 using namespace nvinfer1;
-
 static Logger gLogger;
 
 typedef struct {
@@ -122,11 +121,10 @@ void nms(std::vector<Detection>& res, float *output, float nms_thresh = 0.4) {
     }
 }
 
-// Load weights from files shared with TensorRT samples.
+// Load weights from files
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file)
-{
+std::map<std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
     std::map<std::string, Weights> weightMap;
 
@@ -240,9 +238,26 @@ IActivationLayer* bottleneck(INetworkDefinition *network, std::map<std::string, 
     return relu3;
 }
 
+ILayer* conv_bn_relu(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int kernelsize, int stride, int padding, bool userelu, std::string lname) {
+    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+
+    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{kernelsize, kernelsize}, weightMap[lname + ".0.weight"], emptywts);
+    assert(conv1);
+    conv1->setStride(DimsHW{stride, stride});
+    conv1->setPadding(DimsHW{padding, padding});
+
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".1", 1e-5);
+
+    if (!userelu) return bn1;
+
+    IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
+    assert(relu1);
+
+    return relu1;
+}
+
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
-{
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt) {
     INetworkDefinition* network = builder->createNetwork();
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
@@ -293,16 +308,44 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     x = bottleneck(network, weightMap, *x->getOutput(0), 2048, 512, 1, "body.layer4.2.");
     IActivationLayer* layer4 = x;
 
-    //IPoolingLayer* pool2 = network->addPooling(*x->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
-    //assert(pool2);
-    //pool2->setStride(DimsHW{1, 1});
-    //
-    //IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 1000, weightMap["fc.weight"], weightMap["fc.bias"]);
-    //assert(fc1);
+    // ------------- FPN ---------------
+    auto output1 = conv_bn_relu(network, weightMap, *layer2->getOutput(0), 256, 1, 1, 0, true, "fpn.output1");
+    auto output2 = conv_bn_relu(network, weightMap, *layer3->getOutput(0), 256, 1, 1, 0, true, "fpn.output2");
+    auto output3 = conv_bn_relu(network, weightMap, *layer4->getOutput(0), 256, 1, 1, 0, true, "fpn.output3");
 
-    layer4->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    float *deval = reinterpret_cast<float*>(malloc(sizeof(float) * 256 * 2 * 2));
+    for (int i = 0; i < 256 * 2 * 2; i++) {
+        deval[i] = 1.0;
+    }
+    Weights deconvwts{DataType::kFLOAT, deval, 256 * 2 * 2};
+    IDeconvolutionLayer* up3 = network->addDeconvolution(*output3->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
+    assert(up3);
+    up3->setStride(DimsHW{2, 2});
+    up3->setNbGroups(256);
+    weightMap["up3"] = deconvwts;
+
+    IElementWiseLayer* ew1 = network->addElementWise(*output2->getOutput(0), *up3->getOutput(0), ElementWiseOperation::kSUM);
+    assert(ew1);
+
+    Dims dims = ew1->getOutput(0)->getDimensions();
+    std::cout << ew1->getOutput(0)->getName() << " dims";
+    for (int i = 0; i < dims.nbDims; i++) {
+        std::cout << dims.d[i] << "-" << (int)dims.type[i] << "   ";
+    }
+    std::cout << std::endl;
+
+    //output2 = conv_bn_relu(network, weightMap, *ew1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge2");
+
+    //IDeconvolutionLayer* up2 = network->addDeconvolution(*output2->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
+    //assert(up2);
+    //up2->setStride(DimsHW{2, 2});
+    //up2->setNbGroups(256);
+    //output1 = network->addElementWise(*output1->getOutput(0), *up2->getOutput(0), ElementWiseOperation::kSUM);
+    //output1 = conv_bn_relu(network, weightMap, *output1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge1");
+
+    ew1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     std::cout << "set name out" << std::endl;
-    network->markOutput(*layer4->getOutput(0));
+    network->markOutput(*ew1->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
@@ -319,15 +362,14 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     // Release host memory
     for (auto& mem : weightMap)
     {
-        free((void*) (mem.second.values));
+        free((void*)(mem.second.values));
+        mem.second.values = NULL;
     }
 
     return engine;
 }
 
-
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
-{
+void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
 
@@ -343,8 +385,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
-{
+void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
@@ -377,8 +418,7 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     std::cout << "beginning" << std::endl;
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
@@ -387,6 +427,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
     char *trtModelStream{nullptr};
     size_t size{0};
