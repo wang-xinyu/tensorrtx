@@ -13,12 +13,12 @@
 #include <opencv2/opencv.hpp>
 
 //#define USE_FP16  // comment out this if want to use FP32
-#define DEVICE 1  // GPU id
+#define DEVICE 0  // GPU id
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 384;  // 
 static const int INPUT_W = 640;
-static const int OUTPUT_SIZE = 256 * 24 * 40;
+static const int OUTPUT_SIZE = 256 * 48 * 80;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
@@ -324,28 +324,20 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     up3->setNbGroups(256);
     weightMap["up3"] = deconvwts;
 
-    IElementWiseLayer* ew1 = network->addElementWise(*output2->getOutput(0), *up3->getOutput(0), ElementWiseOperation::kSUM);
-    assert(ew1);
+    output2 = network->addElementWise(*output2->getOutput(0), *up3->getOutput(0), ElementWiseOperation::kSUM);
+    output2 = conv_bn_relu(network, weightMap, *output2->getOutput(0), 256, 3, 1, 1, true, "fpn.merge2");
 
-    Dims dims = ew1->getOutput(0)->getDimensions();
-    std::cout << ew1->getOutput(0)->getName() << " dims";
-    for (int i = 0; i < dims.nbDims; i++) {
-        std::cout << dims.d[i] << "-" << (int)dims.type[i] << "   ";
-    }
-    std::cout << std::endl;
+    IDeconvolutionLayer* up2 = network->addDeconvolution(*output2->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
+    assert(up2);
+    up2->setStride(DimsHW{2, 2});
+    up2->setNbGroups(256);
+    output1 = network->addElementWise(*output1->getOutput(0), *up2->getOutput(0), ElementWiseOperation::kSUM);
+    output1 = conv_bn_relu(network, weightMap, *output1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge1");
 
-    //output2 = conv_bn_relu(network, weightMap, *ew1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge2");
-
-    //IDeconvolutionLayer* up2 = network->addDeconvolution(*output2->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
-    //assert(up2);
-    //up2->setStride(DimsHW{2, 2});
-    //up2->setNbGroups(256);
-    //output1 = network->addElementWise(*output1->getOutput(0), *up2->getOutput(0), ElementWiseOperation::kSUM);
-    //output1 = conv_bn_relu(network, weightMap, *output1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge1");
-
-    ew1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    // ------------- SSH ---------------
+    output1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     std::cout << "set name out" << std::endl;
-    network->markOutput(*ew1->getOutput(0));
+    network->markOutput(*output1->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
