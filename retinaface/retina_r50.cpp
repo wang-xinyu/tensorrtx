@@ -8,8 +8,8 @@
 #include <sstream>
 #include <vector>
 #include <chrono>
-//#include "plugin_factory.h"
-//#include "yololayer.h"
+#include "plugin_factory.h"
+#include "decode.h"
 #include <opencv2/opencv.hpp>
 
 //#define USE_FP16  // comment out this if want to use FP32
@@ -18,19 +18,12 @@
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 384;  // 
 static const int INPUT_W = 640;
-static const int OUTPUT_SIZE = 256 * 48 * 80;
+static const int OUTPUT_SIZE = 10080 * 15 + 1;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
 using namespace nvinfer1;
 static Logger gLogger;
-
-typedef struct {
-    float bbox[4];
-    float det_confidence;
-    float class_id;
-    float class_confidence;
-} Detection;
 
 cv::Mat preprocess_img(cv::Mat& img, int input_dim) {
     int w, h, x, y;
@@ -91,34 +84,34 @@ float iou(float lbox[4], float rbox[4]) {
     return interBoxS/(lbox[2]*lbox[3] + rbox[2]*rbox[3] -interBoxS);
 }
 
-bool cmp(Detection& a, Detection& b) {
-    return a.det_confidence > b.det_confidence;
+bool cmp(decodeplugin::Detection& a, decodeplugin::Detection& b) {
+    return a.class_confidence > b.class_confidence;
 }
 
-void nms(std::vector<Detection>& res, float *output, float nms_thresh = 0.4) {
-    std::map<float, std::vector<Detection>> m;
-    for (int i = 0; i < OUTPUT_SIZE / 7; i++) {
-        if (output[7 * i + 4] <= 0.5) continue;
-        Detection det;
-        memcpy(&det, &output[7 * i], 7 * sizeof(float));
-        if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Detection>());
-        m[det.class_id].push_back(det);
-    }
-    for (auto it = m.begin(); it != m.end(); it++) {
-        //std::cout << it->second[0].class_id << " --- " << std::endl;
-        auto& dets = it->second;
-        std::sort(dets.begin(), dets.end(), cmp);
-        for (size_t m = 0; m < dets.size(); ++m) {
-            auto& item = dets[m];
-            res.push_back(item);
-            for (size_t n = m + 1; n < dets.size(); ++n) {
-                if (iou(item.bbox, dets[n].bbox) > nms_thresh) {
-                    dets.erase(dets.begin()+n);
-                    --n;
-                }
-            }
-        }
-    }
+void nms(std::vector<decodeplugin::Detection>& res, float *output, float nms_thresh = 0.4) {
+    //std::map<float, std::vector<decodeplugin::Detection>> m;
+    //for (int i = 0; i < OUTPUT_SIZE / 7; i++) {
+    //    if (output[7 * i + 4] <= 0.5) continue;
+    //    decodeplugin::Detection det;
+    //    memcpy(&det, &output[7 * i], 7 * sizeof(float));
+    //    if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<decodeplugin::Detection>());
+    //    m[det.class_id].push_back(det);
+    //}
+    //for (auto it = m.begin(); it != m.end(); it++) {
+    //    //std::cout << it->second[0].class_id << " --- " << std::endl;
+    //    auto& dets = it->second;
+    //    std::sort(dets.begin(), dets.end(), cmp);
+    //    for (size_t m = 0; m < dets.size(); ++m) {
+    //        auto& item = dets[m];
+    //        res.push_back(item);
+    //        for (size_t n = m + 1; n < dets.size(); ++n) {
+    //            if (iou(item.bbox, dets[n].bbox) > nms_thresh) {
+    //                dets.erase(dets.begin()+n);
+    //                --n;
+    //            }
+    //        }
+    //    }
+    //}
 }
 
 // Load weights from files
@@ -160,6 +153,14 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
     }
 
     return weightMap;
+}
+
+Weights getWeights(std::map<std::string, Weights>& weightMap, std::string key) {
+    if (weightMap.count(key) != 1) {
+        std::cerr << key << " not existed in weight map, fatal error!!!" << std::endl;
+        exit(-1);
+    }
+    return weightMap[key];
 }
 
 IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, float eps) {
@@ -241,7 +242,7 @@ IActivationLayer* bottleneck(INetworkDefinition *network, std::map<std::string, 
 ILayer* conv_bn_relu(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int kernelsize, int stride, int padding, bool userelu, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{kernelsize, kernelsize}, weightMap[lname + ".0.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{kernelsize, kernelsize}, getWeights(weightMap, lname + ".0.weight"), emptywts);
     assert(conv1);
     conv1->setStride(DimsHW{stride, stride});
     conv1->setPadding(DimsHW{padding, padding});
@@ -253,6 +254,19 @@ ILayer* conv_bn_relu(INetworkDefinition *network, std::map<std::string, Weights>
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
+    return relu1;
+}
+
+IActivationLayer* ssh(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname) {
+    auto conv3x3 = conv_bn_relu(network, weightMap, input, 256 / 2, 3, 1, 1, false, lname + ".conv3X3");
+    auto conv5x5_1 = conv_bn_relu(network, weightMap, input, 256 / 4, 3, 1, 1, true, lname + ".conv5X5_1");
+    auto conv5x5 = conv_bn_relu(network, weightMap, *conv5x5_1->getOutput(0), 256 / 4, 3, 1, 1, false, lname + ".conv5X5_2");
+    auto conv7x7 = conv_bn_relu(network, weightMap, *conv5x5_1->getOutput(0), 256 / 4, 3, 1, 1, true, lname + ".conv7X7_2");
+    conv7x7 = conv_bn_relu(network, weightMap, *conv7x7->getOutput(0), 256 / 4, 3, 1, 1, false, lname + ".conv7x7_3");
+    ITensor* inputTensors[] = {conv3x3->getOutput(0), conv5x5->getOutput(0), conv7x7->getOutput(0)};
+    auto cat = network->addConcatenation(inputTensors, 3);
+    IActivationLayer* relu1 = network->addActivation(*cat->getOutput(0), ActivationType::kRELU);
+    assert(relu1);
     return relu1;
 }
 
@@ -335,9 +349,39 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     output1 = conv_bn_relu(network, weightMap, *output1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge1");
 
     // ------------- SSH ---------------
-    output1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    auto ssh1 = ssh(network, weightMap, *output1->getOutput(0), "ssh1");
+    auto ssh2 = ssh(network, weightMap, *output2->getOutput(0), "ssh2");
+    auto ssh3 = ssh(network, weightMap, *output3->getOutput(0), "ssh3");
+
+    // ------------- Head ---------------
+    auto bbox_head1 = network->addConvolution(*ssh1->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.0.conv1x1.weight"], weightMap["BboxHead.0.conv1x1.bias"]);
+    auto bbox_head2 = network->addConvolution(*ssh2->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.1.conv1x1.weight"], weightMap["BboxHead.1.conv1x1.bias"]);
+    auto bbox_head3 = network->addConvolution(*ssh3->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.2.conv1x1.weight"], weightMap["BboxHead.2.conv1x1.bias"]);
+
+    auto cls_head1 = network->addConvolution(*ssh1->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.0.conv1x1.weight"], weightMap["ClassHead.0.conv1x1.bias"]);
+    auto cls_head2 = network->addConvolution(*ssh2->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.1.conv1x1.weight"], weightMap["ClassHead.1.conv1x1.bias"]);
+    auto cls_head3 = network->addConvolution(*ssh3->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.2.conv1x1.weight"], weightMap["ClassHead.2.conv1x1.bias"]);
+
+    auto lmk_head1 = network->addConvolution(*ssh1->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.0.conv1x1.weight"], weightMap["LandmarkHead.0.conv1x1.bias"]);
+    auto lmk_head2 = network->addConvolution(*ssh2->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.1.conv1x1.weight"], weightMap["LandmarkHead.1.conv1x1.bias"]);
+    auto lmk_head3 = network->addConvolution(*ssh3->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.2.conv1x1.weight"], weightMap["LandmarkHead.2.conv1x1.bias"]);
+
+    // ------------- Decode bbox, conf, landmark ---------------
+    ITensor* inputTensors1[] = {bbox_head1->getOutput(0), cls_head1->getOutput(0), lmk_head1->getOutput(0)};
+    auto cat1 = network->addConcatenation(inputTensors1, 3);
+    ITensor* inputTensors2[] = {bbox_head2->getOutput(0), cls_head2->getOutput(0), lmk_head2->getOutput(0)};
+    auto cat2 = network->addConcatenation(inputTensors2, 3);
+    ITensor* inputTensors3[] = {bbox_head3->getOutput(0), cls_head3->getOutput(0), lmk_head3->getOutput(0)};
+    auto cat3 = network->addConcatenation(inputTensors3, 3);
+    auto decode = new DecodePlugin();
+    ITensor* inputTensors[] = {cat1->getOutput(0), cat2->getOutput(0), cat3->getOutput(0)};
+    auto decodelayer = network->addPlugin(inputTensors, 3, *decode);
+    assert(decodelayer);
+    decodelayer->setName("decode");
+
+    decodelayer->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     std::cout << "set name out" << std::endl;
-    network->markOutput(*output1->getOutput(0));
+    network->markOutput(*decodelayer->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
@@ -467,21 +511,32 @@ int main(int argc, char** argv) {
     //    data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
     //}
 
-    //PluginFactory pf;
+    PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    //ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, &pf);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, &pf);
+    //ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
 
     // Run inference
     static float prob[OUTPUT_SIZE];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1; i++) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
-        //std::vector<Detection> res;
+        std::vector<decodeplugin::Detection> res;
+        std::cout << "output 0 -> " << prob[0] << std::endl;
+        for (int j = 0; j < (int)prob[0]; j++) {
+            decodeplugin::Detection det;
+            memcpy(&det, &prob[1 + 15 * j], sizeof(decodeplugin::Detection));
+            res.push_back(det);
+        }
+        sort(res.begin(), res.end(), cmp);
+        for (int j = 0; j < res.size(); j++) {
+            std::cout << res[j].class_confidence << std::endl;
+            std::cout << res[j].bbox[0] << ", " << res[j].bbox[1] << ", " << res[j].bbox[2] << ", " << res[j].bbox[3] << std::endl;
+        }
         //nms(res, prob);
         //for (size_t j = 0; j < res.size(); j++) {
         //    float *p = (float*)&res[j];
@@ -504,13 +559,13 @@ int main(int argc, char** argv) {
     runtime->destroy();
 
     // Print histogram of the output distribution
-    std::cout << "\nOutput:\n\n";
-    for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    {
-        std::cout << prob[i] << ", ";
-        if (i % 10 == 0) std::cout << i / 10 << std::endl;
-    }
-    std::cout << std::endl;
+    //std::cout << "\nOutput:\n\n";
+    //for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
+    //{
+    //    std::cout << prob[i] << ", ";
+    //    if (i % 10 == 0) std::cout << i / 10 << std::endl;
+    //}
+    //std::cout << std::endl;
 
     return 0;
 }

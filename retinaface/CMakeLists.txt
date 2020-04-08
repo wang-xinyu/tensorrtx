@@ -18,16 +18,15 @@ link_directories(/usr/local/cuda-9.0/targets/aarch64-linux/lib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
-#cuda_add_library(leaky ${PROJECT_SOURCE_DIR}/leaky.cu)
-#cuda_add_library(yololayer ${PROJECT_SOURCE_DIR}/yololayer.cu)
+cuda_add_library(decodeplugin SHARED ${PROJECT_SOURCE_DIR}/decode.cu)
 
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
 
-add_executable(retina_50 ${PROJECT_SOURCE_DIR}/retina_r50.cpp)
+add_executable(retina_50 ${PROJECT_SOURCE_DIR}/plugin_factory.cpp ${PROJECT_SOURCE_DIR}/retina_r50.cpp)
 target_link_libraries(retina_50 nvinfer nvinfer_plugin)
 target_link_libraries(retina_50 cudart)
-#target_link_libraries(retina yololayer)
+target_link_libraries(retina_50 decodeplugin)
 target_link_libraries(retina_50 ${OpenCV_LIBRARIES})
 
 add_definitions(-O2 -pthread)
