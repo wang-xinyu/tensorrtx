@@ -17,11 +17,10 @@
 #define DEVICE 0  // GPU id
 
 using namespace nvinfer1;
-using namespace Yolo;
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = 256;
-static const int INPUT_W = 416;
+static const int INPUT_H = Yolo::INPUT_H;
+static const int INPUT_W = Yolo::INPUT_W;
 static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
@@ -90,17 +89,17 @@ float iou(float lbox[4], float rbox[4]) {
     return interBoxS/(lbox[2]*lbox[3] + rbox[2]*rbox[3] -interBoxS);
 }
 
-bool cmp(Detection& a, Detection& b) {
+bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
     return a.det_confidence > b.det_confidence;
 }
 
-void nms(std::vector<Detection>& res, float *output, float nms_thresh = 0.4) {
-    std::map<float, std::vector<Detection>> m;
+void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = 0.4) {
+    std::map<float, std::vector<Yolo::Detection>> m;
     for (int i = 0; i < output[0] && i < 1000; i++) {
         if (output[1 + 7 * i + 4] <= 0.5) continue;
-        Detection det;
+        Yolo::Detection det;
         memcpy(&det, &output[1 + 7 * i], 7 * sizeof(float));
-        if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Detection>());
+        if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Yolo::Detection>());
         m[det.class_id].push_back(det);
     }
     for (auto it = m.begin(); it != m.end(); it++) {
@@ -535,7 +534,7 @@ int main(int argc, char** argv) {
         // Run inference
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
-        std::vector<Detection> res;
+        std::vector<Yolo::Detection> res;
         nms(res, prob);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
