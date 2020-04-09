@@ -35,5 +35,5 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 ```
 
 <p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78887294-2d2d9f80-7a92-11ea-90a5-38e84a87282e.jpg">
+<img src="https://user-images.githubusercontent.com/15235574/78901890-9077fb80-7aab-11ea-94f1-237f51fcc347.jpg">
 </p>
