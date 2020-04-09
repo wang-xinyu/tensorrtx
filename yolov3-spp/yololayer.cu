@@ -1,4 +1,3 @@
-#include "YoloConfigs.h"
 #include "yololayer.h"
 
 using namespace Yolo;
@@ -205,7 +204,7 @@ namespace nvinfer1
                 }
             }
             float box_prob = Logist(input[input_col + k * info_len_i * total_grid + 4 * total_grid]);
-            if (max_cls_prob < 0.1 || box_prob < 0.1) continue;
+            if (max_cls_prob < IGNORE_THRESH || box_prob < IGNORE_THRESH) continue;
 
             float *res_count = output;
             int count = (int)atomicAdd(res_count, 1);
