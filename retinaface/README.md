@@ -2,7 +2,7 @@
 
 ## Notice
 
-- Only tested on TensorRT4
+- Tested on TX2/TensorRT4 and GTX1080/TensorRT7
 - The pytorch implementation is [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface), I forked it into 
 [wang-xinyu/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) and add genwts.py
 

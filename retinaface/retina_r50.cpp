@@ -12,7 +12,7 @@
 #include "decode.h"
 #include <opencv2/opencv.hpp>
 
-#define USE_FP16  // comment out this if want to use FP32
+//#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
 
 // stuff we know about the network and the input/output blobs
@@ -101,6 +101,7 @@ void nms(std::vector<decodeplugin::Detection>& res, float *output, float nms_thr
         dets.push_back(det);
     }
     std::sort(dets.begin(), dets.end(), cmp);
+    if (dets.size() > 5000) dets.erase(dets.begin() + 5000, dets.end());
     for (size_t m = 0; m < dets.size(); ++m) {
         auto& item = dets[m];
         res.push_back(item);
@@ -497,7 +498,7 @@ int main(int argc, char** argv) {
     }
 
     // prepare input data ---------------------------
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
 
@@ -536,7 +537,7 @@ int main(int argc, char** argv) {
         if (res[j].class_confidence < 0.1) continue;
         cv::Rect r = get_rect_adapt_landmark(img, res[j].bbox, res[j].landmark);
         cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-        cv::putText(img, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
+        //cv::putText(img, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
         for (int k = 0; k < 10; k += 2) {
             cv::circle(img, cv::Point(res[j].landmark[k], res[j].landmark[k + 1]), 1, cv::Scalar(255 * (k > 2), 255 * (k > 0 && k < 8), 255 * (k < 6)), 4);
         }

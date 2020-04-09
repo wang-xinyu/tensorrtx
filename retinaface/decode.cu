@@ -102,6 +102,7 @@ namespace nvinfer1
         int base_step = 8;
         int base_anchor = 16;
         int thread_count;
+        cudaMemset(output, 0, sizeof(float));
         for (unsigned int i = 0; i < 3; ++i)
         {
             num_elem = decodeplugin::INPUT_H / base_step * decodeplugin::INPUT_W / base_step;
