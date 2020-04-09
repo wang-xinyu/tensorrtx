@@ -14,9 +14,9 @@ There is a guide for quickly getting started, taking lenet5 as a demo. [Getting_
 
 ## Test Environment
 
-1. Jetson TX1 / Ubuntu16.04 / cuda9.0 / cudnn7.1.5 / tensorrt4.0.2 / nvinfer4.1.3
+1. Jetson TX1 / Ubuntu16.04 / cuda9.0 / cudnn7.1.5 / tensorrt4.0.2 / nvinfer4.1.3 / opencv3.3
 
-2. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0
+2. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0 / opencv3.3
 
 Currently, TX1 ans x86 GTX1080 were tested. trt4 api were using, some api are deprecated in trt7, but still can compile successfully.
 
@@ -67,8 +67,11 @@ Some tricky operations encountered in these models, already solved, but might ha
 | Models | Device | BatchSize | Mode | Input Shape(HxW) | FPS |
 |-|-|:-:|:-:|:-:|:-:|
 | YOLOv3(darknet53) | Xavier | 1 | FP16 | 320x320 | 55 |
-| YOLOv3-spp(darknet53) | GTX1080 | 1 | FP32 | 256x416 | 94 |
+| YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 94 |
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
+| RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
+
+Detection net FPS test including inference and nms time, excluding image preprocess time.
 
 Help wanted, if you got speed results, please add an issue or PR.
 
