@@ -6,11 +6,12 @@
 namespace decodeplugin
 {
     struct alignas(float) Detection{
-        //x y w h
-        float bbox[4];
+        float bbox[4];  //x1 y1 x2 y2
         float class_confidence;
         float landmark[10];
     };
+    static const int INPUT_H = 384;
+    static const int INPUT_W = 640;
 }
 
 
@@ -52,8 +53,6 @@ namespace nvinfer1
         void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
 
     private:
-        const int input_h_ = 384;
-        const int input_w_ = 640;
         int thread_count_ = 256;
     };
 };
