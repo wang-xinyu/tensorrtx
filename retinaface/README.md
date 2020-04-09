@@ -1,3 +1,7 @@
 # RetinaFace
 
-still working in progress
+## Notice
+
+- Only tested on TensorRT4.1.3
+
+

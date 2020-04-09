@@ -12,76 +12,80 @@
 #include "decode.h"
 #include <opencv2/opencv.hpp>
 
-//#define USE_FP16  // comment out this if want to use FP32
+#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = 384;  // 
-static const int INPUT_W = 640;
-static const int OUTPUT_SIZE = 10080 * 15 + 1;
+static const int INPUT_H = decodeplugin::INPUT_H;  // H, W must be able to  be divided by 32.
+static const int INPUT_W = decodeplugin::INPUT_W;;
+static const int OUTPUT_SIZE = (INPUT_H / 8 * INPUT_W / 8 + INPUT_H / 16 * INPUT_W / 16 + INPUT_H / 32 * INPUT_W / 32) * 2  * 15 + 1;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
 using namespace nvinfer1;
 static Logger gLogger;
 
-cv::Mat preprocess_img(cv::Mat& img, int input_dim) {
+cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
-    if (img.cols > img.rows) {
-        w = input_dim;
-        h = input_dim * img.rows / img.cols;
+    float r_w = INPUT_W / (img.cols*1.0);
+    float r_h = INPUT_H / (img.rows*1.0);
+    if (r_h > r_w) {
+        w = INPUT_W;
+        h = r_w * img.rows;
         x = 0;
-        y = (input_dim - h) / 2;
+        y = (INPUT_H - h) / 2;
     } else {
-        w = input_dim * img.cols / img.rows;
-        h = input_dim;
-        x = (input_dim - w) / 2;
+        w = r_h* img.cols;
+        h = INPUT_H;
+        x = (INPUT_W - w) / 2;
         y = 0;
     }
     cv::Mat re(h, w, CV_8UC3);
     cv::resize(img, re, re.size(), 0, 0, cv::INTER_CUBIC);
-    cv::Mat out(input_dim, input_dim, CV_8UC3, cv::Scalar(128, 128, 128));
+    cv::Mat out(INPUT_H, INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
     re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
     return out;
 }
 
-cv::Rect get_rect(cv::Mat& img, int input_dim, float bbox[4]) {
+cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[10]) {
     int l, r, t, b;
-    if (img.cols > img.rows) {
-        l = bbox[0] - bbox[2]/2.f;
-        r = bbox[0] + bbox[2]/2.f;
-        t = bbox[1] - bbox[3]/2.f - (input_dim - input_dim * img.rows / img.cols) / 2;
-        b = bbox[1] + bbox[3]/2.f - (input_dim - input_dim * img.rows / img.cols) / 2;
-        l = l * img.cols / input_dim;
-        r = r * img.cols / input_dim;
-        t = t * img.cols / input_dim;
-        b = b * img.cols / input_dim;
+    float r_w = INPUT_W / (img.cols * 1.0);
+    float r_h = INPUT_H / (img.rows * 1.0);
+    if (r_h > r_w) {
+        l = bbox[0] / r_w;
+        r = bbox[2] / r_w;
+        t = (bbox[1] - (INPUT_H - r_w * img.rows) / 2) / r_w;
+        b = (bbox[3] - (INPUT_H - r_w * img.rows) / 2) / r_w;
+        for (int i = 0; i < 10; i += 2) {
+            lmk[i] /= r_w;
+            lmk[i + 1] = (lmk[i + 1] - (INPUT_H - r_w * img.rows) / 2) / r_w;
+        }
     } else {
-        l = bbox[0] - bbox[2]/2.f - (input_dim - input_dim * img.cols / img.rows) / 2;
-        r = bbox[0] + bbox[2]/2.f - (input_dim - input_dim * img.cols / img.rows) / 2;
-        t = bbox[1] - bbox[3]/2.f;
-        b = bbox[1] + bbox[3]/2.f;
-        l = l * img.rows / input_dim;
-        r = r * img.rows / input_dim;
-        t = t * img.rows / input_dim;
-        b = b * img.rows / input_dim;
+        l = (bbox[0] - (INPUT_W - r_h * img.cols) / 2) / r_h;
+        r = (bbox[2] - (INPUT_W - r_h * img.cols) / 2) / r_h;
+        t = bbox[1] / r_h;
+        b = bbox[3] / r_h;
+        for (int i = 0; i < 10; i += 2) {
+            lmk[i] = (lmk[i] - (INPUT_W - r_h * img.cols) / 2) / r_h;
+            lmk[i + 1] /= r_h;
+        }
     }
     return cv::Rect(l, t, r-l, b-t);
 }
 
 float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
-        max(lbox[0] - lbox[2]/2.f , rbox[0] - rbox[2]/2.f), //left
-        min(lbox[0] + lbox[2]/2.f , rbox[0] + rbox[2]/2.f), //right
-        max(lbox[1] - lbox[3]/2.f , rbox[1] - rbox[3]/2.f), //top
-        min(lbox[1] + lbox[3]/2.f , rbox[1] + rbox[3]/2.f), //bottom
+        max(lbox[0], rbox[0]), //left
+        min(lbox[2], rbox[2]), //right
+        max(lbox[1], rbox[1]), //top
+        min(lbox[3], rbox[3]), //bottom
     };
 
     if(interBox[2] > interBox[3] || interBox[0] > interBox[1])
         return 0.0f;
 
-    float interBoxS =(interBox[1]-interBox[0])*(interBox[3]-interBox[2]);
-    return interBoxS/(lbox[2]*lbox[3] + rbox[2]*rbox[3] -interBoxS);
+    float interBoxS = (interBox[1] - interBox[0]) * (interBox[3] - interBox[2]);
+    return interBoxS / ((lbox[2] - lbox[0]) * (lbox[3] - lbox[1]) + (rbox[2] - rbox[0]) * (rbox[3] - rbox[1]) -interBoxS + 0.000001f);
 }
 
 bool cmp(decodeplugin::Detection& a, decodeplugin::Detection& b) {
@@ -89,29 +93,25 @@ bool cmp(decodeplugin::Detection& a, decodeplugin::Detection& b) {
 }
 
 void nms(std::vector<decodeplugin::Detection>& res, float *output, float nms_thresh = 0.4) {
-    //std::map<float, std::vector<decodeplugin::Detection>> m;
-    //for (int i = 0; i < OUTPUT_SIZE / 7; i++) {
-    //    if (output[7 * i + 4] <= 0.5) continue;
-    //    decodeplugin::Detection det;
-    //    memcpy(&det, &output[7 * i], 7 * sizeof(float));
-    //    if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<decodeplugin::Detection>());
-    //    m[det.class_id].push_back(det);
-    //}
-    //for (auto it = m.begin(); it != m.end(); it++) {
-    //    //std::cout << it->second[0].class_id << " --- " << std::endl;
-    //    auto& dets = it->second;
-    //    std::sort(dets.begin(), dets.end(), cmp);
-    //    for (size_t m = 0; m < dets.size(); ++m) {
-    //        auto& item = dets[m];
-    //        res.push_back(item);
-    //        for (size_t n = m + 1; n < dets.size(); ++n) {
-    //            if (iou(item.bbox, dets[n].bbox) > nms_thresh) {
-    //                dets.erase(dets.begin()+n);
-    //                --n;
-    //            }
-    //        }
-    //    }
-    //}
+    std::vector<decodeplugin::Detection> dets;
+    for (int i = 0; i < output[0]; i++) {
+        if (output[15 * i + 1 + 4] <= 0.1) continue;
+        decodeplugin::Detection det;
+        memcpy(&det, &output[15 * i + 1], sizeof(decodeplugin::Detection));
+        dets.push_back(det);
+    }
+    std::sort(dets.begin(), dets.end(), cmp);
+    for (size_t m = 0; m < dets.size(); ++m) {
+        auto& item = dets[m];
+        res.push_back(item);
+        //std::cout << item.class_confidence << " bbox " << item.bbox[0] << ", " << item.bbox[1] << ", " << item.bbox[2] << ", " << item.bbox[3] << std::endl;
+        for (size_t n = m + 1; n < dets.size(); ++n) {
+            if (iou(item.bbox, dets[n].bbox) > nms_thresh) {
+                dets.erase(dets.begin()+n);
+                --n;
+            }
+        }
+    }
 }
 
 // Load weights from files
@@ -380,7 +380,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     decodelayer->setName("decode");
 
     decodelayer->getOutput(0)->setName(OUTPUT_BLOB_NAME);
-    std::cout << "set name out" << std::endl;
+    std::cout << "set name out, start building trt engine..." << std::endl;
     network->markOutput(*decodelayer->getOutput(0));
 
     // Build engine
@@ -455,7 +455,6 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
 }
 
 int main(int argc, char** argv) {
-    std::cout << "beginning" << std::endl;
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./retina_r50 -s   // serialize model to plan file" << std::endl;
@@ -499,17 +498,17 @@ int main(int argc, char** argv) {
 
     // prepare input data ---------------------------
     float data[3 * INPUT_H * INPUT_W];
-    for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-        data[i] = 1.0;
+    //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
+    //    data[i] = 1.0;
 
-    //cv::Mat img = cv::imread("../dog.jpg");
-    //cv::Mat pr_img = preprocess_img(img, INPUT_H);
-    //cv::imwrite("123.jpg", pr_img);
-    //for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-    //    data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
-    //    data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
-    //    data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
-    //}
+    cv::Mat img = cv::imread("worlds-largest-selfie.jpg");
+    cv::Mat pr_img = preprocess_img(img);
+    //cv::imwrite("preprocessed.jpg", pr_img);
+    for (int i = 0; i < INPUT_H * INPUT_W; i++) {
+        data[i] = pr_img.at<cv::Vec3b>(i)[0] - 104.0;
+        data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] - 117.0;
+        data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[2] - 123.0;
+    }
 
     PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
@@ -522,36 +521,27 @@ int main(int argc, char** argv) {
 
     // Run inference
     static float prob[OUTPUT_SIZE];
-    for (int i = 0; i < 1; i++) {
+    std::vector<decodeplugin::Detection> res;
+    for (int i = 0; i < 20; i++) {
+        res.clear();
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
-        std::vector<decodeplugin::Detection> res;
-        std::cout << "output 0 -> " << prob[0] << std::endl;
-        for (int j = 0; j < (int)prob[0]; j++) {
-            decodeplugin::Detection det;
-            memcpy(&det, &prob[1 + 15 * j], sizeof(decodeplugin::Detection));
-            res.push_back(det);
-        }
-        sort(res.begin(), res.end(), cmp);
-        for (int j = 0; j < res.size(); j++) {
-            std::cout << res[j].class_confidence << std::endl;
-            std::cout << res[j].bbox[0] << ", " << res[j].bbox[1] << ", " << res[j].bbox[2] << ", " << res[j].bbox[3] << std::endl;
-        }
-        //nms(res, prob);
-        //for (size_t j = 0; j < res.size(); j++) {
-        //    float *p = (float*)&res[j];
-        //    for (size_t k = 0; k < 7; k++) {
-        //        std::cout << p[k] << ", ";
-        //    }
-        //    std::cout << std::endl;
-        //    cv::Rect r = get_rect(img, INPUT_W, res[j].bbox);
-        //    cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-        //    cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-        //}
+        nms(res, prob);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-        //cv::imwrite("res.jpg", img);
     }
+    std::cout << "detected before nms -> " << prob[0] << std::endl;
+    std::cout << "after nms -> " << res.size() << std::endl;
+    for (size_t j = 0; j < res.size(); j++) {
+        if (res[j].class_confidence < 0.1) continue;
+        cv::Rect r = get_rect_adapt_landmark(img, res[j].bbox, res[j].landmark);
+        cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+        cv::putText(img, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
+        for (int k = 0; k < 10; k += 2) {
+            cv::circle(img, cv::Point(res[j].landmark[k], res[j].landmark[k + 1]), 1, cv::Scalar(255 * (k > 2), 255 * (k > 0 && k < 8), 255 * (k < 6)), 4);
+        }
+    }
+    cv::imwrite("result.jpg", img);
 
     // Destroy the engine
     context->destroy();
