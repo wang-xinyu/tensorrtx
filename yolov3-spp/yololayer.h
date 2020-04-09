@@ -12,7 +12,34 @@
 
 namespace Yolo
 {
-    struct YoloKernel;
+    static constexpr int CHECK_COUNT = 3;
+    static constexpr float IGNORE_THRESH = 0.1f;
+    static constexpr int CLASS_NUM = 80;
+    static constexpr int INPUT_H = 608;
+    static constexpr int INPUT_W = 608;
+
+    struct YoloKernel
+    {
+        int width;
+        int height;
+        float anchors[CHECK_COUNT*2];
+    };
+
+    static YoloKernel yolo1 = {
+        INPUT_W / 32,
+        INPUT_H / 32,
+        {116,90,  156,198,  373,326}
+    };
+    static YoloKernel yolo2 = {
+        INPUT_W / 16,
+        INPUT_H / 16,
+        {30,61,  62,45,  59,119}
+    };
+    static YoloKernel yolo3 = {
+        INPUT_W / 8,
+        INPUT_H / 8,
+        {10,13,  16,30,  33,23}
+    };
 
     static constexpr int LOCATIONS = 4;
     struct alignas(float) Detection{
