@@ -76,3 +76,13 @@ Detection net FPS test including inference and nms time, excluding image preproc
 Help wanted, if you got speed results, please add an issue or PR.
 
 Thanks @Kmarconi for yolov3(darknet53) speed test.
+
+## Acknowledgments & Contact
+
+Currently, This repo is funded by Alleyes-THU AI Lab. We are based in Tsinghua University, Beijing, and seeking for talented interns for CV R&D. Contact me if you are interested.
+
+Any contributions, questions and discussions are welcomed, contact me by following info.
+
+E-mail: wangxinyu_es@163.com
+
+WeChat ID: wangxinyu0375
