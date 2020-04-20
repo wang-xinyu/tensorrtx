@@ -79,7 +79,7 @@ Thanks @Kmarconi for yolov3(darknet53) speed test.
 
 ## Acknowledgments & Contact
 
-Currently, This repo is funded by Alleyes-THU AI Lab. We are based in Tsinghua University, Beijing, and seeking for talented interns for CV R&D. Contact me if you are interested.
+Currently, This repo is funded by Alleyes-THU AI Lab([aboutus in Chinese](http://www.alleyes.com.cn/aboutus.html)). We are based in Tsinghua University, Beijing, and seeking for talented interns for CV R&D. Contact me if you are interested.
 
 Any contributions, questions and discussions are welcomed, contact me by following info.
 
