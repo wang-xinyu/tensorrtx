@@ -26,19 +26,19 @@ namespace Yolo
     };
 
     static YoloKernel yolo1 = {
-        INPUT_W / 32,
-        INPUT_H / 32,
-        {116,90,  156,198,  373,326}
+        INPUT_W / 8,
+        INPUT_H / 8,
+        {12,16, 19,36, 40,28}
     };
     static YoloKernel yolo2 = {
         INPUT_W / 16,
         INPUT_H / 16,
-        {30,61,  62,45,  59,119}
+        {36,75, 76,55, 72,146}
     };
     static YoloKernel yolo3 = {
-        INPUT_W / 8,
-        INPUT_H / 8,
-        {10,13,  16,30,  33,23}
+        INPUT_W / 32,
+        INPUT_H / 32,
+        {142,110, 192,243, 459,401}
     };
 
     static constexpr int LOCATIONS = 4;
