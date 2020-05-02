@@ -6,7 +6,7 @@ So why don't we just skip all parsers? We just use TensorRT network definition A
 
 I wrote this project to get familiar with tensorrt API, and also to share and learn from the community.
 
-TensorRTx has a brother project [Pytorchx](https://github.com/wang-xinyu/pytorchx). All the models are implemented in pytorch first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference.
+All the models are implemented in pytorch first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference. Some pytorch implementations can be found in my repo [Pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from polular open-source pytorch implementations. 
 
 ## Getting Started
 
@@ -18,7 +18,7 @@ There is a guide for quickly getting started, taking lenet5 as a demo. [Getting_
 
 2. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0 / opencv3.3
 
-Currently, TX1 ans x86 GTX1080 were tested. trt4 api were using, some api are deprecated in trt7, but still can compile successfully.
+Currently, TX1/TX2 and x86 GTX1080 were tested. trt4 api were using, some APIs are deprecated in trt7, but still can compile successfully.
 
 
 ## Models
