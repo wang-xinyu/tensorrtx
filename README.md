@@ -38,8 +38,9 @@ Following models are implemented, each one also has a readme inside.
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
-|[yolov3](./yolov3)| darknet-53, weights from yolov3 authors |
+|[yolov3](./yolov3)| darknet-53, weights from yolov3 authors, pytorch implementation from [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
+|[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[retinaface](./retinaface)| resnet-50, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 
 ## Tricky Operations
@@ -61,6 +62,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |upsample| replaced by a deconvolution layer, see yolov3. |
 |hsigmoid| hard sigmoid is implemented as a plugin, hsigmoid and hswish are used in mobilenetv3 |
 |retinaface output decode| implement a plugin to decode bbox, confidence and landmarks, see retinaface. |
+|mish| mish activation is implemented as a plugin, mish is used in yolov4 |
 
 ## Speed Benchmark
 
@@ -68,6 +70,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |-|-|:-:|:-:|:-:|:-:|
 | YOLOv3(darknet53) | Xavier | 1 | FP16 | 320x320 | 55 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 94 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 67 |
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
 
