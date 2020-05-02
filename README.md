@@ -20,10 +20,13 @@ There is a guide for quickly getting started, taking lenet5 as a demo. [Getting_
 
 Currently, TX1/TX2 and x86 GTX1080 were tested. trt4 api were using, some APIs are deprecated in trt7, but still can compile successfully.
 
+## How to run
+
+Each folder has a readme inside, which explains how to run the models inside.
 
 ## Models
 
-Following models are implemented, each one also has a readme inside.
+Following models are implemented.
 
 |Name | Description |
 |-|-|
@@ -32,7 +35,8 @@ Following models are implemented, each one also has a readme inside.
 |[googlenet](./googlenet)| GoogLeNet (Inception v1) |
 |[inception](./inceptionv3)| Inception v3 |
 |[mnasnet](./mnasnet)| MNASNet with depth multiplier of 0.5 from the paper |
-|[mobilenet](./mobilenetv2)| MobileNet V2, V3-small, V3-large. |
+|[mobilenetv2](./mobilenetv2)| MobileNet V2 |
+|[mobilenetv3](./mobilenetv3)| V3-small, V3-large. |
 |[resnet](./resnet)| resnet-18, resnet-50 and resnext50-32x4d are implemented |
 |[senet](./senet)| se-resnet50 |
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
