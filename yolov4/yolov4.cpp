@@ -20,12 +20,9 @@
 using namespace nvinfer1;
 
 // stuff we know about the network and the input/output blobs
-//static const int INPUT_H = Yolo::INPUT_H;
-//static const int INPUT_W = Yolo::INPUT_W;
-//static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
-static const int INPUT_H = 416;
-static const int INPUT_W = 416;
-static const int OUTPUT_SIZE = 64 * 208 * 208;
+static const int INPUT_H = Yolo::INPUT_H;
+static const int INPUT_W = Yolo::INPUT_W;
+static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -207,13 +204,30 @@ ILayer* convBnMish(INetworkDefinition *network, std::map<std::string, Weights>& 
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "module_list." + std::to_string(linx) + ".BatchNorm2d", 1e-4);
 
- //   return bn1;
     auto mish = new MishPlugin();
     ITensor* inputTensors[] = {bn1->getOutput(0)};
     auto mish_ = network->addPlugin(inputTensors, 1, *mish);
     assert(mish_);
     mish_->setName(("mish" + std::to_string(linx)).c_str());
     return mish_;
+}
+
+ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int p, int linx) {
+    std::cout << linx << std::endl;
+    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{ksize, ksize}, weightMap["module_list." + std::to_string(linx) + ".Conv2d.weight"], emptywts);
+    assert(conv1);
+    conv1->setStride(DimsHW{s, s});
+    conv1->setPadding(DimsHW{p, p});
+
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "module_list." + std::to_string(linx) + ".BatchNorm2d", 1e-4);
+
+    ITensor* inputTensors[] = {bn1->getOutput(0)};
+    auto lr = plugin::createPReLUPlugin(0.1);
+    auto lr1 = network->addPlugin(inputTensors, 1, *lr);
+    assert(lr1);
+    lr1->setName(("leaky" + std::to_string(linx)).c_str());
+    return lr1;
 }
 
 // Creat the engine using only the API and not any parser.
@@ -249,151 +263,222 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto l15 = convBnMish(network, weightMap, *l14->getOutput(0), 64, 1, 1, 0, 15);
     auto l16 = convBnMish(network, weightMap, *l15->getOutput(0), 64, 3, 1, 1, 16);
     auto ew17 = network->addElementWise(*l16->getOutput(0), *l14->getOutput(0), ElementWiseOperation::kSUM);
-    auto l18 = convBnMish(network, weightMap, *l17->getOutput(0), 64, 1, 1, 0, 18);
+    auto l18 = convBnMish(network, weightMap, *ew17->getOutput(0), 64, 1, 1, 0, 18);
     auto l19 = convBnMish(network, weightMap, *l18->getOutput(0), 64, 3, 1, 1, 19);
     auto ew20 = network->addElementWise(*l19->getOutput(0), *ew17->getOutput(0), ElementWiseOperation::kSUM);
-    auto l21 = convBnMish(network, weightMap, *ew20->getOutput(0), 64, 1, 1, 0, 20);
-    //auto lr5 = convBnLeaky(network, weightMap, *ew4->getOutput(0), 128, 3, 2, 1, 5);
-    //auto lr6 = convBnLeaky(network, weightMap, *lr5->getOutput(0), 64, 1, 1, 0, 6);
-    //auto lr7 = convBnLeaky(network, weightMap, *lr6->getOutput(0), 128, 3, 1, 1, 7);
-    //auto ew8 = network->addElementWise(*lr7->getOutput(0), *lr5->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr9 = convBnLeaky(network, weightMap, *ew8->getOutput(0), 64, 1, 1, 0, 9);
-    //auto lr10 = convBnLeaky(network, weightMap, *lr9->getOutput(0), 128, 3, 1, 1, 10);
-    //auto ew11 = network->addElementWise(*lr10->getOutput(0), *ew8->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr12 = convBnLeaky(network, weightMap, *ew11->getOutput(0), 256, 3, 2, 1, 12);
-    //auto lr13 = convBnLeaky(network, weightMap, *lr12->getOutput(0), 128, 1, 1, 0, 13);
-    //auto lr14 = convBnLeaky(network, weightMap, *lr13->getOutput(0), 256, 3, 1, 1, 14);
-    //auto ew15 = network->addElementWise(*lr14->getOutput(0), *lr12->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr16 = convBnLeaky(network, weightMap, *ew15->getOutput(0), 128, 1, 1, 0, 16);
-    //auto lr17 = convBnLeaky(network, weightMap, *lr16->getOutput(0), 256, 3, 1, 1, 17);
-    //auto ew18 = network->addElementWise(*lr17->getOutput(0), *ew15->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr19 = convBnLeaky(network, weightMap, *ew18->getOutput(0), 128, 1, 1, 0, 19);
-    //auto lr20 = convBnLeaky(network, weightMap, *lr19->getOutput(0), 256, 3, 1, 1, 20);
-    //auto ew21 = network->addElementWise(*lr20->getOutput(0), *ew18->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr22 = convBnLeaky(network, weightMap, *ew21->getOutput(0), 128, 1, 1, 0, 22);
-    //auto lr23 = convBnLeaky(network, weightMap, *lr22->getOutput(0), 256, 3, 1, 1, 23);
-    //auto ew24 = network->addElementWise(*lr23->getOutput(0), *ew21->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr25 = convBnLeaky(network, weightMap, *ew24->getOutput(0), 128, 1, 1, 0, 25);
-    //auto lr26 = convBnLeaky(network, weightMap, *lr25->getOutput(0), 256, 3, 1, 1, 26);
-    //auto ew27 = network->addElementWise(*lr26->getOutput(0), *ew24->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr28 = convBnLeaky(network, weightMap, *ew27->getOutput(0), 128, 1, 1, 0, 28);
-    //auto lr29 = convBnLeaky(network, weightMap, *lr28->getOutput(0), 256, 3, 1, 1, 29);
-    //auto ew30 = network->addElementWise(*lr29->getOutput(0), *ew27->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr31 = convBnLeaky(network, weightMap, *ew30->getOutput(0), 128, 1, 1, 0, 31);
-    //auto lr32 = convBnLeaky(network, weightMap, *lr31->getOutput(0), 256, 3, 1, 1, 32);
-    //auto ew33 = network->addElementWise(*lr32->getOutput(0), *ew30->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr34 = convBnLeaky(network, weightMap, *ew33->getOutput(0), 128, 1, 1, 0, 34);
-    //auto lr35 = convBnLeaky(network, weightMap, *lr34->getOutput(0), 256, 3, 1, 1, 35);
-    //auto ew36 = network->addElementWise(*lr35->getOutput(0), *ew33->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr37 = convBnLeaky(network, weightMap, *ew36->getOutput(0), 512, 3, 2, 1, 37);
-    //auto lr38 = convBnLeaky(network, weightMap, *lr37->getOutput(0), 256, 1, 1, 0, 38);
-    //auto lr39 = convBnLeaky(network, weightMap, *lr38->getOutput(0), 512, 3, 1, 1, 39);
-    //auto ew40 = network->addElementWise(*lr39->getOutput(0), *lr37->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr41 = convBnLeaky(network, weightMap, *ew40->getOutput(0), 256, 1, 1, 0, 41);
-    //auto lr42 = convBnLeaky(network, weightMap, *lr41->getOutput(0), 512, 3, 1, 1, 42);
-    //auto ew43 = network->addElementWise(*lr42->getOutput(0), *ew40->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr44 = convBnLeaky(network, weightMap, *ew43->getOutput(0), 256, 1, 1, 0, 44);
-    //auto lr45 = convBnLeaky(network, weightMap, *lr44->getOutput(0), 512, 3, 1, 1, 45);
-    //auto ew46 = network->addElementWise(*lr45->getOutput(0), *ew43->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr47 = convBnLeaky(network, weightMap, *ew46->getOutput(0), 256, 1, 1, 0, 47);
-    //auto lr48 = convBnLeaky(network, weightMap, *lr47->getOutput(0), 512, 3, 1, 1, 48);
-    //auto ew49 = network->addElementWise(*lr48->getOutput(0), *ew46->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr50 = convBnLeaky(network, weightMap, *ew49->getOutput(0), 256, 1, 1, 0, 50);
-    //auto lr51 = convBnLeaky(network, weightMap, *lr50->getOutput(0), 512, 3, 1, 1, 51);
-    //auto ew52 = network->addElementWise(*lr51->getOutput(0), *ew49->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr53 = convBnLeaky(network, weightMap, *ew52->getOutput(0), 256, 1, 1, 0, 53);
-    //auto lr54 = convBnLeaky(network, weightMap, *lr53->getOutput(0), 512, 3, 1, 1, 54);
-    //auto ew55 = network->addElementWise(*lr54->getOutput(0), *ew52->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr56 = convBnLeaky(network, weightMap, *ew55->getOutput(0), 256, 1, 1, 0, 56);
-    //auto lr57 = convBnLeaky(network, weightMap, *lr56->getOutput(0), 512, 3, 1, 1, 57);
-    //auto ew58 = network->addElementWise(*lr57->getOutput(0), *ew55->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr59 = convBnLeaky(network, weightMap, *ew58->getOutput(0), 256, 1, 1, 0, 59);
-    //auto lr60 = convBnLeaky(network, weightMap, *lr59->getOutput(0), 512, 3, 1, 1, 60);
-    //auto ew61 = network->addElementWise(*lr60->getOutput(0), *ew58->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr62 = convBnLeaky(network, weightMap, *ew61->getOutput(0), 1024, 3, 2, 1, 62);
-    //auto lr63 = convBnLeaky(network, weightMap, *lr62->getOutput(0), 512, 1, 1, 0, 63);
-    //auto lr64 = convBnLeaky(network, weightMap, *lr63->getOutput(0), 1024, 3, 1, 1, 64);
-    //auto ew65 = network->addElementWise(*lr64->getOutput(0), *lr62->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr66 = convBnLeaky(network, weightMap, *ew65->getOutput(0), 512, 1, 1, 0, 66);
-    //auto lr67 = convBnLeaky(network, weightMap, *lr66->getOutput(0), 1024, 3, 1, 1, 67);
-    //auto ew68 = network->addElementWise(*lr67->getOutput(0), *ew65->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr69 = convBnLeaky(network, weightMap, *ew68->getOutput(0), 512, 1, 1, 0, 69);
-    //auto lr70 = convBnLeaky(network, weightMap, *lr69->getOutput(0), 1024, 3, 1, 1, 70);
-    //auto ew71 = network->addElementWise(*lr70->getOutput(0), *ew68->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr72 = convBnLeaky(network, weightMap, *ew71->getOutput(0), 512, 1, 1, 0, 72);
-    //auto lr73 = convBnLeaky(network, weightMap, *lr72->getOutput(0), 1024, 3, 1, 1, 73);
-    //auto ew74 = network->addElementWise(*lr73->getOutput(0), *ew71->getOutput(0), ElementWiseOperation::kSUM);
-    //auto lr75 = convBnLeaky(network, weightMap, *ew74->getOutput(0), 512, 1, 1, 0, 75);
-    //auto lr76 = convBnLeaky(network, weightMap, *lr75->getOutput(0), 1024, 3, 1, 1, 76);
-    //auto lr77 = convBnLeaky(network, weightMap, *lr76->getOutput(0), 512, 1, 1, 0, 77);
-    //
-    //auto pool78 = network->addPooling(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{5,5});
-    //pool78->setPadding(DimsHW{2, 2});
-    //pool78->setStride(DimsHW{1, 1});
-    //auto pool80 = network->addPooling(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{9,9});
-    //pool80->setPadding(DimsHW{4, 4});
-    //pool80->setStride(DimsHW{1, 1});
-    //auto pool82 = network->addPooling(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{13,13});
-    //pool82->setPadding(DimsHW{6, 6});
-    //pool82->setStride(DimsHW{1, 1});
+    auto l21 = convBnMish(network, weightMap, *ew20->getOutput(0), 64, 1, 1, 0, 21);
 
-    //ITensor* inputTensors83[] = {pool82->getOutput(0), pool80->getOutput(0), pool78->getOutput(0), lr77->getOutput(0)};
-    //auto cat83 = network->addConcatenation(inputTensors83, 4);
+    ITensor* inputTensors22[] = {l21->getOutput(0), l12->getOutput(0)};
+    auto cat22 = network->addConcatenation(inputTensors22, 2);
 
-    //auto lr84 = convBnLeaky(network, weightMap, *cat83->getOutput(0), 512, 1, 1, 0, 84);
-    //auto lr85 = convBnLeaky(network, weightMap, *lr84->getOutput(0), 1024, 3, 1, 1, 85);
-    //auto lr86 = convBnLeaky(network, weightMap, *lr85->getOutput(0), 512, 1, 1, 0, 86);
-    //auto lr87 = convBnLeaky(network, weightMap, *lr86->getOutput(0), 1024, 3, 1, 1, 87);
-    //IConvolutionLayer* conv88 = network->addConvolution(*lr87->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.88.Conv2d.weight"], weightMap["module_list.88.Conv2d.bias"]);
-    //assert(conv88);
-    //auto lr91 = convBnLeaky(network, weightMap, *lr86->getOutput(0), 256, 1, 1, 0, 91);
+    auto l23 = convBnMish(network, weightMap, *cat22->getOutput(0), 128, 1, 1, 0, 23);
+    auto l24 = convBnMish(network, weightMap, *l23->getOutput(0), 256, 3, 2, 1, 24);
+    auto l25 = convBnMish(network, weightMap, *l24->getOutput(0), 128, 1, 1, 0, 25);
+    auto l26 = l24;
+    auto l27 = convBnMish(network, weightMap, *l26->getOutput(0), 128, 1, 1, 0, 27);
+    auto l28 = convBnMish(network, weightMap, *l27->getOutput(0), 128, 1, 1, 0, 28);
+    auto l29 = convBnMish(network, weightMap, *l28->getOutput(0), 128, 3, 1, 1, 29);
+    auto ew30 = network->addElementWise(*l29->getOutput(0), *l27->getOutput(0), ElementWiseOperation::kSUM);
+    auto l31 = convBnMish(network, weightMap, *ew30->getOutput(0), 128, 1, 1, 0, 31);
+    auto l32 = convBnMish(network, weightMap, *l31->getOutput(0), 128, 3, 1, 1, 32);
+    auto ew33 = network->addElementWise(*l32->getOutput(0), *ew30->getOutput(0), ElementWiseOperation::kSUM);
+    auto l34 = convBnMish(network, weightMap, *ew33->getOutput(0), 128, 1, 1, 0, 34);
+    auto l35 = convBnMish(network, weightMap, *l34->getOutput(0), 128, 3, 1, 1, 35);
+    auto ew36 = network->addElementWise(*l35->getOutput(0), *ew33->getOutput(0), ElementWiseOperation::kSUM);
+    auto l37 = convBnMish(network, weightMap, *ew36->getOutput(0), 128, 1, 1, 0, 37);
+    auto l38 = convBnMish(network, weightMap, *l37->getOutput(0), 128, 3, 1, 1, 38);
+    auto ew39 = network->addElementWise(*l38->getOutput(0), *ew36->getOutput(0), ElementWiseOperation::kSUM);
+    auto l40 = convBnMish(network, weightMap, *ew39->getOutput(0), 128, 1, 1, 0, 40);
+    auto l41 = convBnMish(network, weightMap, *l40->getOutput(0), 128, 3, 1, 1, 41);
+    auto ew42 = network->addElementWise(*l41->getOutput(0), *ew39->getOutput(0), ElementWiseOperation::kSUM);
+    auto l43 = convBnMish(network, weightMap, *ew42->getOutput(0), 128, 1, 1, 0, 43);
+    auto l44 = convBnMish(network, weightMap, *l43->getOutput(0), 128, 3, 1, 1, 44);
+    auto ew45 = network->addElementWise(*l44->getOutput(0), *ew42->getOutput(0), ElementWiseOperation::kSUM);
+    auto l46 = convBnMish(network, weightMap, *ew45->getOutput(0), 128, 1, 1, 0, 46);
+    auto l47 = convBnMish(network, weightMap, *l46->getOutput(0), 128, 3, 1, 1, 47);
+    auto ew48 = network->addElementWise(*l47->getOutput(0), *ew45->getOutput(0), ElementWiseOperation::kSUM);
+    auto l49 = convBnMish(network, weightMap, *ew48->getOutput(0), 128, 1, 1, 0, 49);
+    auto l50 = convBnMish(network, weightMap, *l49->getOutput(0), 128, 3, 1, 1, 50);
+    auto ew51 = network->addElementWise(*l50->getOutput(0), *ew48->getOutput(0), ElementWiseOperation::kSUM);
+    auto l52 = convBnMish(network, weightMap, *ew51->getOutput(0), 128, 1, 1, 0, 52);
 
-    //float *deval = reinterpret_cast<float*>(malloc(sizeof(float) * 256 * 2 * 2));
-    //for (int i = 0; i < 256 * 2 * 2; i++) {
-    //    deval[i] = 1.0;
-    //}
-    //Weights deconvwts92{DataType::kFLOAT, deval, 256 * 2 * 2};
-    //IDeconvolutionLayer* deconv92 = network->addDeconvolution(*lr91->getOutput(0), 256, DimsHW{2, 2}, deconvwts92, emptywts);
-    //assert(deconv92);
-    //deconv92->setStride(DimsHW{2, 2});
-    //deconv92->setNbGroups(256);
-    //weightMap["deconv92"] = deconvwts92;
-    //
-    //ITensor* inputTensors[] = {deconv92->getOutput(0), ew61->getOutput(0)};
-    //auto cat93 = network->addConcatenation(inputTensors, 2);
-    //auto lr94 = convBnLeaky(network, weightMap, *cat93->getOutput(0), 256, 1, 1, 0, 94);
-    //auto lr95 = convBnLeaky(network, weightMap, *lr94->getOutput(0), 512, 3, 1, 1, 95);
-    //auto lr96 = convBnLeaky(network, weightMap, *lr95->getOutput(0), 256, 1, 1, 0, 96);
-    //auto lr97 = convBnLeaky(network, weightMap, *lr96->getOutput(0), 512, 3, 1, 1, 97);
-    //auto lr98 = convBnLeaky(network, weightMap, *lr97->getOutput(0), 256, 1, 1, 0, 98);
-    //auto lr99 = convBnLeaky(network, weightMap, *lr98->getOutput(0), 512, 3, 1, 1, 99);
-    //IConvolutionLayer* conv100 = network->addConvolution(*lr99->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.100.Conv2d.weight"], weightMap["module_list.100.Conv2d.bias"]);
-    //assert(conv100);
-    //auto lr103 = convBnLeaky(network, weightMap, *lr98->getOutput(0), 128, 1, 1, 0, 103);
-    //Weights deconvwts104{DataType::kFLOAT, deval, 128 * 2 * 2};
-    //IDeconvolutionLayer* deconv104 = network->addDeconvolution(*lr103->getOutput(0), 128, DimsHW{2, 2}, deconvwts104, emptywts);
-    //assert(deconv104);
-    //deconv104->setStride(DimsHW{2, 2});
-    //deconv104->setNbGroups(128);
-    //ITensor* inputTensors1[] = {deconv104->getOutput(0), ew36->getOutput(0)};
-    //auto cat105 = network->addConcatenation(inputTensors1, 2);
-    //auto lr106 = convBnLeaky(network, weightMap, *cat105->getOutput(0), 128, 1, 1, 0, 106);
-    //auto lr107 = convBnLeaky(network, weightMap, *lr106->getOutput(0), 256, 3, 1, 1, 107);
-    //auto lr108 = convBnLeaky(network, weightMap, *lr107->getOutput(0), 128, 1, 1, 0, 108);
-    //auto lr109 = convBnLeaky(network, weightMap, *lr108->getOutput(0), 256, 3, 1, 1, 109);
-    //auto lr110 = convBnLeaky(network, weightMap, *lr109->getOutput(0), 128, 1, 1, 0, 110);
-    //auto lr111 = convBnLeaky(network, weightMap, *lr110->getOutput(0), 256, 3, 1, 1, 111);
-    //IConvolutionLayer* conv112 = network->addConvolution(*lr111->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.112.Conv2d.weight"], weightMap["module_list.112.Conv2d.bias"]);
-    //assert(conv112);
-    //auto yolo = new YoloLayerPlugin();
-    //ITensor* inputTensors_yolo[] = {conv88->getOutput(0), conv100->getOutput(0), conv112->getOutput(0)};
-    //auto yolo113 = network->addPlugin(inputTensors_yolo, 3, *yolo);
-    //assert(yolo113);
-    //yolo113->setName("yolo113");
+    ITensor* inputTensors53[] = {l52->getOutput(0), l25->getOutput(0)};
+    auto cat53 = network->addConcatenation(inputTensors53, 2);
 
-    ew7->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    auto l54 = convBnMish(network, weightMap, *cat53->getOutput(0), 256, 1, 1, 0, 54);
+    auto l55 = convBnMish(network, weightMap, *l54->getOutput(0), 512, 3, 2, 1, 55);
+    auto l56 = convBnMish(network, weightMap, *l55->getOutput(0), 256, 1, 1, 0, 56);
+    auto l57 = l55;
+    auto l58 = convBnMish(network, weightMap, *l57->getOutput(0), 256, 1, 1, 0, 58);
+    auto l59 = convBnMish(network, weightMap, *l58->getOutput(0), 256, 1, 1, 0, 59);
+    auto l60 = convBnMish(network, weightMap, *l59->getOutput(0), 256, 3, 1, 1, 60);
+    auto ew61 = network->addElementWise(*l60->getOutput(0), *l58->getOutput(0), ElementWiseOperation::kSUM);
+    auto l62 = convBnMish(network, weightMap, *ew61->getOutput(0), 256, 1, 1, 0, 62);
+    auto l63 = convBnMish(network, weightMap, *l62->getOutput(0), 256, 3, 1, 1, 63);
+    auto ew64 = network->addElementWise(*l63->getOutput(0), *ew61->getOutput(0), ElementWiseOperation::kSUM);
+    auto l65 = convBnMish(network, weightMap, *ew64->getOutput(0), 256, 1, 1, 0, 65);
+    auto l66 = convBnMish(network, weightMap, *l65->getOutput(0), 256, 3, 1, 1, 66);
+    auto ew67 = network->addElementWise(*l66->getOutput(0), *ew64->getOutput(0), ElementWiseOperation::kSUM);
+    auto l68 = convBnMish(network, weightMap, *ew67->getOutput(0), 256, 1, 1, 0, 68);
+    auto l69 = convBnMish(network, weightMap, *l68->getOutput(0), 256, 3, 1, 1, 69);
+    auto ew70 = network->addElementWise(*l69->getOutput(0), *ew67->getOutput(0), ElementWiseOperation::kSUM);
+    auto l71 = convBnMish(network, weightMap, *ew70->getOutput(0), 256, 1, 1, 0, 71);
+    auto l72 = convBnMish(network, weightMap, *l71->getOutput(0), 256, 3, 1, 1, 72);
+    auto ew73 = network->addElementWise(*l72->getOutput(0), *ew70->getOutput(0), ElementWiseOperation::kSUM);
+    auto l74 = convBnMish(network, weightMap, *ew73->getOutput(0), 256, 1, 1, 0, 74);
+    auto l75 = convBnMish(network, weightMap, *l74->getOutput(0), 256, 3, 1, 1, 75);
+    auto ew76 = network->addElementWise(*l75->getOutput(0), *ew73->getOutput(0), ElementWiseOperation::kSUM);
+    auto l77 = convBnMish(network, weightMap, *ew76->getOutput(0), 256, 1, 1, 0, 77);
+    auto l78 = convBnMish(network, weightMap, *l77->getOutput(0), 256, 3, 1, 1, 78);
+    auto ew79 = network->addElementWise(*l78->getOutput(0), *ew76->getOutput(0), ElementWiseOperation::kSUM);
+    auto l80 = convBnMish(network, weightMap, *ew79->getOutput(0), 256, 1, 1, 0, 80);
+    auto l81 = convBnMish(network, weightMap, *l80->getOutput(0), 256, 3, 1, 1, 81);
+    auto ew82 = network->addElementWise(*l81->getOutput(0), *ew79->getOutput(0), ElementWiseOperation::kSUM);
+    auto l83 = convBnMish(network, weightMap, *ew82->getOutput(0), 256, 1, 1, 0, 83);
+
+    ITensor* inputTensors84[] = {l83->getOutput(0), l56->getOutput(0)};
+    auto cat84 = network->addConcatenation(inputTensors84, 2);
+
+    auto l85 = convBnMish(network, weightMap, *cat84->getOutput(0), 512, 1, 1, 0, 85);
+    auto l86 = convBnMish(network, weightMap, *l85->getOutput(0), 1024, 3, 2, 1, 86);
+    auto l87 = convBnMish(network, weightMap, *l86->getOutput(0), 512, 1, 1, 0, 87);
+    auto l88 = l86;
+    auto l89 = convBnMish(network, weightMap, *l88->getOutput(0), 512, 1, 1, 0, 89);
+    auto l90 = convBnMish(network, weightMap, *l89->getOutput(0), 512, 1, 1, 0, 90);
+    auto l91 = convBnMish(network, weightMap, *l90->getOutput(0), 512, 3, 1, 1, 91);
+    auto ew92 = network->addElementWise(*l91->getOutput(0), *l89->getOutput(0), ElementWiseOperation::kSUM);
+    auto l93 = convBnMish(network, weightMap, *ew92->getOutput(0), 512, 1, 1, 0, 93);
+    auto l94 = convBnMish(network, weightMap, *l93->getOutput(0), 512, 3, 1, 1, 94);
+    auto ew95 = network->addElementWise(*l94->getOutput(0), *ew92->getOutput(0), ElementWiseOperation::kSUM);
+    auto l96 = convBnMish(network, weightMap, *ew95->getOutput(0), 512, 1, 1, 0, 96);
+    auto l97 = convBnMish(network, weightMap, *l96->getOutput(0), 512, 3, 1, 1, 97);
+    auto ew98 = network->addElementWise(*l97->getOutput(0), *ew95->getOutput(0), ElementWiseOperation::kSUM);
+    auto l99 = convBnMish(network, weightMap, *ew98->getOutput(0), 512, 1, 1, 0, 99);
+    auto l100 = convBnMish(network, weightMap, *l99->getOutput(0), 512, 3, 1, 1, 100);
+    auto ew101 = network->addElementWise(*l100->getOutput(0), *ew98->getOutput(0), ElementWiseOperation::kSUM);
+    auto l102 = convBnMish(network, weightMap, *ew101->getOutput(0), 512, 1, 1, 0, 102);
+
+    ITensor* inputTensors103[] = {l102->getOutput(0), l87->getOutput(0)};
+    auto cat103 = network->addConcatenation(inputTensors103, 2);
+
+    auto l104 = convBnMish(network, weightMap, *cat103->getOutput(0), 1024, 1, 1, 0, 104);
+
+    // ---------
+    auto l105 = convBnLeaky(network, weightMap, *l104->getOutput(0), 512, 1, 1, 0, 105);
+    auto l106 = convBnLeaky(network, weightMap, *l105->getOutput(0), 1024, 3, 1, 1, 106);
+    auto l107 = convBnLeaky(network, weightMap, *l106->getOutput(0), 512, 1, 1, 0, 107);
+
+    auto pool108 = network->addPooling(*l107->getOutput(0), PoolingType::kMAX, DimsHW{5, 5});
+    pool108->setPadding(DimsHW{2, 2});
+    pool108->setStride(DimsHW{1, 1});
+
+    auto l109 = l107;
+
+    auto pool110 = network->addPooling(*l109->getOutput(0), PoolingType::kMAX, DimsHW{9, 9});
+    pool110->setPadding(DimsHW{4, 4});
+    pool110->setStride(DimsHW{1, 1});
+
+    auto l111 = l107;
+
+    auto pool112 = network->addPooling(*l111->getOutput(0), PoolingType::kMAX, DimsHW{13, 13});
+    pool112->setPadding(DimsHW{6, 6});
+    pool112->setStride(DimsHW{1, 1});
+
+    ITensor* inputTensors113[] = {pool112->getOutput(0), pool110->getOutput(0), pool108->getOutput(0), l107->getOutput(0)};
+    auto cat113 = network->addConcatenation(inputTensors113, 4);
+
+    auto l114 = convBnLeaky(network, weightMap, *cat113->getOutput(0), 512, 1, 1, 0, 114);
+    auto l115 = convBnLeaky(network, weightMap, *l114->getOutput(0), 1024, 3, 1, 1, 115);
+    auto l116 = convBnLeaky(network, weightMap, *l115->getOutput(0), 512, 1, 1, 0, 116);
+    auto l117 = convBnLeaky(network, weightMap, *l116->getOutput(0), 256, 1, 1, 0, 117);
+
+    float *deval = reinterpret_cast<float*>(malloc(sizeof(float) * 256 * 2 * 2));
+    for (int i = 0; i < 256 * 2 * 2; i++) {
+        deval[i] = 1.0;
+    }
+    Weights deconvwts118{DataType::kFLOAT, deval, 256 * 2 * 2};
+    IDeconvolutionLayer* deconv118 = network->addDeconvolution(*l117->getOutput(0), 256, DimsHW{2, 2}, deconvwts118, emptywts);
+    assert(deconv118);
+    deconv118->setStride(DimsHW{2, 2});
+    deconv118->setNbGroups(256);
+    weightMap["deconv118"] = deconvwts118;
+
+    auto l119 = l85;
+    auto l120 = convBnLeaky(network, weightMap, *l119->getOutput(0), 256, 1, 1, 0, 120);
+
+    ITensor* inputTensors121[] = {l120->getOutput(0), deconv118->getOutput(0)};
+    auto cat121 = network->addConcatenation(inputTensors121, 2);
+
+    auto l122 = convBnLeaky(network, weightMap, *cat121->getOutput(0), 256, 1, 1, 0, 122);
+    auto l123 = convBnLeaky(network, weightMap, *l122->getOutput(0), 512, 3, 1, 1, 123);
+    auto l124 = convBnLeaky(network, weightMap, *l123->getOutput(0), 256, 1, 1, 0, 124);
+    auto l125 = convBnLeaky(network, weightMap, *l124->getOutput(0), 512, 3, 1, 1, 125);
+    auto l126 = convBnLeaky(network, weightMap, *l125->getOutput(0), 256, 1, 1, 0, 126);
+    auto l127 = convBnLeaky(network, weightMap, *l126->getOutput(0), 128, 1, 1, 0, 127);
+
+    Weights deconvwts128{DataType::kFLOAT, deval, 128 * 2 * 2};
+    IDeconvolutionLayer* deconv128 = network->addDeconvolution(*l127->getOutput(0), 128, DimsHW{2, 2}, deconvwts128, emptywts);
+    assert(deconv128);
+    deconv128->setStride(DimsHW{2, 2});
+    deconv128->setNbGroups(128);
+
+    auto l129 = l54;
+    auto l130 = convBnLeaky(network, weightMap, *l129->getOutput(0), 128, 1, 1, 0, 130);
+
+    ITensor* inputTensors131[] = {l130->getOutput(0), deconv128->getOutput(0)};
+    auto cat131 = network->addConcatenation(inputTensors131, 2);
+
+    auto l132 = convBnLeaky(network, weightMap, *cat131->getOutput(0), 128, 1, 1, 0, 132);
+    auto l133 = convBnLeaky(network, weightMap, *l132->getOutput(0), 256, 3, 1, 1, 133);
+    auto l134 = convBnLeaky(network, weightMap, *l133->getOutput(0), 128, 1, 1, 0, 134);
+    auto l135 = convBnLeaky(network, weightMap, *l134->getOutput(0), 256, 3, 1, 1, 135);
+    auto l136 = convBnLeaky(network, weightMap, *l135->getOutput(0), 128, 1, 1, 0, 136);
+    auto l137 = convBnLeaky(network, weightMap, *l136->getOutput(0), 256, 3, 1, 1, 137);
+    IConvolutionLayer* conv138 = network->addConvolution(*l137->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.138.Conv2d.weight"], weightMap["module_list.138.Conv2d.bias"]);
+    assert(conv138);
+    // 139 is yolo layer
+
+    auto l140 = l136;
+    auto l141 = convBnLeaky(network, weightMap, *l140->getOutput(0), 256, 3, 2, 1, 141);
+
+    ITensor* inputTensors142[] = {l141->getOutput(0), l126->getOutput(0)};
+    auto cat142 = network->addConcatenation(inputTensors142, 2);
+
+    auto l143 = convBnLeaky(network, weightMap, *cat142->getOutput(0), 256, 1, 1, 0, 143);
+    auto l144 = convBnLeaky(network, weightMap, *l143->getOutput(0), 512, 3, 1, 1, 144);
+    auto l145 = convBnLeaky(network, weightMap, *l144->getOutput(0), 256, 1, 1, 0, 145);
+    auto l146 = convBnLeaky(network, weightMap, *l145->getOutput(0), 512, 3, 1, 1, 146);
+    auto l147 = convBnLeaky(network, weightMap, *l146->getOutput(0), 256, 1, 1, 0, 147);
+    auto l148 = convBnLeaky(network, weightMap, *l147->getOutput(0), 512, 3, 1, 1, 148);
+    IConvolutionLayer* conv149 = network->addConvolution(*l148->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.149.Conv2d.weight"], weightMap["module_list.149.Conv2d.bias"]);
+    assert(conv149);
+    // 150 is yolo layer
+
+    auto l151 = l147;
+    auto l152 = convBnLeaky(network, weightMap, *l151->getOutput(0), 512, 3, 2, 1, 152);
+
+    ITensor* inputTensors153[] = {l152->getOutput(0), l116->getOutput(0)};
+    auto cat153 = network->addConcatenation(inputTensors153, 2);
+
+    auto l154 = convBnLeaky(network, weightMap, *cat153->getOutput(0), 512, 1, 1, 0, 154);
+    auto l155 = convBnLeaky(network, weightMap, *l154->getOutput(0), 1024, 3, 1, 1, 155);
+    auto l156 = convBnLeaky(network, weightMap, *l155->getOutput(0), 512, 1, 1, 0, 156);
+    auto l157 = convBnLeaky(network, weightMap, *l156->getOutput(0), 1024, 3, 1, 1, 157);
+    auto l158 = convBnLeaky(network, weightMap, *l157->getOutput(0), 512, 1, 1, 0, 158);
+    auto l159 = convBnLeaky(network, weightMap, *l158->getOutput(0), 1024, 3, 1, 1, 159);
+    IConvolutionLayer* conv160 = network->addConvolution(*l159->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.160.Conv2d.weight"], weightMap["module_list.160.Conv2d.bias"]);
+    assert(conv160);
+    // 161 is yolo layer
+
+    auto yolo = new YoloLayerPlugin();
+    ITensor* inputTensors_yolo[] = {conv138->getOutput(0), conv149->getOutput(0), conv160->getOutput(0)};
+    auto yolo_ = network->addPlugin(inputTensors_yolo, 3, *yolo);
+    assert(yolo_);
+    yolo_->setName("yolo_");
+
+    yolo_->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     std::cout << "set name out" << std::endl;
-    network->markOutput(*ew7->getOutput(0));
+    network->markOutput(*yolo_->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
@@ -531,8 +616,8 @@ int main(int argc, char** argv) {
 
     // prepare input data ---------------------------
     float data[3 * INPUT_H * INPUT_W];
-    for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-        data[i] = 1.0;
+    //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
+    //    data[i] = 1.0;
     static float prob[OUTPUT_SIZE];
     PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
@@ -542,43 +627,42 @@ int main(int argc, char** argv) {
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
 
-    doInference(*context, data, prob, 1);
-    //int fcount = 0;
-    //for (auto f: file_names) {
-    //    fcount++;
-    //    std::cout << fcount << "  " << f << std::endl;
-    //    cv::Mat img = cv::imread(std::string(argv[2]) + "/" + f);
-    //    if (img.empty()) continue;
-    //    cv::Mat pr_img = preprocess_img(img);
-    //    for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-    //        data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
-    //        data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
-    //        data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
-    //    }
+    int fcount = 0;
+    for (auto f: file_names) {
+        fcount++;
+        std::cout << fcount << "  " << f << std::endl;
+        cv::Mat img = cv::imread(std::string(argv[2]) + "/" + f);
+        if (img.empty()) continue;
+        cv::Mat pr_img = preprocess_img(img);
+        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
+            data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
+            data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
+            data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
+        }
 
-    //    // Run inference
-    //    auto start = std::chrono::system_clock::now();
-    //    doInference(*context, data, prob, 1);
-    //    std::vector<Yolo::Detection> res;
-    //    nms(res, prob);
-    //    auto end = std::chrono::system_clock::now();
-    //    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    //    for (int i=0; i<20; i++) {
-    //        std::cout << prob[i] << ",";
-    //    }
-    //    std::cout << res.size() << std::endl;
-    //    for (size_t j = 0; j < res.size(); j++) {
-    //        float *p = (float*)&res[j];
-    //        for (size_t k = 0; k < 7; k++) {
-    //            std::cout << p[k] << ", ";
-    //        }
-    //        std::cout << std::endl;
-    //        cv::Rect r = get_rect(img, res[j].bbox);
-    //        cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-    //        cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-    //    }
-    //    cv::imwrite("_" + f, img);
-    //}
+        // Run inference
+        auto start = std::chrono::system_clock::now();
+        doInference(*context, data, prob, 1);
+        std::vector<Yolo::Detection> res;
+        nms(res, prob);
+        auto end = std::chrono::system_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        for (int i=0; i<20; i++) {
+            std::cout << prob[i] << ",";
+        }
+        std::cout << res.size() << std::endl;
+        for (size_t j = 0; j < res.size(); j++) {
+            float *p = (float*)&res[j];
+            for (size_t k = 0; k < 7; k++) {
+                std::cout << p[k] << ", ";
+            }
+            std::cout << std::endl;
+            cv::Rect r = get_rect(img, res[j].bbox);
+            cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+            cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+        }
+        cv::imwrite("_" + f, img);
+    }
 
     // Destroy the engine
     context->destroy();
@@ -586,13 +670,13 @@ int main(int argc, char** argv) {
     runtime->destroy();
 
     //Print histogram of the output distribution
-    std::cout << "\nOutput:\n\n";
-    for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    {
-        std::cout << prob[i] << ", ";
-        if (i % 10 == 0) std::cout << i / 10 << std::endl;
-    }
-    std::cout << std::endl;
+    //std::cout << "\nOutput:\n\n";
+    //for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
+    //{
+    //    std::cout << prob[i] << ", ";
+    //    if (i % 10 == 0) std::cout << i / 10 << std::endl;
+    //}
+    //std::cout << std::endl;
 
     return 0;
 }
