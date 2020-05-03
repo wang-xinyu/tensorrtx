@@ -46,13 +46,14 @@ sudo ./yolov4 -d  ../../yolov3-spp/samples // deserialize plan file and run infe
 
 ## Config
 
-- Input shape defined in yololayer.h
-- Number of classes defined in yololayer.h
-- FP16/FP32 can be selected by the macro in yolov4.cpp
-- GPU id can be selected by the macro in yolov4.cpp
-- NMS thresh in yolov4.cpp
-- BBox confidence thresh in yolov4.cpp
+- Input shape `INPUT_H`, `INPUT_W` defined in yololayer.h
+- Number of classes `CLASS_NUM` defined in yololayer.h
+- FP16/FP32 can be selected by the macro `USE_FP16` in yolov4.cpp
+- GPU id can be selected by the macro `DEVICE` in yolov4.cpp
+- NMS thresh `NMS_THRESH` in yolov4.cpp
+- bbox confidence threshold `BBOX_CONF_THRESH` in yolov4.cpp
+- `BATCH_SIZE` in yolov4.cpp
 
 ## More Information
 
-See the [readme](../README.md) in home page
+See the [readme](../) in home page

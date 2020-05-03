@@ -38,7 +38,7 @@ namespace nvinfer1
 
         virtual void serialize(void* buffer) override;
 
-        void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
+        void forwardGpu(const float *const * inputs, float* output, cudaStream_t stream, int batchSize = 1);
 
     private:
         int thread_count_ = 256;
