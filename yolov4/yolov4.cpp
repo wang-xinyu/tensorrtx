@@ -18,13 +18,15 @@
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define BBOX_CONF_THRESH 0.5
+#define BATCH_SIZE 1
 
 using namespace nvinfer1;
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
 static const int INPUT_W = Yolo::INPUT_W;
-static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
+static const int DETECTION_SIZE = sizeof(Yolo::Detection) / sizeof(float);
+static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * DETECTION_SIZE + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -98,10 +100,10 @@ bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
 
 void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = NMS_THRESH) {
     std::map<float, std::vector<Yolo::Detection>> m;
-    for (int i = 0; i < output[0] && i < 1000; i++) {
-        if (output[1 + 7 * i + 4] <= BBOX_CONF_THRESH) continue;
+    for (int i = 0; i < output[0] && i < Yolo::MAX_OUTPUT_BBOX_COUNT; i++) {
+        if (output[1 + DETECTION_SIZE * i + 4] <= BBOX_CONF_THRESH) continue;
         Yolo::Detection det;
-        memcpy(&det, &output[1 + 7 * i], 7 * sizeof(float));
+        memcpy(&det, &output[1 + DETECTION_SIZE * i], DETECTION_SIZE * sizeof(float));
         if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Yolo::Detection>());
         m[det.class_id].push_back(det);
     }
@@ -582,7 +584,7 @@ int main(int argc, char** argv) {
 
     if (argc == 2 && std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
-        APIToModel(1, &modelStream);
+        APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
         std::ofstream p("yolov4.engine");
         if (!p) {
@@ -617,10 +619,10 @@ int main(int argc, char** argv) {
     }
 
     // prepare input data ---------------------------
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
-    static float prob[OUTPUT_SIZE];
+    static float prob[BATCH_SIZE * OUTPUT_SIZE];
     PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -630,37 +632,47 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
 
     int fcount = 0;
-    for (auto f: file_names) {
+    for (int f = 0; f < file_names.size(); f++) {
         fcount++;
-        std::cout << fcount << "  " << f << std::endl;
-        cv::Mat img = cv::imread(std::string(argv[2]) + "/" + f);
-        if (img.empty()) continue;
-        cv::Mat pr_img = preprocess_img(img);
-        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-            data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
-            data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
-            data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
+        if (fcount < BATCH_SIZE && f + 1 != file_names.size()) continue;
+        for (int b = 0; b < fcount; b++) {
+            cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - BATCH_SIZE + 1 + b]);
+            if (img.empty()) continue;
+            cv::Mat pr_img = preprocess_img(img);
+            for (int i = 0; i < INPUT_H * INPUT_W; i++) {
+                data[b * 3 * INPUT_H * INPUT_W + i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
+                data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
+                data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
+            }
         }
 
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, 1);
-        std::vector<Yolo::Detection> res;
-        nms(res, prob);
+        doInference(*context, data, prob, BATCH_SIZE);
+        std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
+        for (int b = 0; b < fcount; b++) {
+            auto& res = batch_res[b];
+            nms(res, &prob[b * OUTPUT_SIZE]);
+        }
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-        std::cout << res.size() << std::endl;
-        for (size_t j = 0; j < res.size(); j++) {
-            float *p = (float*)&res[j];
-            for (size_t k = 0; k < 7; k++) {
-                std::cout << p[k] << ", ";
+        for (int b = 0; b < fcount; b++) {
+            auto& res = batch_res[b];
+            //std::cout << res.size() << std::endl;
+            cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - BATCH_SIZE + 1 + b]);
+            for (size_t j = 0; j < res.size(); j++) {
+                float *p = (float*)&res[j];
+                for (size_t k = 0; k < 7; k++) {
+                //    std::cout << p[k] << ", ";
+                }
+                //std::cout << std::endl;
+                cv::Rect r = get_rect(img, res[j].bbox);
+                cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+                cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
             }
-            std::cout << std::endl;
-            cv::Rect r = get_rect(img, res[j].bbox);
-            cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-            cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+            cv::imwrite("_" + file_names[f - BATCH_SIZE + 1 + b], img);
         }
-        cv::imwrite("_" + f, img);
+        fcount = 0;
     }
 
     // Destroy the engine

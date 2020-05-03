@@ -54,10 +54,10 @@ namespace nvinfer1
         output[idx] = input[idx] * tanh(softplus(input[idx]));
     }
 
-    void MishPlugin::forwardGpu(const float *const * inputs, float * output, cudaStream_t stream, int batchSize) {
+    void MishPlugin::forwardGpu(const float *const * inputs, float* output, cudaStream_t stream, int batchSize) {
         int block_size = thread_count_;
-        int grid_size = (input_size_ + block_size - 1) / block_size;
-        mish_kernel<<<grid_size, block_size>>>(inputs[0], output, input_size_);
+        int grid_size = (input_size_ * batchSize + block_size - 1) / block_size;
+        mish_kernel<<<grid_size, block_size>>>(inputs[0], output, input_size_ * batchSize);
     }
 
 
@@ -66,8 +66,8 @@ namespace nvinfer1
         //assert(batchSize == 1);
         //GPU
         //CUDA_CHECK(cudaStreamSynchronize(stream));
-        forwardGpu((const float *const *)inputs,(float *)outputs[0],stream,batchSize);
+        forwardGpu((const float *const *)inputs, (float*)outputs[0], stream, batchSize);
         return 0;
-    };
+    }
 
 }
