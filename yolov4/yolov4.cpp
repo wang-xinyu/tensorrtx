@@ -16,6 +16,8 @@
 
 //#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
+#define NMS_THRESH 0.4
+#define BBOX_CONF_THRESH 0.5
 
 using namespace nvinfer1;
 
@@ -94,10 +96,10 @@ bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
     return a.det_confidence > b.det_confidence;
 }
 
-void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = 0.4) {
+void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = NMS_THRESH) {
     std::map<float, std::vector<Yolo::Detection>> m;
     for (int i = 0; i < output[0] && i < 1000; i++) {
-        if (output[1 + 7 * i + 4] <= 0.5) continue;
+        if (output[1 + 7 * i + 4] <= BBOX_CONF_THRESH) continue;
         Yolo::Detection det;
         memcpy(&det, &output[1 + 7 * i], 7 * sizeof(float));
         if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Yolo::Detection>());
@@ -434,7 +436,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto l135 = convBnLeaky(network, weightMap, *l134->getOutput(0), 256, 3, 1, 1, 135);
     auto l136 = convBnLeaky(network, weightMap, *l135->getOutput(0), 128, 1, 1, 0, 136);
     auto l137 = convBnLeaky(network, weightMap, *l136->getOutput(0), 256, 3, 1, 1, 137);
-    IConvolutionLayer* conv138 = network->addConvolution(*l137->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.138.Conv2d.weight"], weightMap["module_list.138.Conv2d.bias"]);
+    IConvolutionLayer* conv138 = network->addConvolution(*l137->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.138.Conv2d.weight"], weightMap["module_list.138.Conv2d.bias"]);
     assert(conv138);
     // 139 is yolo layer
 
@@ -450,7 +452,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto l146 = convBnLeaky(network, weightMap, *l145->getOutput(0), 512, 3, 1, 1, 146);
     auto l147 = convBnLeaky(network, weightMap, *l146->getOutput(0), 256, 1, 1, 0, 147);
     auto l148 = convBnLeaky(network, weightMap, *l147->getOutput(0), 512, 3, 1, 1, 148);
-    IConvolutionLayer* conv149 = network->addConvolution(*l148->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.149.Conv2d.weight"], weightMap["module_list.149.Conv2d.bias"]);
+    IConvolutionLayer* conv149 = network->addConvolution(*l148->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.149.Conv2d.weight"], weightMap["module_list.149.Conv2d.bias"]);
     assert(conv149);
     // 150 is yolo layer
 
@@ -466,7 +468,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto l157 = convBnLeaky(network, weightMap, *l156->getOutput(0), 1024, 3, 1, 1, 157);
     auto l158 = convBnLeaky(network, weightMap, *l157->getOutput(0), 512, 1, 1, 0, 158);
     auto l159 = convBnLeaky(network, weightMap, *l158->getOutput(0), 1024, 3, 1, 1, 159);
-    IConvolutionLayer* conv160 = network->addConvolution(*l159->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.160.Conv2d.weight"], weightMap["module_list.160.Conv2d.bias"]);
+    IConvolutionLayer* conv160 = network->addConvolution(*l159->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.160.Conv2d.weight"], weightMap["module_list.160.Conv2d.bias"]);
     assert(conv160);
     // 161 is yolo layer
 
@@ -647,9 +649,6 @@ int main(int argc, char** argv) {
         nms(res, prob);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-        for (int i=0; i<20; i++) {
-            std::cout << prob[i] << ",";
-        }
         std::cout << res.size() << std::endl;
         for (size_t j = 0; j < res.size(); j++) {
             float *p = (float*)&res[j];
