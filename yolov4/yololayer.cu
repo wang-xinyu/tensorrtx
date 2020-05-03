@@ -17,11 +17,6 @@ namespace nvinfer1
     
     YoloLayerPlugin::~YoloLayerPlugin()
     {
-        if(mInputBuffer)
-            CUDA_CHECK(cudaFreeHost(mInputBuffer));
-
-        if(mOutputBuffer)
-            CUDA_CHECK(cudaFreeHost(mOutputBuffer));
     }
     
     // create the plugin at runtime from a byte stream
@@ -64,12 +59,10 @@ namespace nvinfer1
         int totalCount = 0;
         for(const auto& yolo : mYoloKernel)
             totalCount += (LOCATIONS + 1) * yolo.width*yolo.height * CHECK_COUNT;
-        CUDA_CHECK(cudaHostAlloc(&mInputBuffer, totalCount * sizeof(float), cudaHostAllocDefault));
 
         totalCount = 0;//detection count
         for(const auto& yolo : mYoloKernel)
             totalCount += yolo.width*yolo.height * CHECK_COUNT;
-        CUDA_CHECK(cudaHostAlloc(&mOutputBuffer, sizeof(float) + totalCount * sizeof(Detection), cudaHostAllocDefault));
         return 0;
     }
     
@@ -82,102 +75,6 @@ namespace nvinfer1
 
         return Dims3(totalCount + 1, 1, 1);
     }
-
-    /*void YoloLayerPlugin::forwardCpu(const float*const * inputs, float* outputs, cudaStream_t stream,int batchSize)
-    {
-        auto Logist = [=](float data){
-            return 1./(1. + exp(-data));
-        };
-
-        int totalOutputCount = 0;
-            int i = 0;
-        int totalCount = 0;
-            for(const auto& yolo : mYoloKernel)
-            {
-            totalOutputCount += yolo.width*yolo.height * CHECK_COUNT * sizeof(Detection) / sizeof(float);
-            totalCount += (LOCATIONS + 1 + mClassCount) * yolo.width*yolo.height * CHECK_COUNT;
-            ++ i;
-        }
-
-        for (int idx = 0; idx < batchSize;idx++)
-        {
-            i = 0;
-            float* inputData = (float *)mInputBuffer;// + idx *totalCount; //if create more batch size
-            for(const auto& yolo : mYoloKernel)
-            {
-                int size = (LOCATIONS + 1 + mClassCount) * yolo.width*yolo.height * CHECK_COUNT;
-                CUDA_CHECK(cudaMemcpyAsync(inputData, (float *)inputs[i] + idx * size, size * sizeof(float), cudaMemcpyDeviceToHost, stream));
-                inputData += size;
-                ++ i;
-            }
-
-            CUDA_CHECK(cudaStreamSynchronize(stream));
-
-            inputData = (float *)mInputBuffer ;//+ idx *totalCount; //if create more batch size
-            std::vector <Detection> result;
-            for (const auto& yolo : mYoloKernel)
-            {
-                int stride = yolo.width*yolo.height;
-                for (int j = 0;j < stride ;++j)
-                {
-                    for (int k = 0;k < CHECK_COUNT; ++k )
-                    {
-                        int beginIdx = (LOCATIONS + 1 + mClassCount)* stride *k + j;
-                        int objIndex = beginIdx + LOCATIONS*stride;
-                        
-                        //check obj
-                        float objProb = Logist(inputData[objIndex]);   
-                        if(objProb <= IGNORE_THRESH)
-                            continue;
-
-                        //classes
-                        int classId = -1;
-                        float maxProb = IGNORE_THRESH;
-                        for (int c = 0;c< mClassCount;++c){
-                            float cProb =  Logist(inputData[beginIdx + (5 + c) * stride]) * objProb;
-                            if(cProb > maxProb){
-                                maxProb = cProb;
-                                classId = c;
-                            }
-                        }
-            
-                        if(classId >= 0) {
-                            Detection det;
-                            int row = j / yolo.width;
-                            int cols = j % yolo.width;
-    
-                            //Location
-                            det.bbox[0] = (cols + Logist(inputData[beginIdx]))/ yolo.width;
-                            det.bbox[1] = (row + Logist(inputData[beginIdx+stride]))/ yolo.height;
-                            det.bbox[2] = exp(inputData[beginIdx+2*stride]) * yolo.anchors[2*k];
-                            det.bbox[3] = exp(inputData[beginIdx+3*stride]) * yolo.anchors[2*k + 1];
-                            //det.classId = classId;
-                            det.prob = maxProb;
-
-                            result.emplace_back(det);
-                        }
-                    }
-                }
-
-                inputData += (LOCATIONS + 1 + mClassCount) * stride * CHECK_COUNT;
-            }
-
-            
-            int detCount =result.size();
-            auto data = (float *)mOutputBuffer;// + idx*(totalOutputCount + 1); //if create more batch size
-            float * begin = data;
-            //copy count;
-            data[0] = (float)detCount;
-            data++;
-            //copy result
-            memcpy(data,result.data(),result.size()*sizeof(Detection));
-
-            //(count + det result)
-            CUDA_CHECK(cudaMemcpyAsync(outputs, begin,sizeof(float) + result.size()*sizeof(Detection), cudaMemcpyHostToDevice, stream));
-
-            outputs += totalOutputCount + 1;
-        }
-    };*/
 
     __device__ float Logist(float data){ return 1./(1. + exp(-data)); };
 
@@ -263,8 +160,6 @@ namespace nvinfer1
         //CUDA_CHECK(cudaStreamSynchronize(stream));
         forwardGpu((const float *const *)inputs,(float *)outputs[0],stream,batchSize);
 
-        //CPU
-        //forwardCpu((const float *const *)inputs,(float *)outputs[0],stream,batchSize);
         return 0;
     };
 

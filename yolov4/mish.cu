@@ -32,7 +32,6 @@ namespace nvinfer1
 
     int MishPlugin::initialize()
     { 
-        printf("input size : %d \n", input_size_);
         return 0;
     }
     

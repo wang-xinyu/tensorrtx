@@ -89,18 +89,12 @@ namespace nvinfer1
 
         void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
 
-        void forwardCpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
-
     private:
         int mClassCount;
         int mKernelCount;
         std::vector<Yolo::YoloKernel> mYoloKernel;
         int mThreadCount;
         //int mDetNum;
-
-        //cpu
-        void* mInputBuffer  {nullptr}; 
-        void* mOutputBuffer {nullptr}; 
     };
 };
 
