@@ -13,8 +13,10 @@
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 
-#define USE_FP16  // comment out this if want to use FP32
+//#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
+#define NMS_THRESH 0.4
+#define BBOX_CONF_THRESH 0.5
 
 using namespace nvinfer1;
 
@@ -93,10 +95,10 @@ bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
     return a.det_confidence > b.det_confidence;
 }
 
-void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = 0.4) {
+void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = NMS_THRESH) {
     std::map<float, std::vector<Yolo::Detection>> m;
     for (int i = 0; i < output[0] && i < 1000; i++) {
-        if (output[1 + 7 * i + 4] <= 0.5) continue;
+        if (output[1 + 7 * i + 4] <= BBOX_CONF_THRESH) continue;
         Yolo::Detection det;
         memcpy(&det, &output[1 + 7 * i], 7 * sizeof(float));
         if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Yolo::Detection>());
@@ -320,7 +322,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr85 = convBnLeaky(network, weightMap, *lr84->getOutput(0), 1024, 3, 1, 1, 85);
     auto lr86 = convBnLeaky(network, weightMap, *lr85->getOutput(0), 512, 1, 1, 0, 86);
     auto lr87 = convBnLeaky(network, weightMap, *lr86->getOutput(0), 1024, 3, 1, 1, 87);
-    IConvolutionLayer* conv88 = network->addConvolution(*lr87->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.88.Conv2d.weight"], weightMap["module_list.88.Conv2d.bias"]);
+    IConvolutionLayer* conv88 = network->addConvolution(*lr87->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.88.Conv2d.weight"], weightMap["module_list.88.Conv2d.bias"]);
     assert(conv88);
     auto lr91 = convBnLeaky(network, weightMap, *lr86->getOutput(0), 256, 1, 1, 0, 91);
 
@@ -343,7 +345,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr97 = convBnLeaky(network, weightMap, *lr96->getOutput(0), 512, 3, 1, 1, 97);
     auto lr98 = convBnLeaky(network, weightMap, *lr97->getOutput(0), 256, 1, 1, 0, 98);
     auto lr99 = convBnLeaky(network, weightMap, *lr98->getOutput(0), 512, 3, 1, 1, 99);
-    IConvolutionLayer* conv100 = network->addConvolution(*lr99->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.100.Conv2d.weight"], weightMap["module_list.100.Conv2d.bias"]);
+    IConvolutionLayer* conv100 = network->addConvolution(*lr99->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.100.Conv2d.weight"], weightMap["module_list.100.Conv2d.bias"]);
     assert(conv100);
     auto lr103 = convBnLeaky(network, weightMap, *lr98->getOutput(0), 128, 1, 1, 0, 103);
     Weights deconvwts104{DataType::kFLOAT, deval, 128 * 2 * 2};
@@ -359,7 +361,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr109 = convBnLeaky(network, weightMap, *lr108->getOutput(0), 256, 3, 1, 1, 109);
     auto lr110 = convBnLeaky(network, weightMap, *lr109->getOutput(0), 128, 1, 1, 0, 110);
     auto lr111 = convBnLeaky(network, weightMap, *lr110->getOutput(0), 256, 3, 1, 1, 111);
-    IConvolutionLayer* conv112 = network->addConvolution(*lr111->getOutput(0), 255, DimsHW{1, 1}, weightMap["module_list.112.Conv2d.weight"], weightMap["module_list.112.Conv2d.bias"]);
+    IConvolutionLayer* conv112 = network->addConvolution(*lr111->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.112.Conv2d.weight"], weightMap["module_list.112.Conv2d.bias"]);
     assert(conv112);
     auto yolo = new YoloLayerPlugin();
     ITensor* inputTensors_yolo[] = {conv88->getOutput(0), conv100->getOutput(0), conv112->getOutput(0)};

@@ -15,8 +15,8 @@ namespace Yolo
     static constexpr int CHECK_COUNT = 3;
     static constexpr float IGNORE_THRESH = 0.1f;
     static constexpr int CLASS_NUM = 80;
-    static constexpr int INPUT_H = 608;
-    static constexpr int INPUT_W = 608;
+    static constexpr int INPUT_H = 256;
+    static constexpr int INPUT_W = 416;
 
     struct YoloKernel
     {
@@ -89,18 +89,12 @@ namespace nvinfer1
 
         void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
 
-        void forwardCpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
-
     private:
         int mClassCount;
         int mKernelCount;
         std::vector<Yolo::YoloKernel> mYoloKernel;
         int mThreadCount;
         //int mDetNum;
-
-        //cpu
-        void* mInputBuffer  {nullptr}; 
-        void* mOutputBuffer {nullptr}; 
     };
 };
 
