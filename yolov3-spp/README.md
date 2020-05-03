@@ -1,5 +1,7 @@
 # yolov3-spp
 
+yolov4 is [here](../yolov4).
+
 The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3). It provides two trained weights of yolov3-spp, `yolov3-spp.pt` and `yolov3-spp-ultralytics.pt`(originally named `ultralytics68.pt`).
 
 Following tricks are used in this yolov3-spp:
@@ -43,5 +45,16 @@ sudo ./yolov3-spp -d  ../samples // deserialize plan file and run inference, the
 <img src="https://user-images.githubusercontent.com/15235574/78247970-60b27c00-751e-11ea-88df-41473fed4823.jpg">
 </p>
 
+## Config
 
+- Input shape defined in yololayer.h
+- Number of classes defined in yololayer.h
+- FP16/FP32 can be selected by the macro in yolov3-spp.cpp
+- GPU id can be selected by the macro in yolov3-spp.cpp
+- NMS thresh in yolov3-spp.cpp
+- BBox confidence thresh in yolov3-spp.cpp
+
+## More Information
+
+See the [readme](../README.md) in home page
 
