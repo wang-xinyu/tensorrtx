@@ -56,4 +56,4 @@ sudo ./yolov4 -d  ../../yolov3-spp/samples // deserialize plan file and run infe
 
 ## More Information
 
-See the [readme](../) in home page
+See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
