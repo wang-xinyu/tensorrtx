@@ -14,7 +14,7 @@
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 
-//#define USE_FP16  // comment out this if want to use FP32
+#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define BBOX_CONF_THRESH 0.5
@@ -649,13 +649,13 @@ int main(int argc, char** argv) {
         // Run inference
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, BATCH_SIZE);
+        auto end = std::chrono::system_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
             nms(res, &prob[b * OUTPUT_SIZE]);
         }
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
             //std::cout << res.size() << std::endl;

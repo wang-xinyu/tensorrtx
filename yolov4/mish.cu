@@ -44,14 +44,29 @@ namespace nvinfer1
         return DimsCHW(inputs[0].d[0], inputs[0].d[1], inputs[0].d[2]);
     }
 
-    __device__ float softplus(float x) { return (x > 20.0) ? x : log(1.0 + exp(x)); }
+    __device__ float tanh_activate_kernel(float x){return (2/(1 + expf(-2*x)) - 1);}
+
+    __device__ float softplus_kernel(float x, float threshold = 20) {
+        if (x > threshold) return x;                // too large
+        else if (x < -threshold) return expf(x);    // too small
+        return logf(expf(x) + 1);
+    }
 
     __global__ void mish_kernel(const float *input, float *output, int num_elem) {
 
         int idx = threadIdx.x + blockDim.x * blockIdx.x;
         if (idx >= num_elem) return;
 
-        output[idx] = input[idx] * tanh(softplus(input[idx]));
+        //float t = exp(input[idx]);
+        //if (input[idx] > 20.0) {
+        //    t *= t;
+        //    output[idx] = (t - 1.0) / (t + 1.0);
+        //} else {
+        //    float tt = t * t;
+        //    output[idx] = (tt + 2.0 * t) / (tt + 2.0 * t + 2.0);
+        //}
+        //output[idx] *= input[idx];
+        output[idx] = input[idx] * tanh_activate_kernel(softplus_kernel(input[idx]));
     }
 
     void MishPlugin::forwardGpu(const float *const * inputs, float* output, cudaStream_t stream, int batchSize) {
@@ -69,5 +84,5 @@ namespace nvinfer1
         forwardGpu((const float *const *)inputs, (float*)outputs[0], stream, batchSize);
         return 0;
     }
-
 }
+
