@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <cmath>
 #include <string.h>
-#include <cudnn.h>
 #include <cublas_v2.h>
 #include "NvInfer.h"
 #include "Utils.h"
@@ -26,17 +25,17 @@ namespace Yolo
         float anchors[CHECK_COUNT*2];
     };
 
-    static YoloKernel yolo1 = {
+    static constexpr YoloKernel yolo1 = {
         INPUT_W / 8,
         INPUT_H / 8,
         {12,16, 19,36, 40,28}
     };
-    static YoloKernel yolo2 = {
+    static constexpr YoloKernel yolo2 = {
         INPUT_W / 16,
         INPUT_H / 16,
         {36,75, 76,55, 72,146}
     };
-    static YoloKernel yolo3 = {
+    static constexpr YoloKernel yolo3 = {
         INPUT_W / 32,
         INPUT_H / 32,
         {142,110, 192,243, 459,401}
@@ -55,48 +54,106 @@ namespace Yolo
 
 namespace nvinfer1
 {
-    class YoloLayerPlugin: public IPluginExt
+    class YoloLayerPlugin: public IPluginV2IOExt
     {
-    public:
-        explicit YoloLayerPlugin(const int cudaThread = 256);
-        YoloLayerPlugin(const void* data, size_t length);
+        public:
+            explicit YoloLayerPlugin();
+            YoloLayerPlugin(const void* data, size_t length);
 
-        ~YoloLayerPlugin();
+            ~YoloLayerPlugin();
 
-        int getNbOutputs() const override
-        {
-            return 1;
-        }
+            int getNbOutputs() const override
+            {
+                return 1;
+            }
 
-        Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
+            Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-        bool supportsFormat(DataType type, PluginFormat format) const override { 
-            return type == DataType::kFLOAT && format == PluginFormat::kNCHW; 
-        }
+            int initialize() override;
 
-        void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type, PluginFormat format, int maxBatchSize) override {};
+            virtual void terminate() override {};
 
-        int initialize() override;
+            virtual size_t getWorkspaceSize(int maxBatchSize) const override { return 0;}
 
-        virtual void terminate() override {};
+            virtual int enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-        virtual size_t getWorkspaceSize(int maxBatchSize) const override { return 0;}
+            virtual size_t getSerializationSize() const override;
 
-        virtual int enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) override;
+            virtual void serialize(void* buffer) const override;
 
-        virtual size_t getSerializationSize() override;
+            bool supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) const override {
+                return inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT;
+            }
 
-        virtual void serialize(void* buffer) override;
+            const char* getPluginType() const override;
 
-        void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
+            const char* getPluginVersion() const override;
 
-    private:
-        int mClassCount;
-        int mKernelCount;
-        std::vector<Yolo::YoloKernel> mYoloKernel;
-        int mThreadCount;
-        //int mDetNum;
+            void destroy() override;
+
+            IPluginV2IOExt* clone() const override;
+
+            void setPluginNamespace(const char* pluginNamespace) override;
+
+            const char* getPluginNamespace() const override;
+
+            DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
+
+            bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
+
+            bool canBroadcastInputAcrossBatch(int inputIndex) const override;
+
+            void attachToContext(
+                    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
+
+            void configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) override;
+
+            void detachFromContext() override;
+
+        private:
+            void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
+            int mClassCount;
+            int mKernelCount;
+            std::vector<Yolo::YoloKernel> mYoloKernel;
+            int mThreadCount = 256;
+            const char* mPluginNamespace;
     };
+
+    class YoloPluginCreator : public IPluginCreator
+    {
+        public:
+            YoloPluginCreator();
+
+            ~YoloPluginCreator() override = default;
+
+            const char* getPluginName() const override;
+
+            const char* getPluginVersion() const override;
+
+            const PluginFieldCollection* getFieldNames() override;
+
+            IPluginV2IOExt* createPlugin(const char* name, const PluginFieldCollection* fc) override;
+
+            IPluginV2IOExt* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
+
+            void setPluginNamespace(const char* libNamespace) override
+            {
+                mNamespace = libNamespace;
+            }
+
+            const char* getPluginNamespace() const override
+            {
+                return mNamespace.c_str();
+            }
+
+        private:
+            std::string mNamespace;
+            static PluginFieldCollection mFC;
+            static std::vector<PluginField> mPluginAttributes;
+    };
+
+
+
 };
 
 #endif 

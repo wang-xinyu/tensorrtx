@@ -8,17 +8,18 @@ I wrote this project to get familiar with tensorrt API, and also to share and le
 
 All the models are implemented in pytorch first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference. Some pytorch implementations can be found in my repo [Pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from polular open-source pytorch implementations. 
 
-## Getting Started
+# News
 
-There is a guide for quickly getting started, taking lenet5 as a demo. [Getting_Started.](./getting_started)
+- `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
+
+## Tutorials
+
+- [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
+- [Migrating from TensorRT 4 to 7](./tutorials/migrating_from_tensorrt_4_to_7.md)
 
 ## Test Environment
 
-1. Jetson TX1 / Ubuntu16.04 / cuda9.0 / cudnn7.1.5 / tensorrt4.0.2 / nvinfer4.1.3 / opencv3.3
-
-2. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0 / opencv3.3
-
-Currently, TX1/TX2 and x86 GTX1080 were tested. trt4 api were using, some APIs are deprecated in trt7, but still can compile successfully.
+1. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0 / opencv3.3
 
 ## How to run
 
@@ -74,9 +75,9 @@ Some tricky operations encountered in these models, already solved, but might ha
 |-|-|:-:|:-:|:-:|:-:|
 | YOLOv3(darknet53) | Xavier | 1 | FP16 | 320x320 | 55 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 94 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 59 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP32 | 256x416 | 74 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP32 | 256x416 | 83 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 35.7 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 40.9 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 41.3 | 
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
 
