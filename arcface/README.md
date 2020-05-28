@@ -7,7 +7,7 @@ The pretrained model is [LResNet50E-IR,ArcFace@ms1m-refine-v1.](https://github.c
 The two images used in this project are joey0.ppm and joey1.ppm, download them from [Google Drive.](https://drive.google.com/drive/folders/1ctqpkRCRKyBZRCNwo9Uq4eUoMRLtFq1e)
 
 <p align="center">
-![joey](https://user-images.githubusercontent.com/15235574/83122953-f45f8d80-a106-11ea-84b0-4f6ff91b5924.jpg)
+<img src="https://user-images.githubusercontent.com/15235574/83122953-f45f8d80-a106-11ea-84b0-4f6ff91b5924.jpg">
 </p>
 
 ## Run
