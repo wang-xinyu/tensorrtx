@@ -8,9 +8,10 @@ I wrote this project to get familiar with tensorrt API, and also to share and le
 
 All the models are implemented in pytorch first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference. Some pytorch implementations can be found in my repo [Pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from polular open-source pytorch implementations. 
 
-# News
+## News
 
 - `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
+- `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
 
 ## Tutorials
 
@@ -47,6 +48,7 @@ Following models are implemented.
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[retinaface](./retinaface)| resnet-50, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
+|[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 
 ## Tricky Operations
 
@@ -68,6 +70,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |hsigmoid| hard sigmoid is implemented as a plugin, hsigmoid and hswish are used in mobilenetv3 |
 |retinaface output decode| implement a plugin to decode bbox, confidence and landmarks, see retinaface. |
 |mish| mish activation is implemented as a plugin, mish is used in yolov4 |
+|prelu| mxnet's prelu activation with trainable gamma is implemented as a plugin, used in arcface |
 
 ## Speed Benchmark
 
@@ -80,6 +83,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 41.3 | 
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
+| ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
 
 Detection net FPS test including inference and nms time, excluding image preprocess time.
 
