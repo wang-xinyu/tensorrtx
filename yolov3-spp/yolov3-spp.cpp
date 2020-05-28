@@ -1,19 +1,29 @@
-#include "NvInfer.h"
-#include "NvInferPlugin.h"
-#include "cuda_runtime_api.h"
-#include "common.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
-#include "plugin_factory.h"
-#include "yololayer.h"
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
+#include "NvInfer.h"
+#include "cuda_runtime_api.h"
+#include "logging.h"
+#include "yololayer.h"
 
-//#define USE_FP16  // comment out this if want to use FP32
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
+
+
+#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define BBOX_CONF_THRESH 0.5
@@ -27,6 +37,7 @@ static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
+REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
@@ -78,10 +89,10 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
 
 float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
-        max(lbox[0] - lbox[2]/2.f , rbox[0] - rbox[2]/2.f), //left
-        min(lbox[0] + lbox[2]/2.f , rbox[0] + rbox[2]/2.f), //right
-        max(lbox[1] - lbox[3]/2.f , rbox[1] - rbox[3]/2.f), //top
-        min(lbox[1] + lbox[3]/2.f , rbox[1] + rbox[3]/2.f), //bottom
+        std::max(lbox[0] - lbox[2]/2.f , rbox[0] - rbox[2]/2.f), //left
+        std::min(lbox[0] + lbox[2]/2.f , rbox[0] + rbox[2]/2.f), //right
+        std::max(lbox[1] - lbox[3]/2.f , rbox[1] - rbox[3]/2.f), //top
+        std::min(lbox[1] + lbox[3]/2.f , rbox[1] + rbox[3]/2.f), //bottom
     };
 
     if(interBox[2] > interBox[3] || interBox[0] > interBox[1])
@@ -167,7 +178,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     float *mean = (float*)weightMap[lname + ".running_mean"].values;
     float *var = (float*)weightMap[lname + ".running_var"].values;
     int len = weightMap[lname + ".running_var"].count;
-    std::cout << "len " << len << std::endl;
 
     float *scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
@@ -196,29 +206,25 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 }
 
 ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input,  int outch, int ksize, int s, int p, int linx) {
-    std::cout << linx << std::endl;
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{ksize, ksize}, weightMap["module_list." + std::to_string(linx) + ".Conv2d.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap["module_list." + std::to_string(linx) + ".Conv2d.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{s, s});
-    conv1->setPadding(DimsHW{p, p});
+    conv1->setStrideNd(DimsHW{s, s});
+    conv1->setPaddingNd(DimsHW{p, p});
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "module_list." + std::to_string(linx) + ".BatchNorm2d", 1e-5);
 
-    ITensor* inputTensors[] = {bn1->getOutput(0)};
-    //LeakyPlugin *lr = new LeakyPlugin();
-    auto lr = plugin::createPReLUPlugin(0.1);
-    auto lr1 = network->addPlugin(inputTensors, 1, *lr);
-    assert(lr1);
-    lr1->setName(("leaky" + std::to_string(linx)).c_str());
-    return lr1;
+    auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
+    lr->setAlpha(0.1);
+
+    return lr;
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt) {
-    INetworkDefinition* network = builder->createNetwork();
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
@@ -305,15 +311,15 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr76 = convBnLeaky(network, weightMap, *lr75->getOutput(0), 1024, 3, 1, 1, 76);
     auto lr77 = convBnLeaky(network, weightMap, *lr76->getOutput(0), 512, 1, 1, 0, 77);
     
-    auto pool78 = network->addPooling(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{5,5});
-    pool78->setPadding(DimsHW{2, 2});
-    pool78->setStride(DimsHW{1, 1});
-    auto pool80 = network->addPooling(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{9,9});
-    pool80->setPadding(DimsHW{4, 4});
-    pool80->setStride(DimsHW{1, 1});
-    auto pool82 = network->addPooling(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{13,13});
-    pool82->setPadding(DimsHW{6, 6});
-    pool82->setStride(DimsHW{1, 1});
+    auto pool78 = network->addPoolingNd(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{5,5});
+    pool78->setPaddingNd(DimsHW{2, 2});
+    pool78->setStrideNd(DimsHW{1, 1});
+    auto pool80 = network->addPoolingNd(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{9,9});
+    pool80->setPaddingNd(DimsHW{4, 4});
+    pool80->setStrideNd(DimsHW{1, 1});
+    auto pool82 = network->addPoolingNd(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{13,13});
+    pool82->setPaddingNd(DimsHW{6, 6});
+    pool82->setStrideNd(DimsHW{1, 1});
 
     ITensor* inputTensors83[] = {pool82->getOutput(0), pool80->getOutput(0), pool78->getOutput(0), lr77->getOutput(0)};
     auto cat83 = network->addConcatenation(inputTensors83, 4);
@@ -322,7 +328,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr85 = convBnLeaky(network, weightMap, *lr84->getOutput(0), 1024, 3, 1, 1, 85);
     auto lr86 = convBnLeaky(network, weightMap, *lr85->getOutput(0), 512, 1, 1, 0, 86);
     auto lr87 = convBnLeaky(network, weightMap, *lr86->getOutput(0), 1024, 3, 1, 1, 87);
-    IConvolutionLayer* conv88 = network->addConvolution(*lr87->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.88.Conv2d.weight"], weightMap["module_list.88.Conv2d.bias"]);
+    IConvolutionLayer* conv88 = network->addConvolutionNd(*lr87->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.88.Conv2d.weight"], weightMap["module_list.88.Conv2d.bias"]);
     assert(conv88);
     auto lr91 = convBnLeaky(network, weightMap, *lr86->getOutput(0), 256, 1, 1, 0, 91);
 
@@ -331,9 +337,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
         deval[i] = 1.0;
     }
     Weights deconvwts92{DataType::kFLOAT, deval, 256 * 2 * 2};
-    IDeconvolutionLayer* deconv92 = network->addDeconvolution(*lr91->getOutput(0), 256, DimsHW{2, 2}, deconvwts92, emptywts);
+    IDeconvolutionLayer* deconv92 = network->addDeconvolutionNd(*lr91->getOutput(0), 256, DimsHW{2, 2}, deconvwts92, emptywts);
     assert(deconv92);
-    deconv92->setStride(DimsHW{2, 2});
+    deconv92->setStrideNd(DimsHW{2, 2});
     deconv92->setNbGroups(256);
     weightMap["deconv92"] = deconvwts92;
     
@@ -345,13 +351,13 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr97 = convBnLeaky(network, weightMap, *lr96->getOutput(0), 512, 3, 1, 1, 97);
     auto lr98 = convBnLeaky(network, weightMap, *lr97->getOutput(0), 256, 1, 1, 0, 98);
     auto lr99 = convBnLeaky(network, weightMap, *lr98->getOutput(0), 512, 3, 1, 1, 99);
-    IConvolutionLayer* conv100 = network->addConvolution(*lr99->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.100.Conv2d.weight"], weightMap["module_list.100.Conv2d.bias"]);
+    IConvolutionLayer* conv100 = network->addConvolutionNd(*lr99->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.100.Conv2d.weight"], weightMap["module_list.100.Conv2d.bias"]);
     assert(conv100);
     auto lr103 = convBnLeaky(network, weightMap, *lr98->getOutput(0), 128, 1, 1, 0, 103);
     Weights deconvwts104{DataType::kFLOAT, deval, 128 * 2 * 2};
-    IDeconvolutionLayer* deconv104 = network->addDeconvolution(*lr103->getOutput(0), 128, DimsHW{2, 2}, deconvwts104, emptywts);
+    IDeconvolutionLayer* deconv104 = network->addDeconvolutionNd(*lr103->getOutput(0), 128, DimsHW{2, 2}, deconvwts104, emptywts);
     assert(deconv104);
-    deconv104->setStride(DimsHW{2, 2});
+    deconv104->setStrideNd(DimsHW{2, 2});
     deconv104->setNbGroups(128);
     ITensor* inputTensors1[] = {deconv104->getOutput(0), ew36->getOutput(0)};
     auto cat105 = network->addConcatenation(inputTensors1, 2);
@@ -361,26 +367,27 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto lr109 = convBnLeaky(network, weightMap, *lr108->getOutput(0), 256, 3, 1, 1, 109);
     auto lr110 = convBnLeaky(network, weightMap, *lr109->getOutput(0), 128, 1, 1, 0, 110);
     auto lr111 = convBnLeaky(network, weightMap, *lr110->getOutput(0), 256, 3, 1, 1, 111);
-    IConvolutionLayer* conv112 = network->addConvolution(*lr111->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.112.Conv2d.weight"], weightMap["module_list.112.Conv2d.bias"]);
+    IConvolutionLayer* conv112 = network->addConvolutionNd(*lr111->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["module_list.112.Conv2d.weight"], weightMap["module_list.112.Conv2d.bias"]);
     assert(conv112);
-    auto yolo = new YoloLayerPlugin();
-    ITensor* inputTensors_yolo[] = {conv88->getOutput(0), conv100->getOutput(0), conv112->getOutput(0)};
-    auto yolo113 = network->addPlugin(inputTensors_yolo, 3, *yolo);
-    assert(yolo113);
-    yolo113->setName("yolo113");
 
-    yolo113->getOutput(0)->setName(OUTPUT_BLOB_NAME);
-    std::cout << "set name out" << std::endl;
-    network->markOutput(*yolo113->getOutput(0));
+    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
+    const PluginFieldCollection* pluginData = creator->getFieldNames();
+    IPluginV2 *pluginObj = creator->createPlugin("yololayer", pluginData);
+    ITensor* inputTensors_yolo[] = {conv88->getOutput(0), conv100->getOutput(0), conv112->getOutput(0)};
+    auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
+
+    yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    network->markOutput(*yolo->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
+    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #ifdef USE_FP16
-    builder->setFp16Mode(true);
+    config->setFlag(BuilderFlag::kFP16);
 #endif
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
-    std::cout << "build out" << std::endl;
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
     network->destroy();
@@ -397,9 +404,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -475,7 +483,7 @@ int main(int argc, char** argv) {
         IHostMemory* modelStream{nullptr};
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
-        std::ofstream p("yolov3-spp.engine");
+        std::ofstream p("yolov3-spp.engine", std::ios::binary);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
@@ -512,13 +520,13 @@ int main(int argc, char** argv) {
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
     static float prob[OUTPUT_SIZE];
-    PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, &pf);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
+    delete[] trtModelStream;
 
     int fcount = 0;
     for (auto f: file_names) {
@@ -536,10 +544,10 @@ int main(int argc, char** argv) {
         // Run inference
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
-        std::vector<Yolo::Detection> res;
-        nms(res, prob);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::vector<Yolo::Detection> res;
+        nms(res, prob);
         for (int i=0; i<20; i++) {
             std::cout << prob[i] << ",";
         }
