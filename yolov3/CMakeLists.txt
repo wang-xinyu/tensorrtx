@@ -13,22 +13,30 @@ find_package(CUDA REQUIRED)
 set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11;-g;-G;-gencode;arch=compute_30;code=sm_30)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(/usr/local/cuda-9.0/targets/aarch64-linux/include)
-link_directories(/usr/local/cuda-9.0/targets/aarch64-linux/lib)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    message("embed_platform on")
+    include_directories(/usr/local/cuda/targets/aarch64-linux/include)
+    link_directories(/usr/local/cuda/targets/aarch64-linux/lib)
+else()
+    message("embed_platform off")
+    include_directories(/usr/local/cuda/include)
+    link_directories(/usr/local/cuda/lib64)
+endif()
+
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
 #cuda_add_library(leaky ${PROJECT_SOURCE_DIR}/leaky.cu)
-cuda_add_library(yololayer ${PROJECT_SOURCE_DIR}/yololayer.cu)
+cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
 
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
 
-add_executable(yolov3 ${PROJECT_SOURCE_DIR}/plugin_factory.cpp ${PROJECT_SOURCE_DIR}/yolov3.cpp)
-target_link_libraries(yolov3 nvinfer nvinfer_plugin)
+add_executable(yolov3 ${PROJECT_SOURCE_DIR}/yolov3.cpp)
+target_link_libraries(yolov3 nvinfer)
 target_link_libraries(yolov3 cudart)
 target_link_libraries(yolov3 yololayer)
-target_link_libraries(yolov3 ${OpenCV_LIBRARIES})
+target_link_libraries(yolov3 ${OpenCV_LIBS})
 
 add_definitions(-O2 -pthread)
 

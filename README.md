@@ -12,6 +12,7 @@ All the models are implemented in pytorch first, and export a weights file xxx.w
 
 - `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
 - `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
+- `2 June 2020`. yolov3 and yolov3-spp migrated to TensorRT 7 API. The new yolov3 is using pytorch implementation [ultralytics/yolov3](https://github.com/ultralytics/yolov3), the yolov3 in branch `trt4` was using pytorch implementation [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3).
 
 ## Tutorials
 
@@ -44,8 +45,8 @@ Following models are implemented.
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
-|[yolov3](./yolov3)| darknet-53, weights from yolov3 authors, pytorch implementation from [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3) |
-|[yolov3-spp](./yolov3-spp)| darknet-53, weights from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
+|[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
+|[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[retinaface](./retinaface)| resnet-50, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
@@ -63,8 +64,8 @@ Some tricky operations encountered in these models, already solved, but might ha
 |torch.chunk()| implement the 'chunk(2, dim=C)' by tensorrt plugin, see shufflenet. |
 |channel shuffle| use two shuffle layers to implement `channel_shuffle`, see shufflenet. |
 |adaptive pool| use fixed input dimension, and use regular average pooling, see shufflenet. |
-|leaky relu| I wrote a leaky relu plugin, but PRelu in `NvInferPlugin.h` can be used, see yolov3. |
-|yolo layer v1| yolo layer is implemented as a plugin, see yolov3. |
+|leaky relu| I wrote a leaky relu plugin, but PRelu in `NvInferPlugin.h` can be used, see yolov3 in branch `trt4`. |
+|yolo layer v1| yolo layer is implemented as a plugin, see yolov3 in branch `trt4`. |
 |yolo layer v2| three yolo layers implemented in one plugin, see yolov3-spp. |
 |upsample| replaced by a deconvolution layer, see yolov3. |
 |hsigmoid| hard sigmoid is implemented as a plugin, hsigmoid and hswish are used in mobilenetv3 |
@@ -76,7 +77,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 
 | Models | Device | BatchSize | Mode | Input Shape(HxW) | FPS |
 |-|-|:-:|:-:|:-:|:-:|
-| YOLOv3(darknet53) | Xavier | 1 | FP16 | 320x320 | 55 |
+| YOLOv3(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 39.2 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 94 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 38.5 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 35.7 |

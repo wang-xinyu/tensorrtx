@@ -1,135 +1,259 @@
-#include <cmath>
-#include <cuda_runtime.h>
 #include "yololayer.h"
-#include <stdio.h>
 
-using namespace nvinfer1;
+using namespace Yolo;
 
-YoloLayerPlugin::YoloLayerPlugin(int class_num, int yolo_grid, int input_dim, int cuda_block, float anchors[6]) {
-    class_num_ = class_num;
-    yolo_grid_ = yolo_grid;
-    input_dim_ = input_dim;
-    cuda_block_ = cuda_block;
-    memcpy(anchors_, anchors, 6 * sizeof(float));
-}
-
-YoloLayerPlugin::~YoloLayerPlugin() {}
-
-// create the plugin at runtime from a byte stream
-YoloLayerPlugin::YoloLayerPlugin(const void* data, size_t length)
+namespace nvinfer1
 {
-    char *d = (char*)(data), *a = d;
+    YoloLayerPlugin::YoloLayerPlugin()
+    {
+        mClassCount = CLASS_NUM;
+        mYoloKernel.clear();
+        mYoloKernel.push_back(yolo1);
+        mYoloKernel.push_back(yolo2);
+        mYoloKernel.push_back(yolo3);
 
-    class_num_ = *reinterpret_cast<int*>(d);
-    d += sizeof(int);
-    yolo_grid_ = *reinterpret_cast<int*>(d);
-    d += sizeof(int);
-    input_dim_ = *reinterpret_cast<int*>(d);
-    d += sizeof(int);
-    cuda_block_ = *reinterpret_cast<int*>(d);
-    d += sizeof(int);
-    memcpy(anchors_, d, 6 * sizeof(float));
-    d += 6 * sizeof(float);
-
-    if (d != a + length) {
-        fprintf(stderr, "deserialize yololayer plugin failed! \n");
+        mKernelCount = mYoloKernel.size();
     }
-}
-
-void YoloLayerPlugin::serialize(void* buffer)
-{
-    char* d = static_cast<char*>(buffer), *a = d;
-
-    *reinterpret_cast<int*>(d) = class_num_;
-    d += sizeof(int);
-    *reinterpret_cast<int*>(d) = yolo_grid_;
-    d += sizeof(int);
-    *reinterpret_cast<int*>(d) = input_dim_;
-    d += sizeof(int);
-    *reinterpret_cast<int*>(d) = cuda_block_;
-    d += sizeof(int);
-    memcpy(d, anchors_, 6 * sizeof(float));
-    d += 6 * sizeof(float);
-
-    if (d != a + getSerializationSize()) {
-        fprintf(stderr, "serialize yololayer plugin failed! \n");
+    
+    YoloLayerPlugin::~YoloLayerPlugin()
+    {
     }
-}
 
-size_t YoloLayerPlugin::getSerializationSize()
-{  
-    return sizeof(int) * 4 + sizeof(float) * 6;
-}
+    // create the plugin at runtime from a byte stream
+    YoloLayerPlugin::YoloLayerPlugin(const void* data, size_t length)
+    {
+        using namespace Tn;
+        const char *d = reinterpret_cast<const char *>(data), *a = d;
+        read(d, mClassCount);
+        read(d, mThreadCount);
+        read(d, mKernelCount);
+        mYoloKernel.resize(mKernelCount);
+        auto kernelSize = mKernelCount*sizeof(YoloKernel);
+        memcpy(mYoloKernel.data(),d,kernelSize);
+        d += kernelSize;
 
-int YoloLayerPlugin::initialize()
-{ 
-    return 0;
-}
+        assert(d == a + length);
+    }
 
-Dims YoloLayerPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) {
-    return Dims3(3 * yolo_grid_ * yolo_grid_, 1, 7);
-}
+    void YoloLayerPlugin::serialize(void* buffer) const
+    {
+        using namespace Tn;
+        char* d = static_cast<char*>(buffer), *a = d;
+        write(d, mClassCount);
+        write(d, mThreadCount);
+        write(d, mKernelCount);
+        auto kernelSize = mKernelCount*sizeof(YoloKernel);
+        memcpy(d,mYoloKernel.data(),kernelSize);
+        d += kernelSize;
 
-__device__ float Logist(float data){ return 1./(1. + exp(-data)); };
+        assert(d == a + getSerializationSize());
+    }
+    
+    size_t YoloLayerPlugin::getSerializationSize() const
+    {  
+        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount)  + sizeof(Yolo::YoloKernel) * mYoloKernel.size();
+    }
 
-__global__ void CalDetection(const float *input, float *output, int noElements,
-        int yolo_grid, const float anchors[6], int classes, int input_dim) {
+    int YoloLayerPlugin::initialize()
+    { 
+        return 0;
+    }
+    
+    Dims YoloLayerPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+    {
+        //output the result to channel
+        int totalsize = MAX_OUTPUT_BBOX_COUNT * sizeof(Detection) / sizeof(float);
 
-    int idx = threadIdx.x + blockDim.x * blockIdx.x;
-    if (idx >= noElements) return;
+        return Dims3(totalsize + 1, 1, 1);
+    }
 
-    int total_grid = yolo_grid * yolo_grid;
-    int info_len_i = 5 + classes;
-    int info_len_o = 7;
-    int input_col = idx;
-    int out_row = input_col;
+    // Set plugin namespace
+    void YoloLayerPlugin::setPluginNamespace(const char* pluginNamespace)
+    {
+        mPluginNamespace = pluginNamespace;
+    }
 
-    for (int k = 0; k < 3; ++k) {
-        int class_id = 0;
-        float max_prob = 0.0;
-        for (int i = 5; i < info_len_i; ++i) {
-            float p = Logist(input[input_col + k * info_len_i * total_grid + i * total_grid]);
-            if (p > max_prob) {
-                max_prob = p;
-                class_id = i - 5;
+    const char* YoloLayerPlugin::getPluginNamespace() const
+    {
+        return mPluginNamespace;
+    }
+
+    // Return the DataType of the plugin output at the requested index
+    DataType YoloLayerPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+    {
+        return DataType::kFLOAT;
+    }
+
+    // Return true if output tensor is broadcast across a batch.
+    bool YoloLayerPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+    {
+        return false;
+    }
+
+    // Return true if plugin can use input that is broadcast across batch without replication.
+    bool YoloLayerPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
+    {
+        return false;
+    }
+
+    void YoloLayerPlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput)
+    {
+    }
+
+    // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
+    void YoloLayerPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+    {
+    }
+
+    // Detach the plugin object from its execution context.
+    void YoloLayerPlugin::detachFromContext() {}
+
+    const char* YoloLayerPlugin::getPluginType() const
+    {
+        return "YoloLayer_TRT";
+    }
+
+    const char* YoloLayerPlugin::getPluginVersion() const
+    {
+        return "1";
+    }
+
+    void YoloLayerPlugin::destroy()
+    {
+        delete this;
+    }
+
+    // Clone the plugin
+    IPluginV2IOExt* YoloLayerPlugin::clone() const
+    {
+        YoloLayerPlugin *p = new YoloLayerPlugin();
+        p->setPluginNamespace(mPluginNamespace);
+        return p;
+    }
+
+    __device__ float Logist(float data){ return 1.0f / (1.0f + expf(-data)); };
+
+    __global__ void CalDetection(const float *input, float *output,int noElements, 
+            int yoloWidth,int yoloHeight,const float anchors[CHECK_COUNT*2],int classes,int outputElem) {
+ 
+        int idx = threadIdx.x + blockDim.x * blockIdx.x;
+        if (idx >= noElements) return;
+
+        int total_grid = yoloWidth * yoloHeight;
+        int bnIdx = idx / total_grid;
+        idx = idx - total_grid*bnIdx;
+        int info_len_i = 5 + classes;
+        const float* curInput = input + bnIdx * (info_len_i * total_grid * CHECK_COUNT);
+
+        for (int k = 0; k < 3; ++k) {
+            int class_id = 0;
+            float max_cls_prob = 0.0;
+            for (int i = 5; i < info_len_i; ++i) {
+                float p = Logist(curInput[idx + k * info_len_i * total_grid + i * total_grid]);
+                if (p > max_cls_prob) {
+                    max_cls_prob = p;
+                    class_id = i - 5;
+                }
             }
+            float box_prob = Logist(curInput[idx + k * info_len_i * total_grid + 4 * total_grid]);
+            if (max_cls_prob < IGNORE_THRESH || box_prob < IGNORE_THRESH) continue;
+
+            float *res_count = output + bnIdx*outputElem;
+            int count = (int)atomicAdd(res_count, 1);
+            if (count >= MAX_OUTPUT_BBOX_COUNT) return;
+            char* data = (char * )res_count + sizeof(float) + count*sizeof(Detection);
+            Detection* det =  (Detection*)(data);
+
+            int row = idx / yoloWidth;
+            int col = idx % yoloWidth;
+
+            //Location
+            det->bbox[0] = (col + Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * INPUT_W / yoloWidth;
+            det->bbox[1] = (row + Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * INPUT_H / yoloHeight;
+            det->bbox[2] = expf(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]) * anchors[2*k];
+            det->bbox[3] = expf(curInput[idx + k * info_len_i * total_grid + 3 * total_grid]) * anchors[2*k + 1];
+            det->det_confidence = box_prob;
+            det->class_id = class_id;
+            det->class_confidence = max_cls_prob;
+        }
+    }
+
+    void YoloLayerPlugin::forwardGpu(const float *const * inputs, float* output, cudaStream_t stream, int batchSize) {
+        void* devAnchor;
+        size_t AnchorLen = sizeof(float)* CHECK_COUNT*2;
+        CUDA_CHECK(cudaMalloc(&devAnchor,AnchorLen));
+
+        int outputElem = 1 + MAX_OUTPUT_BBOX_COUNT * sizeof(Detection) / sizeof(float);
+
+        for(int idx = 0 ; idx < batchSize; ++idx) {
+            CUDA_CHECK(cudaMemset(output + idx*outputElem, 0, sizeof(float)));
+        }
+        int numElem = 0;
+        for (unsigned int i = 0;i< mYoloKernel.size();++i)
+        {
+            const auto& yolo = mYoloKernel[i];
+            numElem = yolo.width*yolo.height*batchSize;
+            if (numElem < mThreadCount)
+                mThreadCount = numElem;
+            CUDA_CHECK(cudaMemcpy(devAnchor, yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
+            CalDetection<<< (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount>>>
+                (inputs[i],output, numElem, yolo.width, yolo.height, (float *)devAnchor, mClassCount ,outputElem);
         }
 
-        int row = idx / yolo_grid;
-        int col = idx % yolo_grid;
-
-        //Location
-        output[out_row * info_len_o * 3 + info_len_o * k + 0] = (col + Logist(input[input_col + k * info_len_i * total_grid + 0 * total_grid])) * input_dim / yolo_grid;
-        output[out_row * info_len_o * 3 + info_len_o * k + 1] = (row + Logist(input[input_col + k * info_len_i * total_grid + 1 * total_grid])) * input_dim / yolo_grid;
-        output[out_row * info_len_o * 3 + info_len_o * k + 2] = exp(input[input_col + k * info_len_i * total_grid + 2 * total_grid]) * anchors[2*k];
-        output[out_row * info_len_o * 3 + info_len_o * k + 3] = exp(input[input_col + k * info_len_i * total_grid + 3 * total_grid]) * anchors[2*k + 1];
-        output[out_row * info_len_o * 3 + info_len_o * k + 4] =  Logist(input[input_col + k * info_len_i * total_grid + 4 * total_grid]);
-        output[out_row * info_len_o * 3 + info_len_o * k + 5] =  class_id;
-        output[out_row * info_len_o * 3 + info_len_o * k + 6] =  max_prob;
+        CUDA_CHECK(cudaFree(devAnchor));
     }
-}
 
-void YoloLayerPlugin::forwardGpu(const float *const * inputs, float * output, cudaStream_t stream, int batchSize) {
-    void* anchors_gpu;
-    cudaMalloc(&anchors_gpu, 6 * sizeof(float));
-    cudaMemcpy(anchors_gpu, anchors_, 6 * sizeof(float), cudaMemcpyHostToDevice);
 
-    int block_size = cuda_block_;
-    int grid_size = (yolo_grid_ * yolo_grid_ * batchSize + block_size - 1) / block_size;
-    CalDetection<<<grid_size, block_size>>>
-        (inputs[0], output, yolo_grid_ * yolo_grid_ * batchSize, yolo_grid_, (float *)anchors_gpu, class_num_, input_dim_);
+    int YoloLayerPlugin::enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream)
+    {
+        //assert(batchSize == 1);
+        //GPU
+        //CUDA_CHECK(cudaStreamSynchronize(stream));
+        forwardGpu((const float *const *)inputs, (float*)outputs[0], stream, batchSize);
 
-    cudaFree(anchors_gpu);
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        fprintf(stderr, "Failed to launch caldetect kernel (error code %s)!\n", cudaGetErrorString(err));
+        return 0;
     }
-}
 
-int YoloLayerPlugin::enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) {
-    //assert(batchSize == 1);
-    //GPU
-    //CUDA_CHECK(cudaStreamSynchronize(stream));
-    forwardGpu((const float *const *)inputs, (float *)outputs[0], stream, batchSize);
-    return 0;
+    PluginFieldCollection YoloPluginCreator::mFC{};
+    std::vector<PluginField> YoloPluginCreator::mPluginAttributes;
+
+    YoloPluginCreator::YoloPluginCreator()
+    {
+        mPluginAttributes.clear();
+
+        mFC.nbFields = mPluginAttributes.size();
+        mFC.fields = mPluginAttributes.data();
+    }
+
+    const char* YoloPluginCreator::getPluginName() const
+    {
+            return "YoloLayer_TRT";
+    }
+
+    const char* YoloPluginCreator::getPluginVersion() const
+    {
+            return "1";
+    }
+
+    const PluginFieldCollection* YoloPluginCreator::getFieldNames()
+    {
+            return &mFC;
+    }
+
+    IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+    {
+        YoloLayerPlugin* obj = new YoloLayerPlugin();
+        obj->setPluginNamespace(mNamespace.c_str());
+        return obj;
+    }
+
+    IPluginV2IOExt* YoloPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
+    {
+        // This object will be deleted when the network is destroyed, which will
+        // call MishPlugin::destroy()
+        YoloLayerPlugin* obj = new YoloLayerPlugin(serialData, serialLength);
+        obj->setPluginNamespace(mNamespace.c_str());
+        return obj;
+    }
+
 }
