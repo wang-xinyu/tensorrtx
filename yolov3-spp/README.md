@@ -56,5 +56,5 @@ sudo ./yolov3-spp -d  ../samples // deserialize plan file and run inference, the
 
 ## More Information
 
-See the [readme](../README.md) in home page
+See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
 
