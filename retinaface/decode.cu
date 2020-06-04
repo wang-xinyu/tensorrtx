@@ -3,24 +3,24 @@
 
 namespace nvinfer1
 {
-    DecodePlugin::DecodePlugin(const int cudaThread):thread_count_(cudaThread)
+    DecodePlugin::DecodePlugin()
     {
     }
-    
+
     DecodePlugin::~DecodePlugin()
     {
     }
-    
+
     // create the plugin at runtime from a byte stream
     DecodePlugin::DecodePlugin(const void* data, size_t length)
     {
     }
 
-    void DecodePlugin::serialize(void* buffer)
+    void DecodePlugin::serialize(void* buffer) const
     {
     }
-    
-    size_t DecodePlugin::getSerializationSize()
+
+    size_t DecodePlugin::getSerializationSize() const
     {  
         return 0;
     }
@@ -29,7 +29,7 @@ namespace nvinfer1
     { 
         return 0;
     }
-    
+
     Dims DecodePlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
     {
         //output the result to channel
@@ -41,10 +41,74 @@ namespace nvinfer1
         return Dims3(totalCount + 1, 1, 1);
     }
 
-    __device__ float Logist(float data){ return 1./(1. + exp(-data)); };
+    // Set plugin namespace
+    void DecodePlugin::setPluginNamespace(const char* pluginNamespace)
+    {
+        mPluginNamespace = pluginNamespace;
+    }
+
+    const char* DecodePlugin::getPluginNamespace() const
+    {
+        return mPluginNamespace;
+    }
+
+    // Return the DataType of the plugin output at the requested index
+    DataType DecodePlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+    {
+        return DataType::kFLOAT;
+    }
+
+    // Return true if output tensor is broadcast across a batch.
+    bool DecodePlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+    {
+        return false;
+    }
+
+    // Return true if plugin can use input that is broadcast across batch without replication.
+    bool DecodePlugin::canBroadcastInputAcrossBatch(int inputIndex) const
+    {
+        return false;
+    }
+
+    void DecodePlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput)
+    {
+    }
+
+    // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
+    void DecodePlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+    {
+    }
+
+    // Detach the plugin object from its execution context.
+    void DecodePlugin::detachFromContext() {}
+
+    const char* DecodePlugin::getPluginType() const
+    {
+        return "Decode_TRT";
+    }
+
+    const char* DecodePlugin::getPluginVersion() const
+    {
+        return "1";
+    }
+
+    void DecodePlugin::destroy()
+    {
+        delete this;
+    }
+
+    // Clone the plugin
+    IPluginV2IOExt* DecodePlugin::clone() const
+    {
+        DecodePlugin *p = new DecodePlugin();
+        p->setPluginNamespace(mPluginNamespace);
+        return p;
+    }
+
+    __device__ float Logist(float data){ return 1./(1. + expf(-data)); };
 
     __global__ void CalDetection(const float *input, float *output, int num_elem, int step, int anchor) {
- 
+
         int idx = threadIdx.x + blockDim.x * blockIdx.x;
         if (idx >= num_elem) return;
 
@@ -59,7 +123,7 @@ namespace nvinfer1
         for (int k = 0; k < 2; ++k) {
             float conf1 = cls_reg[idx + k * num_elem * 2];
             float conf2 = cls_reg[idx + k * num_elem * 2 + num_elem];
-            conf2 = exp(conf2) / (exp(conf1) + exp(conf2));
+            conf2 = expf(conf2) / (expf(conf1) + expf(conf2));
             if (conf2 <= 0.02) continue;
 
             float *res_count = output;
@@ -76,8 +140,8 @@ namespace nvinfer1
             //Location
             det->bbox[0] = prior[0] + bbox_reg[idx + k * num_elem * 4] * 0.1 * prior[2];
             det->bbox[1] = prior[1] + bbox_reg[idx + k * num_elem * 4 + num_elem] * 0.1 * prior[3];
-            det->bbox[2] = prior[2] * exp(bbox_reg[idx + k * num_elem * 4 + num_elem * 2] * 0.2);
-            det->bbox[3] = prior[3] * exp(bbox_reg[idx + k * num_elem * 4 + num_elem * 3] * 0.2);
+            det->bbox[2] = prior[2] * expf(bbox_reg[idx + k * num_elem * 4 + num_elem * 2] * 0.2);
+            det->bbox[3] = prior[3] * expf(bbox_reg[idx + k * num_elem * 4 + num_elem * 3] * 0.2);
             det->bbox[0] -= det->bbox[2] / 2;
             det->bbox[1] -= det->bbox[3] / 2;
             det->bbox[2] += det->bbox[0];
@@ -95,7 +159,7 @@ namespace nvinfer1
             }
         }
     }
-   
+
     void DecodePlugin::forwardGpu(const float *const * inputs, float * output, cudaStream_t stream, int batchSize) 
     {
         int num_elem = 0;
@@ -123,5 +187,47 @@ namespace nvinfer1
 
         return 0;
     };
+
+    PluginFieldCollection DecodePluginCreator::mFC{};
+    std::vector<PluginField> DecodePluginCreator::mPluginAttributes;
+
+    DecodePluginCreator::DecodePluginCreator()
+    {
+        mPluginAttributes.clear();
+
+        mFC.nbFields = mPluginAttributes.size();
+        mFC.fields = mPluginAttributes.data();
+    }
+
+    const char* DecodePluginCreator::getPluginName() const
+    {
+        return "Decode_TRT";
+    }
+
+    const char* DecodePluginCreator::getPluginVersion() const
+    {
+        return "1";
+    }
+
+    const PluginFieldCollection* DecodePluginCreator::getFieldNames()
+    {
+        return &mFC;
+    }
+
+    IPluginV2IOExt* DecodePluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+    {
+        DecodePlugin* obj = new DecodePlugin();
+        obj->setPluginNamespace(mNamespace.c_str());
+        return obj;
+    }
+
+    IPluginV2IOExt* DecodePluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
+    {
+        // This object will be deleted when the network is destroyed, which will
+        // call PReluPlugin::destroy()
+        DecodePlugin* obj = new DecodePlugin(serialData, serialLength);
+        obj->setPluginNamespace(mNamespace.c_str());
+        return obj;
+    }
 
 }
