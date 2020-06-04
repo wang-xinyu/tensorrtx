@@ -1,18 +1,27 @@
-#include "NvInfer.h"
-#include "NvInferPlugin.h"
-#include "cuda_runtime_api.h"
-#include "common.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
-#include "plugin_factory.h"
-#include "decode.h"
 #include <opencv2/opencv.hpp>
+#include "NvInfer.h"
+#include "cuda_runtime_api.h"
+#include "decode.h"
+#include "logging.h"
 
-//#define USE_FP16  // comment out this if want to use FP32
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
+
+#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
 
 // stuff we know about the network and the input/output blobs
@@ -24,6 +33,7 @@ const char* OUTPUT_BLOB_NAME = "prob";
 
 using namespace nvinfer1;
 static Logger gLogger;
+REGISTER_TENSORRT_PLUGIN(DecodePluginCreator);
 
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
@@ -75,10 +85,10 @@ cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[10]) {
 
 float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
-        max(lbox[0], rbox[0]), //left
-        min(lbox[2], rbox[2]), //right
-        max(lbox[1], rbox[1]), //top
-        min(lbox[3], rbox[3]), //bottom
+        std::max(lbox[0], rbox[0]), //left
+        std::min(lbox[2], rbox[2]), //right
+        std::max(lbox[1], rbox[1]), //top
+        std::min(lbox[3], rbox[3]), //bottom
     };
 
     if(interBox[2] > interBox[3] || interBox[0] > interBox[1])
@@ -170,7 +180,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     float *mean = (float*)weightMap[lname + ".running_mean"].values;
     float *var = (float*)weightMap[lname + ".running_var"].values;
     int len = weightMap[lname + ".running_var"].count;
-    std::cout << "len " << len << std::endl;
 
     float *scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
@@ -201,7 +210,7 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 IActivationLayer* bottleneck(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int stride, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{1, 1}, weightMap[lname + "conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{1, 1}, weightMap[lname + "conv1.weight"], emptywts);
     assert(conv1);
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "bn1", 1e-5);
@@ -209,26 +218,26 @@ IActivationLayer* bottleneck(INetworkDefinition *network, std::map<std::string, 
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), outch, DimsHW{3, 3}, weightMap[lname + "conv2.weight"], emptywts);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*relu1->getOutput(0), outch, DimsHW{3, 3}, weightMap[lname + "conv2.weight"], emptywts);
     assert(conv2);
-    conv2->setStride(DimsHW{stride, stride});
-    conv2->setPadding(DimsHW{1, 1});
+    conv2->setStrideNd(DimsHW{stride, stride});
+    conv2->setPaddingNd(DimsHW{1, 1});
 
     IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "bn2", 1e-5);
 
     IActivationLayer* relu2 = network->addActivation(*bn2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
 
-    IConvolutionLayer* conv3 = network->addConvolution(*relu2->getOutput(0), outch * 4, DimsHW{1, 1}, weightMap[lname + "conv3.weight"], emptywts);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*relu2->getOutput(0), outch * 4, DimsHW{1, 1}, weightMap[lname + "conv3.weight"], emptywts);
     assert(conv3);
 
     IScaleLayer* bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "bn3", 1e-5);
 
     IElementWiseLayer* ew1;
     if (stride != 1 || inch != outch * 4) {
-        IConvolutionLayer* conv4 = network->addConvolution(input, outch * 4, DimsHW{1, 1}, weightMap[lname + "downsample.0.weight"], emptywts);
+        IConvolutionLayer* conv4 = network->addConvolutionNd(input, outch * 4, DimsHW{1, 1}, weightMap[lname + "downsample.0.weight"], emptywts);
         assert(conv4);
-        conv4->setStride(DimsHW{stride, stride});
+        conv4->setStrideNd(DimsHW{stride, stride});
 
         IScaleLayer* bn4 = addBatchNorm2d(network, weightMap, *conv4->getOutput(0), lname + "downsample.1", 1e-5);
         ew1 = network->addElementWise(*bn4->getOutput(0), *bn3->getOutput(0), ElementWiseOperation::kSUM);
@@ -243,10 +252,10 @@ IActivationLayer* bottleneck(INetworkDefinition *network, std::map<std::string, 
 ILayer* conv_bn_relu(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int kernelsize, int stride, int padding, bool userelu, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{kernelsize, kernelsize}, getWeights(weightMap, lname + ".0.weight"), emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{kernelsize, kernelsize}, getWeights(weightMap, lname + ".0.weight"), emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{stride, stride});
-    conv1->setPadding(DimsHW{padding, padding});
+    conv1->setStrideNd(DimsHW{stride, stride});
+    conv1->setPaddingNd(DimsHW{padding, padding});
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".1", 1e-5);
 
@@ -272,10 +281,10 @@ IActivationLayer* ssh(INetworkDefinition *network, std::map<std::string, Weights
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt) {
-    INetworkDefinition* network = builder->createNetwork();
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
@@ -283,10 +292,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     // ------------- backbone resnet50 ---------------
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 64, DimsHW{7, 7}, weightMap["body.conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{7, 7}, weightMap["body.conv1.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{2, 2});
-    conv1->setPadding(DimsHW{3, 3});
+    conv1->setStrideNd(DimsHW{2, 2});
+    conv1->setPaddingNd(DimsHW{3, 3});
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "body.bn1", 1e-5);
 
@@ -295,10 +304,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     assert(relu1);
 
     // Add max pooling layer with stride of 2x2 and kernel size of 2x2.
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
-    pool1->setPadding(DimsHW{1, 1});
+    pool1->setStrideNd(DimsHW{2, 2});
+    pool1->setPaddingNd(DimsHW{1, 1});
 
     IActivationLayer* x = bottleneck(network, weightMap, *pool1->getOutput(0), 64, 64, 1, "body.layer1.0.");
     x = bottleneck(network, weightMap, *x->getOutput(0), 256, 64, 1, "body.layer1.1.");
@@ -333,18 +342,18 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
         deval[i] = 1.0;
     }
     Weights deconvwts{DataType::kFLOAT, deval, 256 * 2 * 2};
-    IDeconvolutionLayer* up3 = network->addDeconvolution(*output3->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
+    IDeconvolutionLayer* up3 = network->addDeconvolutionNd(*output3->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
     assert(up3);
-    up3->setStride(DimsHW{2, 2});
+    up3->setStrideNd(DimsHW{2, 2});
     up3->setNbGroups(256);
     weightMap["up3"] = deconvwts;
 
     output2 = network->addElementWise(*output2->getOutput(0), *up3->getOutput(0), ElementWiseOperation::kSUM);
     output2 = conv_bn_relu(network, weightMap, *output2->getOutput(0), 256, 3, 1, 1, true, "fpn.merge2");
 
-    IDeconvolutionLayer* up2 = network->addDeconvolution(*output2->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
+    IDeconvolutionLayer* up2 = network->addDeconvolutionNd(*output2->getOutput(0), 256, DimsHW{2, 2}, deconvwts, emptywts);
     assert(up2);
-    up2->setStride(DimsHW{2, 2});
+    up2->setStrideNd(DimsHW{2, 2});
     up2->setNbGroups(256);
     output1 = network->addElementWise(*output1->getOutput(0), *up2->getOutput(0), ElementWiseOperation::kSUM);
     output1 = conv_bn_relu(network, weightMap, *output1->getOutput(0), 256, 3, 1, 1, true, "fpn.merge1");
@@ -355,17 +364,17 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto ssh3 = ssh(network, weightMap, *output3->getOutput(0), "ssh3");
 
     // ------------- Head ---------------
-    auto bbox_head1 = network->addConvolution(*ssh1->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.0.conv1x1.weight"], weightMap["BboxHead.0.conv1x1.bias"]);
-    auto bbox_head2 = network->addConvolution(*ssh2->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.1.conv1x1.weight"], weightMap["BboxHead.1.conv1x1.bias"]);
-    auto bbox_head3 = network->addConvolution(*ssh3->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.2.conv1x1.weight"], weightMap["BboxHead.2.conv1x1.bias"]);
+    auto bbox_head1 = network->addConvolutionNd(*ssh1->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.0.conv1x1.weight"], weightMap["BboxHead.0.conv1x1.bias"]);
+    auto bbox_head2 = network->addConvolutionNd(*ssh2->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.1.conv1x1.weight"], weightMap["BboxHead.1.conv1x1.bias"]);
+    auto bbox_head3 = network->addConvolutionNd(*ssh3->getOutput(0), 2 * 4, DimsHW{1, 1}, weightMap["BboxHead.2.conv1x1.weight"], weightMap["BboxHead.2.conv1x1.bias"]);
 
-    auto cls_head1 = network->addConvolution(*ssh1->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.0.conv1x1.weight"], weightMap["ClassHead.0.conv1x1.bias"]);
-    auto cls_head2 = network->addConvolution(*ssh2->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.1.conv1x1.weight"], weightMap["ClassHead.1.conv1x1.bias"]);
-    auto cls_head3 = network->addConvolution(*ssh3->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.2.conv1x1.weight"], weightMap["ClassHead.2.conv1x1.bias"]);
+    auto cls_head1 = network->addConvolutionNd(*ssh1->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.0.conv1x1.weight"], weightMap["ClassHead.0.conv1x1.bias"]);
+    auto cls_head2 = network->addConvolutionNd(*ssh2->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.1.conv1x1.weight"], weightMap["ClassHead.1.conv1x1.bias"]);
+    auto cls_head3 = network->addConvolutionNd(*ssh3->getOutput(0), 2 * 2, DimsHW{1, 1}, weightMap["ClassHead.2.conv1x1.weight"], weightMap["ClassHead.2.conv1x1.bias"]);
 
-    auto lmk_head1 = network->addConvolution(*ssh1->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.0.conv1x1.weight"], weightMap["LandmarkHead.0.conv1x1.bias"]);
-    auto lmk_head2 = network->addConvolution(*ssh2->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.1.conv1x1.weight"], weightMap["LandmarkHead.1.conv1x1.bias"]);
-    auto lmk_head3 = network->addConvolution(*ssh3->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.2.conv1x1.weight"], weightMap["LandmarkHead.2.conv1x1.bias"]);
+    auto lmk_head1 = network->addConvolutionNd(*ssh1->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.0.conv1x1.weight"], weightMap["LandmarkHead.0.conv1x1.bias"]);
+    auto lmk_head2 = network->addConvolutionNd(*ssh2->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.1.conv1x1.weight"], weightMap["LandmarkHead.1.conv1x1.bias"]);
+    auto lmk_head3 = network->addConvolutionNd(*ssh3->getOutput(0), 2 * 10, DimsHW{1, 1}, weightMap["LandmarkHead.2.conv1x1.weight"], weightMap["LandmarkHead.2.conv1x1.bias"]);
 
     // ------------- Decode bbox, conf, landmark ---------------
     ITensor* inputTensors1[] = {bbox_head1->getOutput(0), cls_head1->getOutput(0), lmk_head1->getOutput(0)};
@@ -374,24 +383,26 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     auto cat2 = network->addConcatenation(inputTensors2, 3);
     ITensor* inputTensors3[] = {bbox_head3->getOutput(0), cls_head3->getOutput(0), lmk_head3->getOutput(0)};
     auto cat3 = network->addConcatenation(inputTensors3, 3);
-    auto decode = new DecodePlugin();
+
+    auto creator = getPluginRegistry()->getPluginCreator("Decode_TRT", "1");
+    PluginFieldCollection pfc;
+    IPluginV2 *pluginObj = creator->createPlugin("decode", &pfc);
     ITensor* inputTensors[] = {cat1->getOutput(0), cat2->getOutput(0), cat3->getOutput(0)};
-    auto decodelayer = network->addPlugin(inputTensors, 3, *decode);
+    auto decodelayer = network->addPluginV2(inputTensors, 3, *pluginObj);
     assert(decodelayer);
-    decodelayer->setName("decode");
 
     decodelayer->getOutput(0)->setName(OUTPUT_BLOB_NAME);
-    std::cout << "set name out, start building trt engine..." << std::endl;
     network->markOutput(*decodelayer->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
+    config->setMaxWorkspaceSize(1 << 20);
 #ifdef USE_FP16
-    builder->setFp16Mode(true);
+    config->setFlag(BuilderFlag::kFP16);
 #endif
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
-    std::cout << "build out" << std::endl;
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
     network->destroy();
@@ -409,9 +420,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -473,9 +485,8 @@ int main(int argc, char** argv) {
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("retina_r50.engine");
-        if (!p)
-        {
+        std::ofstream p("retina_r50.engine", std::ios::binary);
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
@@ -511,10 +522,9 @@ int main(int argc, char** argv) {
         data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[2] - 123.0;
     }
 
-    PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, &pf);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     //ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
