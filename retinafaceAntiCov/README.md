@@ -27,7 +27,7 @@ sudo ./retinafaceAntiCov -s  // build and serialize model to file i.e. 'retinafa
 wget http://www.kaixian.tv/gd/d/file/201611/07/23efff3a26e2385620e719378c654fb1.jpg -O test.jpg
 sudo ./retinafaceAntiCov -d  // deserialize model file and run inference.
 
-3. check the images generated, as follows. out.jpg
+3. check the image generated, as follows 'out.jpg'
 ```
 
 <p align="center">

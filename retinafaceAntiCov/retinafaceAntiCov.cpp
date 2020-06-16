@@ -29,8 +29,8 @@
 using namespace nvinfer1;
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = 640;
-static const int INPUT_W = 640;
+static const int INPUT_H = decodeplugin::INPUT_H;
+static const int INPUT_W = decodeplugin::INPUT_W;
 static const int DETECTION_SIZE = sizeof(decodeplugin::Detection) / sizeof(float);
 static const int OUTPUT_SIZE = (INPUT_H / 8 * INPUT_W / 8 + INPUT_H / 16 * INPUT_W / 16 + INPUT_H / 32 * INPUT_W / 32) * 2  * DETECTION_SIZE + 1;
 const char* INPUT_BLOB_NAME = "data";
