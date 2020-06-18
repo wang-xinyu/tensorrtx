@@ -88,11 +88,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
 
-Detection net FPS test including inference and nms time, excluding image preprocess time.
-
 Help wanted, if you got speed results, please add an issue or PR.
-
-Thanks @Kmarconi for yolov3(darknet53) speed test.
 
 ## Acknowledgments & Contact
 

@@ -42,6 +42,7 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 - Input shape `INPUT_H`, `INPUT_W` defined in `decode.h`
 - FP16/FP32 can be selected by the macro `USE_FP16` in `retina_r50.cpp`
 - GPU id can be selected by the macro `DEVICE` in `retina_r50.cpp`
+- Batchsize can be selected by the macro `BATCHSIZE` in `retina_r50.cpp`
 
 ## More Information
 
