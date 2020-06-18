@@ -13,6 +13,15 @@ namespace nvinfer1
         mYoloKernel.push_back(yolo3);
 
         mKernelCount = mYoloKernel.size();
+
+        CUDA_CHECK(cudaMallocHost(&mAnchor, mKernelCount * sizeof(void*)));
+        size_t AnchorLen = sizeof(float)* CHECK_COUNT*2;
+        for(int ii = 0; ii < mKernelCount; ii ++)
+        {
+            CUDA_CHECK(cudaMalloc(&mAnchor[ii],AnchorLen));
+            const auto& yolo = mYoloKernel[ii];
+            CUDA_CHECK(cudaMemcpy(mAnchor[ii], yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
+        }
     }
     
     YoloLayerPlugin::~YoloLayerPlugin()
@@ -31,6 +40,15 @@ namespace nvinfer1
         auto kernelSize = mKernelCount*sizeof(YoloKernel);
         memcpy(mYoloKernel.data(),d,kernelSize);
         d += kernelSize;
+
+        CUDA_CHECK(cudaMallocHost(&mAnchor, mKernelCount * sizeof(void*)));
+        size_t AnchorLen = sizeof(float)* CHECK_COUNT*2;
+        for(int ii = 0; ii < mKernelCount; ii ++)
+        {
+            CUDA_CHECK(cudaMalloc(&mAnchor[ii],AnchorLen));
+            const auto& yolo = mYoloKernel[ii];
+            CUDA_CHECK(cudaMemcpy(mAnchor[ii], yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
+        }
 
         assert(d == a + length);
     }
@@ -179,9 +197,6 @@ namespace nvinfer1
     }
 
     void YoloLayerPlugin::forwardGpu(const float *const * inputs, float* output, cudaStream_t stream, int batchSize) {
-        void* devAnchor;
-        size_t AnchorLen = sizeof(float)* CHECK_COUNT*2;
-        CUDA_CHECK(cudaMalloc(&devAnchor,AnchorLen));
 
         int outputElem = 1 + MAX_OUTPUT_BBOX_COUNT * sizeof(Detection) / sizeof(float);
 
@@ -195,12 +210,10 @@ namespace nvinfer1
             numElem = yolo.width*yolo.height*batchSize;
             if (numElem < mThreadCount)
                 mThreadCount = numElem;
-            CUDA_CHECK(cudaMemcpy(devAnchor, yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
             CalDetection<<< (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount>>>
-                (inputs[i],output, numElem, yolo.width, yolo.height, (float *)devAnchor, mClassCount ,outputElem);
+                (inputs[i],output, numElem, yolo.width, yolo.height, (float *)mAnchor[i], mClassCount ,outputElem);
         }
 
-        CUDA_CHECK(cudaFree(devAnchor));
     }
 
 
