@@ -23,6 +23,7 @@
 
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
+#define BATCH_SIZE 1
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = decodeplugin::INPUT_H;  // H, W must be able to  be divided by 32.
@@ -482,7 +483,7 @@ int main(int argc, char** argv) {
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
-        APIToModel(1, &modelStream);
+        APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
 
         std::ofstream p("retina_r50.engine", std::ios::binary);
@@ -509,17 +510,23 @@ int main(int argc, char** argv) {
     }
 
     // prepare input data ---------------------------
-    static float data[3 * INPUT_H * INPUT_W];
+    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
 
     cv::Mat img = cv::imread("worlds-largest-selfie.jpg");
     cv::Mat pr_img = preprocess_img(img);
     //cv::imwrite("preprocessed.jpg", pr_img);
-    for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-        data[i] = pr_img.at<cv::Vec3b>(i)[0] - 104.0;
-        data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] - 117.0;
-        data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[2] - 123.0;
+
+    // For multi-batch, I feed the same image multiple times.
+    // If you want to process different images in a batch, you need adapt it.
+    for (int b = 0; b < BATCH_SIZE; b++) {
+        float *p_data = &data[b * 3 * INPUT_H * INPUT_W];
+        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
+            p_data[i] = pr_img.at<cv::Vec3b>(i)[0] - 104.0;
+            p_data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] - 117.0;
+            p_data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[2] - 123.0;
+        }
     }
 
     IRuntime* runtime = createInferRuntime(gLogger);
@@ -531,28 +538,30 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
 
     // Run inference
-    static float prob[OUTPUT_SIZE];
-    std::vector<decodeplugin::Detection> res;
-    for (int i = 0; i < 20; i++) {
-        res.clear();
-        auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, 1);
-        nms(res, prob);
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    }
-    std::cout << "detected before nms -> " << prob[0] << std::endl;
-    std::cout << "after nms -> " << res.size() << std::endl;
-    for (size_t j = 0; j < res.size(); j++) {
-        if (res[j].class_confidence < 0.1) continue;
-        cv::Rect r = get_rect_adapt_landmark(img, res[j].bbox, res[j].landmark);
-        cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-        //cv::putText(img, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
-        for (int k = 0; k < 10; k += 2) {
-            cv::circle(img, cv::Point(res[j].landmark[k], res[j].landmark[k + 1]), 1, cv::Scalar(255 * (k > 2), 255 * (k > 0 && k < 8), 255 * (k < 6)), 4);
+    static float prob[BATCH_SIZE * OUTPUT_SIZE];
+    auto start = std::chrono::system_clock::now();
+    doInference(*context, data, prob, BATCH_SIZE);
+    auto end = std::chrono::system_clock::now();
+    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+
+    for (int b = 0; b < BATCH_SIZE; b++) {
+        std::vector<decodeplugin::Detection> res;
+        nms(res, &prob[b * OUTPUT_SIZE]);
+        std::cout << "number of detections -> " << prob[b * OUTPUT_SIZE] << std::endl;
+        std::cout << " -> " << prob[b * OUTPUT_SIZE + 10] << std::endl;
+        std::cout << "after nms -> " << res.size() << std::endl;
+        cv::Mat tmp = img.clone();
+        for (size_t j = 0; j < res.size(); j++) {
+            if (res[j].class_confidence < 0.1) continue;
+            cv::Rect r = get_rect_adapt_landmark(tmp, res[j].bbox, res[j].landmark);
+            cv::rectangle(tmp, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+            //cv::putText(tmp, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
+            for (int k = 0; k < 10; k += 2) {
+                cv::circle(tmp, cv::Point(res[j].landmark[k], res[j].landmark[k + 1]), 1, cv::Scalar(255 * (k > 2), 255 * (k > 0 && k < 8), 255 * (k < 6)), 4);
+            }
         }
+        cv::imwrite(std::to_string(b) + "_result.jpg", tmp);
     }
-    cv::imwrite("result.jpg", img);
 
     // Destroy the engine
     context->destroy();
