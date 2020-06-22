@@ -110,6 +110,7 @@ namespace nvinfer1
             int mKernelCount;
             std::vector<Yolo::YoloKernel> mYoloKernel;
             int mThreadCount = 256;
+            void** mAnchor;
             const char* mPluginNamespace;
     };
 
