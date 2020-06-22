@@ -45,6 +45,7 @@ sudo ./yolov5s -d  ../samples // deserialize plan file and run inference, the im
 - GPU id can be selected by the macro in yolov5s.cpp
 - NMS thresh in yolov5s.cpp
 - BBox confidence thresh in yolov5s.cpp
+- Batch size in yolov5s.cpp
 
 ## More Information
 

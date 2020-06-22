@@ -8,6 +8,7 @@
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.5
 #define CONF_THRESH 0.4
+#define BATCH_SIZE 1
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
@@ -159,7 +160,7 @@ int main(int argc, char** argv) {
 
     if (argc == 2 && std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
-        APIToModel(1, &modelStream);
+        APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
         std::ofstream p("yolov5s.engine", std::ios::binary);
         if (!p) {
@@ -194,10 +195,10 @@ int main(int argc, char** argv) {
     }
 
     // prepare input data ---------------------------
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
-    static float prob[OUTPUT_SIZE];
+    static float prob[BATCH_SIZE * OUTPUT_SIZE];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
@@ -207,40 +208,42 @@ int main(int argc, char** argv) {
     delete[] trtModelStream;
 
     int fcount = 0;
-    for (auto f: file_names) {
+    for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
-        std::cout << fcount << "  " << f << std::endl;
-        cv::Mat img = cv::imread(std::string(argv[2]) + "/" + f);
-        if (img.empty()) continue;
-        cv::Mat pr_img = preprocess_img(img);
-        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-            data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
-            data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
-            data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
+        if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
+        for (int b = 0; b < fcount; b++) {
+            cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - fcount + 1 + b]);
+            if (img.empty()) continue;
+            cv::Mat pr_img = preprocess_img(img);
+            for (int i = 0; i < INPUT_H * INPUT_W; i++) {
+                data[b * 3 * INPUT_H * INPUT_W + i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
+                data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
+                data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
+            }
         }
 
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, 1);
+        doInference(*context, data, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-        std::vector<Yolo::Detection> res;
-        nms(res, prob, CONF_THRESH, NMS_THRESH);
-        for (int i=0; i<20; i++) {
-            std::cout << prob[i] << ",";
+        std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
+        for (int b = 0; b < fcount; b++) {
+            auto& res = batch_res[b];
+            nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);
         }
-        std::cout << res.size() << std::endl;
-        for (size_t j = 0; j < res.size(); j++) {
-            float *p = (float*)&res[j];
-            for (size_t k = 0; k < 7; k++) {
-                std::cout << p[k] << ", ";
+        for (int b = 0; b < fcount; b++) {
+            auto& res = batch_res[b];
+            //std::cout << res.size() << std::endl;
+            cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - fcount + 1 + b]);
+            for (size_t j = 0; j < res.size(); j++) {
+                cv::Rect r = get_rect(img, res[j].bbox);
+                cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+                cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
             }
-            std::cout << std::endl;
-            cv::Rect r = get_rect(img, res[j].bbox);
-            cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-            cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+            cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
-        cv::imwrite("_" + f, img);
+        fcount = 0;
     }
 
     // Destroy the engine
