@@ -2,6 +2,8 @@
 
 The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
 
+I was using [commit 6fd3939] of [ultralytics/yolov5](https://github.com/ultralytics/yolov5). And I made a copy of [yolov5s.pt(google drive)](https://drive.google.com/file/d/1w38DgmrP3iwiJi_AOdabuuE_zanMhO5_/view?usp=sharing). Just in case the yolov5 model updated.
+
 ## How to Run
 
 ```
