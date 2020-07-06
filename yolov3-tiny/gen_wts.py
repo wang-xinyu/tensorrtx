@@ -5,7 +5,7 @@ from utils.utils import *
 
 model = Darknet('cfg/yolov3-tiny.cfg', (608, 608))
 weights = sys.argv[1]
-dev = '0'
+device = torch_utils.select_device('0')
 if weights.endswith('.pt'):  # pytorch format
     model.load_state_dict(torch.load(weights, map_location=device)['model'])
 else:  # darknet format
