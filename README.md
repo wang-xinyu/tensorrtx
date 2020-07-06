@@ -13,6 +13,8 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
 - `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
 - `2 June 2020`. yolov3 and yolov3-spp migrated to TensorRT 7 API. The new yolov3 is using pytorch implementation [ultralytics/yolov3](https://github.com/ultralytics/yolov3), the yolov3 in branch `trt4` was using pytorch implementation [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3).
+- `23 June 2020`. Update yolov5-s model according to [ultralytics/yolov5](https://github.com/ultralytics/yolov5)'s PANet updates on 22 June 2020.
+- `6 July 2020`. Add yolov3-tiny, and got 333fps GTX1080.
 
 ## Tutorials
 
@@ -46,6 +48,7 @@ Following models are implemented.
 |[shufflenet](./shufflenetv2)| ShuffleNetV2 with 0.5x output channels |
 |[squeezenet](./squeezenet)| SqueezeNet 1.1 model |
 |[vgg](./vgg)| VGG 11-layer model |
+|[yolov3-tiny](./yolov3-tiny)| weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
@@ -80,15 +83,16 @@ Some tricky operations encountered in these models, already solved, but might ha
 
 | Models | Device | BatchSize | Mode | Input Shape(HxW) | FPS |
 |-|-|:-:|:-:|:-:|:-:|
+| YOLOv3-tiny | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 333 |
 | YOLOv3(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 39.2 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 94 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 38.5 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 35.7 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 40.9 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 41.3 | 
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 167 |
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 182 |
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 186 |
+| YOLOv5-s | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 142 |
+| YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 173 |
+| YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 190 |
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |

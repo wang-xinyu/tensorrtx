@@ -249,11 +249,6 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto pad11 = network->addPaddingNd(*lr10->getOutput(0), DimsHW{0, 0}, DimsHW{1, 1});
     auto pool11 = network->addPoolingNd(*pad11->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
     pool11->setStrideNd(DimsHW{1, 1});
-
-    Dims dims = pool11->getOutput(0)->getDimensions();
-    std::cout << "pool11 dims " << dims.d[0] << " " << dims.d[1] << " " << dims.d[2] << std::endl;
-
-
     auto lr12 = convBnLeaky(network, weightMap, *pool11->getOutput(0), 1024, 3, 1, 1, 12);
     auto lr13 = convBnLeaky(network, weightMap, *lr12->getOutput(0), 256, 1, 1, 0, 13);
     auto lr14 = convBnLeaky(network, weightMap, *lr13->getOutput(0), 512, 3, 1, 1, 14);
