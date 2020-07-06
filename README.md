@@ -14,7 +14,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
 - `2 June 2020`. yolov3 and yolov3-spp migrated to TensorRT 7 API. The new yolov3 is using pytorch implementation [ultralytics/yolov3](https://github.com/ultralytics/yolov3), the yolov3 in branch `trt4` was using pytorch implementation [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3).
 - `23 June 2020`. Update yolov5-s model according to [ultralytics/yolov5](https://github.com/ultralytics/yolov5)'s PANet updates on 22 June 2020.
-- `6 July 2020`. Add yolov3-tiny, and got 333fps GTX1080.
+- `6 July 2020`. Add yolov3-tiny, and got 333fps on GTX1080.
 
 ## Tutorials
 
