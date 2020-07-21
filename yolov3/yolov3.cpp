@@ -505,7 +505,7 @@ int main(int argc, char** argv) {
     }
 
     // prepare input data ---------------------------
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
     static float prob[OUTPUT_SIZE];
