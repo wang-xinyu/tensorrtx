@@ -9,7 +9,6 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
-#include "prelu.h"
 
 #define CHECK(status) \
     do\
@@ -35,7 +34,6 @@ static const int OUTPUT_SIZE = 512;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
-REGISTER_TENSORRT_PLUGIN(PReluPluginCreator);
 
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
@@ -111,16 +109,41 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 }
 
 ILayer* addPRelu(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname) {
-    auto creator = getPluginRegistry()->getPluginCreator("PRelu_TRT", "1");
-    PluginFieldCollection pfc;
-    PluginField pf("gamma", weightMap[lname + "_gamma"].values, PluginFieldType::kFLOAT32, weightMap[lname + "_gamma"].count);
-    pfc.nbFields = 1;
-    pfc.fields = &pf;
-    IPluginV2 *pluginObj = creator->createPlugin(lname.c_str(), &pfc);
-    ITensor* inputTensors[] = {&input};
-    auto prelu = network->addPluginV2(&inputTensors[0], 1, *pluginObj);
-    assert(prelu);
-    return prelu;
+	float *gamma = (float*)weightMap[lname + "_gamma"].values;
+	int len = weightMap[lname + "_gamma"].count;
+
+	float *scval_1 = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+	float *scval_2 = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+	for (int i = 0; i < len; i++) {
+		scval_1[i] = -1.0;
+		scval_2[i] = -gamma[i];
+	}
+	Weights scale_1{ DataType::kFLOAT, scval_1, len };
+	Weights scale_2{ DataType::kFLOAT, scval_2, len };
+
+	float *shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+	for (int i = 0; i < len; i++) {
+		shval[i] = 0.0;
+	}
+	Weights shift{ DataType::kFLOAT, shval, len };
+
+	float *pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+	for (int i = 0; i < len; i++) {
+		pval[i] = 1.0;
+	}
+	Weights power{ DataType::kFLOAT, pval, len };
+
+	auto relu1 = network->addActivation(input, ActivationType::kRELU);
+	assert(relu1);
+	IScaleLayer* scale1 = network->addScale(input, ScaleMode::kCHANNEL, shift, scale_1, power);
+	assert(scale1);
+	auto relu2 = network->addActivation(*scale1->getOutput(0), ActivationType::kRELU);
+	assert(relu2);
+	IScaleLayer* scale2 = network->addScale(*relu2->getOutput(0), ScaleMode::kCHANNEL, shift, scale_2, power);
+	assert(scale2);
+	IElementWiseLayer* ew1 = network->addElementWise(*relu1->getOutput(0), *scale2->getOutput(0), ElementWiseOperation::kSUM);
+	assert(ew1);
+	return ew1;
 }
 
 ILayer* resUnit(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int num_filters, int s, bool dim_match, std::string lname) {
