@@ -40,9 +40,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto bottleneck_csp6 = bottleneckCSP(network, weightMap, *conv5->getOutput(0), 256, 256, 3, true, 1, 0.5, "model.6");
     auto conv7 = convBnLeaky(network, weightMap, *bottleneck_csp6->getOutput(0), 512, 3, 2, 1, "model.7");
     auto spp8 = SPP(network, weightMap, *conv7->getOutput(0), 512, 512, 5, 9, 13, "model.8");
+    auto bottleneck_csp9 = bottleneckCSP(network, weightMap, *spp8->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.9");
 
     // yolov5 head
-    auto bottleneck_csp9 = bottleneckCSP(network, weightMap, *spp8->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.9");
     auto conv10 = convBnLeaky(network, weightMap, *bottleneck_csp9->getOutput(0), 256, 1, 1, 1, "model.10");
 
     float *deval = reinterpret_cast<float*>(malloc(sizeof(float) * 256 * 2 * 2));
@@ -68,24 +68,24 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* inputTensors16[] = {deconv15->getOutput(0), bottleneck_csp4->getOutput(0)};
     auto cat16 = network->addConcatenation(inputTensors16, 2);
     auto bottleneck_csp17 = bottleneckCSP(network, weightMap, *cat16->getOutput(0), 256, 128, 1, false, 1, 0.5, "model.17");
-    IConvolutionLayer* conv18 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.18.weight"], weightMap["model.18.bias"]);
+    IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
 
-    auto conv19 = convBnLeaky(network, weightMap, *bottleneck_csp17->getOutput(0), 128, 3, 2, 1, "model.19");
-    ITensor* inputTensors20[] = {conv19->getOutput(0), conv14->getOutput(0)};
-    auto cat20 = network->addConcatenation(inputTensors20, 2);
-    auto bottleneck_csp21 = bottleneckCSP(network, weightMap, *cat20->getOutput(0), 256, 256, 1, false, 1, 0.5, "model.21");
-    IConvolutionLayer* conv22 = network->addConvolutionNd(*bottleneck_csp21->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.22.weight"], weightMap["model.22.bias"]);
+    auto conv18 = convBnLeaky(network, weightMap, *bottleneck_csp17->getOutput(0), 128, 3, 2, 1, "model.18");
+    ITensor* inputTensors19[] = {conv18->getOutput(0), conv14->getOutput(0)};
+    auto cat19 = network->addConcatenation(inputTensors19, 2);
+    auto bottleneck_csp20 = bottleneckCSP(network, weightMap, *cat19->getOutput(0), 256, 256, 1, false, 1, 0.5, "model.20");
+    IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
 
-    auto conv23 = convBnLeaky(network, weightMap, *bottleneck_csp21->getOutput(0), 256, 3, 2, 1, "model.23");
-    ITensor* inputTensors24[] = {conv23->getOutput(0), conv10->getOutput(0)};
-    auto cat24 = network->addConcatenation(inputTensors24, 2);
-    auto bottleneck_csp25 = bottleneckCSP(network, weightMap, *cat24->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.25");
-    IConvolutionLayer* conv26 = network->addConvolutionNd(*bottleneck_csp25->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.26.weight"], weightMap["model.26.bias"]);
+    auto conv21 = convBnLeaky(network, weightMap, *bottleneck_csp20->getOutput(0), 256, 3, 2, 1, "model.21");
+    ITensor* inputTensors22[] = {conv21->getOutput(0), conv10->getOutput(0)};
+    auto cat22 = network->addConcatenation(inputTensors22, 2);
+    auto bottleneck_csp23 = bottleneckCSP(network, weightMap, *cat22->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.23");
+    IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     const PluginFieldCollection* pluginData = creator->getFieldNames();
     IPluginV2 *pluginObj = creator->createPlugin("yololayer", pluginData);
-    ITensor* inputTensors_yolo[] = {conv26->getOutput(0), conv22->getOutput(0), conv18->getOutput(0)};
+    ITensor* inputTensors_yolo[] = {det2->getOutput(0), det1->getOutput(0), det0->getOutput(0)};
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
 
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
