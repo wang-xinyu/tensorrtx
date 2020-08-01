@@ -11,8 +11,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(/usr/local/cuda-9.0/targets/aarch64-linux/include)
-link_directories(/usr/local/cuda-9.0/targets/aarch64-linux/lib)
+include_directories(/usr/local/cuda/include)
+link_directories(/usr/local/cuda/lib64)
 
 FILE(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/main.cpp ${PROJECT_SOURCE_DIR}/include/*.h)
 
