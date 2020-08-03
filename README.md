@@ -87,7 +87,6 @@ Some tricky operations encountered in these models, already solved, but might ha
 |-|-|:-:|:-:|:-:|:-:|
 | YOLOv3-tiny | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 333 |
 | YOLOv3(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 39.2 |
-| YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 256x416 | 94 |
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 38.5 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 35.7 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 40.9 |
@@ -95,6 +94,9 @@ Some tricky operations encountered in these models, already solved, but might ha
 | YOLOv5-s | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 142 |
 | YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 173 |
 | YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 190 |
+| YOLOv5-m | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 71 |
+| YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 40 |
+| YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 27 |
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
