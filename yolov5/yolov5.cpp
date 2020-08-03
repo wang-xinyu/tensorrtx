@@ -11,7 +11,7 @@
 #define BATCH_SIZE 1
 
 #define NET s  // s m l x
-#define NETSTRUCT(str)  createEngine_##str
+#define NETSTRUCT(str) createEngine_##str
 #define CREATENET(net) NETSTRUCT(net)
 #define STR1(x) #x
 #define STR2(x) STR1(x)

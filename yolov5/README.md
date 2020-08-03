@@ -2,7 +2,7 @@
 
 The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
 
-I made a copy of [yolov5s.pt(google drive)](https://drive.google.com/drive/folders/1Yaamfa-t_V3ImxYRBESqGzy7k4Arlt95?usp=sharing). Just in case the yolov5 model updated.
+I made a copy of [yolov5-s/m/l/x.pt(google drive)](https://drive.google.com/drive/folders/1Yaamfa-t_V3ImxYRBESqGzy7k4Arlt95?usp=sharing). Just in case the yolov5 model updated.
 
 ## Config
 
@@ -25,6 +25,7 @@ git clone https://github.com/ultralytics/yolov5.git
 // download its weights 'yolov5s.pt'
 cd yolov5
 cp ../tensorrtx/yolov5/gen_wts.py .
+// ensure the file name is yolov5s.pt and yolov5s.wts in gen_wts.py
 python gen_wts.py
 // a file 'yolov5s.wts' will be generated.
 
@@ -32,7 +33,7 @@ python gen_wts.py
 
 mv yolov5s.wts ../tensorrtx/yolov5/
 cd ../tensorrtx/yolov5
-ensure the macro NET in yolov5.cpp is s
+// ensure the macro NET in yolov5.cpp is s
 mkdir build
 cd build
 cmake ..
