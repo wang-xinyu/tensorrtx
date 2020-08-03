@@ -31,11 +31,11 @@ cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
 
-add_executable(yolov5s ${PROJECT_SOURCE_DIR}/yolov5s.cpp)
-target_link_libraries(yolov5s nvinfer)
-target_link_libraries(yolov5s cudart)
-target_link_libraries(yolov5s yololayer)
-target_link_libraries(yolov5s ${OpenCV_LIBS})
+add_executable(yolov5 ${PROJECT_SOURCE_DIR}/yolov5.cpp)
+target_link_libraries(yolov5 nvinfer)
+target_link_libraries(yolov5 cudart)
+target_link_libraries(yolov5 yololayer)
+target_link_libraries(yolov5 ${OpenCV_LIBS})
 
 add_definitions(-O2 -pthread)
 
