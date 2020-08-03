@@ -516,7 +516,6 @@ int main(int argc, char** argv) {
     }
 
     std::vector<std::string> file_names;
-	file_names.push_back("E:\\Datasets\\bus.jpg");
     if (read_files_in_dir(argv[2], file_names) < 0) {
         std::cout << "read_files_in_dir failed." << std::endl;
         return -1;
