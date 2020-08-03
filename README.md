@@ -16,6 +16,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - `23 June 2020`. Update yolov5-s model according to [ultralytics/yolov5](https://github.com/ultralytics/yolov5)'s PANet updates on 22 June 2020.
 - `6 July 2020`. Add yolov3-tiny, and got 333fps on GTX1080.
 - `1 Aug 2020`. Update yolov5-s model, according to its July 23, 2020: v2.0 release.
+- `3 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) implemented yolov5 s/m/l/x (yolov5 v2.0 release).
 
 ## Tutorials
 
@@ -53,7 +54,7 @@ Following models are implemented.
 |[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
-|[yolov5](./yolov5)| yolov5-s, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+|[yolov5](./yolov5)| yolov5-s/m/l/x, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
 |[retinaface](./retinaface)| resnet-50, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
