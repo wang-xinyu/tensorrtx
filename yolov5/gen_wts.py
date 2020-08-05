@@ -1,8 +1,9 @@
-from utils.utils import *
+import torch
 import struct
+from utils.torch_utils import select_device
 
 # Initialize
-device = torch_utils.select_device('0')
+device = select_device('cpu')
 # Load model
 model = torch.load('weights/yolov5s.pt', map_location=device)['model'].float()  # load to FP32
 model.to(device).eval()
