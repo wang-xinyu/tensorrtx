@@ -372,9 +372,9 @@ int main(int argc, char** argv) {
 
     cv::Mat img = cv::imread("../joey0.ppm");
     for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-        data[i] = ((float)img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
+        data[i] = ((float)img.at<cv::Vec3b>(i)[2] - 127.5) * 0.0078125;
         data[i + INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[1] - 127.5) * 0.0078125;
-        data[i + 2 * INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[2] - 127.5) * 0.0078125;
+        data[i + 2 * INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
     }
 
     // Run inference
@@ -389,9 +389,9 @@ int main(int argc, char** argv) {
 
     img = cv::imread("../joey1.ppm");
     for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-        data[i] = ((float)img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
+        data[i] = ((float)img.at<cv::Vec3b>(i)[2] - 127.5) * 0.0078125;
         data[i + INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[1] - 127.5) * 0.0078125;
-        data[i + 2 * INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[2] - 127.5) * 0.0078125;
+        data[i + 2 * INPUT_H * INPUT_W] = ((float)img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
     }
 
     // Run inference
