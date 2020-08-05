@@ -550,9 +550,9 @@ int main(int argc, char** argv) {
             for (int row = 0; row < INPUT_H; ++row) {
                 uchar* uc_pixel = pr_img.data + row * pr_img.step;
                 for (int col = 0; col < INPUT_W; ++col) {
-                    data[b * 3 * INPUT_H * INPUT_W + i] = uc_pixel[2] / 255;
-                    data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = uc_pixel[1] / 255.0;
-                    data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = uc_pixel[0] / 255.0;
+                    data[b * 3 * INPUT_H * INPUT_W + i] = (float)uc_pixel[2] / 255.0;
+                    data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = (float)uc_pixel[1] / 255.0;
+                    data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = (float)uc_pixel[0] / 255.0;
                     uc_pixel += 3;
                     ++i;
                 }
