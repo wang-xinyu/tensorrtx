@@ -93,7 +93,7 @@ bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
 void nms(std::vector<Yolo::Detection>& res, float *output, float conf_thresh, float nms_thresh = 0.5) {
     int det_size = sizeof(Yolo::Detection) / sizeof(float);
     std::map<float, std::vector<Yolo::Detection>> m;
-    for (int i = 0; i < output[0] && i < 1000; i++) {
+    for (int i = 0; i < output[0] && i < Yolo::MAX_OUTPUT_BBOX_COUNT; i++) {
         if (output[1 + det_size * i + 4] <= conf_thresh) continue;
         Yolo::Detection det;
         memcpy(&det, &output[1 + det_size * i], det_size * sizeof(float));
