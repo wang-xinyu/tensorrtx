@@ -24,7 +24,6 @@ win版本请看最后的链接。
   sudo ./dbnet -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
   ```
 
-  ![image-20200807183412846](./img.jpg)
 
 ## windows版本
 
