@@ -2,6 +2,10 @@
 
 The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorch).
 
+<p align="center">
+<img src="https://user-images.githubusercontent.com/20653176/89722330-00c36900-da1b-11ea-97f4-c61f9cd196fa.png">
+</p>
+
 ## How to Run
 
 win版本请看最后的链接。
