@@ -2,10 +2,10 @@
 
 The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
 
-Currently, we support yolov5 v1.0(yolov5s only) and v2.0(yolov5 s/m/l/x).
+Currently, we support yolov5 v1.0(yolov5s only), v2.0 and v3.0.
 
+- For yolov5 v3.0, please visit [yolov5 release v3.0](https://github.com/ultralytics/yolov5/releases/tag/v3.0), and use the latest commit of this repo.
 - For yolov5 v2.0, please visit [yolov5 release v2.0](https://github.com/ultralytics/yolov5/releases/tag/v2.0), and checkout commit ['7cd092d'](https://github.com/wang-xinyu/tensorrtx/commit/7cd092d38289123442157cf7defab78e816f4440) of this repo or use the latest commit.
-
 - For yolov5 v1.0, please visit [yolov5 release v1.0](https://github.com/ultralytics/yolov5/releases/tag/v1.0), and checkout commit ['0504551'](https://github.com/wang-xinyu/tensorrtx/commit/0504551c0b7d0bac5f998eda349810ba410715de) of this repo.
 
 ## Config
