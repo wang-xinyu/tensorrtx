@@ -10,7 +10,7 @@
 #define CONF_THRESH 0.5
 #define BATCH_SIZE 1
 
-#define NET x  // s m l x
+#define NET s  // s m l x
 #define NETSTRUCT(str) createEngine_##str
 #define CREATENET(net) NETSTRUCT(net)
 #define STR1(x) #x
