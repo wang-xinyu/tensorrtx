@@ -21,6 +21,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
 - [Migrating from TensorRT 4 to 7](./tutorials/migrating_from_tensorrt_4_to_7.md)
 - [How to implement multi-GPU processing, taking YOLOv4 as example](./tutorials/multi_GPU_processing.md)
+- [Check if Your GPU support FP16/INT8](./tutorials/check_fp16_int8_support.md)
 - [Frequently Asked Questions (FAQ)](./tutorials/faq.md)
 
 ## Test Environment
