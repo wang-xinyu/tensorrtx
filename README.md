@@ -10,13 +10,11 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
-- `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
-- `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
-- `2 June 2020`. yolov3 and yolov3-spp migrated to TensorRT 7 API. The new yolov3 is using pytorch implementation [ultralytics/yolov3](https://github.com/ultralytics/yolov3), the yolov3 in branch `trt4` was using pytorch implementation [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3).
-- `23 June 2020`. Update yolov5-s model according to [ultralytics/yolov5](https://github.com/ultralytics/yolov5)'s PANet updates on 22 June 2020.
-- `6 July 2020`. Add yolov3-tiny, and got 333fps on GTX1080.
-- `1 Aug 2020`. Update yolov5-s model, according to its July 23, 2020: v2.0 release.
+- `14 Aug 2020`. Update yolov5 to v3.0 release.
 - `3 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) implemented yolov5 s/m/l/x (yolov5 v2.0 release).
+- `6 July 2020`. Add yolov3-tiny, and got 333fps on GTX1080.
+- `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
+- `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
 
 ## Tutorials
 
@@ -55,7 +53,7 @@ Following models are implemented.
 |[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
-|[yolov5](./yolov5)| yolov5-s/m/l/x, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+|[yolov5](./yolov5)| yolov5-s/m/l/x v1.0 v2.0 v3.0, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
 |[retinaface](./retinaface)| resnet-50, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
@@ -81,6 +79,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |retinaface output decode| implement a plugin to decode bbox, confidence and landmarks, see retinaface. |
 |mish| mish activation is implemented as a plugin, mish is used in yolov4 |
 |prelu| mxnet's prelu activation with trainable gamma is implemented as a plugin, used in arcface |
+|HardSwish| HardSwish activation is implemented as a plugin, used in yolov5 v3.0 |
 
 ## Speed Benchmark
 
@@ -96,8 +95,8 @@ Some tricky operations encountered in these models, already solved, but might ha
 | YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 173 |
 | YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 190 |
 | YOLOv5-m | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 71 |
-| YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 40 |
-| YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 27 |
+| YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 43 |
+| YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 29 |
 | RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
@@ -112,4 +111,4 @@ Any contributions, questions and discussions are welcomed, contact me by followi
 
 E-mail: wangxinyu_es@163.com
 
-WeChat ID: wangxinyu0375
+WeChat ID: wangxinyu0375 (可加我微信进tensorrtx交流群)

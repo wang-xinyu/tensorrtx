@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include "NvInfer.h"
 #include "yololayer.h"
+#include "hardswish.h"
 
 #define CHECK(status) \
     do\
@@ -125,7 +126,7 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
 
     // Open weights file
     std::ifstream input(file);
-    assert(input.is_open() && "Unable to load weight file.");
+    assert(input.is_open() && "Unable to load weight file. please check if the .wts file path is right!!!!!!");
 
     // Read number of weight blobs
     int32_t count;
@@ -190,7 +191,7 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
+ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int p = ksize / 2;
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap[lname + ".conv.weight"], emptywts);
@@ -199,9 +200,14 @@ ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>&
     conv1->setPaddingNd(DimsHW{p, p});
     conv1->setNbGroups(g);
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
-    auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
-    lr->setAlpha(0.1);
-    return lr;
+
+    auto creator = getPluginRegistry()->getPluginCreator("HardSwishLayer_TRT", "1");
+    const PluginFieldCollection* pluginData = creator->getFieldNames();
+    IPluginV2 *pluginObj = creator->createPlugin(("hardswish" + lname).c_str(), pluginData);
+    ITensor* inputTensors[] = {bn1->getOutput(0)};
+    auto hs = network->addPluginV2(inputTensors, 1, *pluginObj);
+
+    return hs;
 }
 
 ILayer* focus(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int ksize, std::string lname) {
@@ -211,13 +217,13 @@ ILayer* focus(INetworkDefinition *network, std::map<std::string, Weights>& weigh
     ISliceLayer *s4 = network->addSlice(input, Dims3{0, 1, 1}, Dims3{inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2}, Dims3{1, 2, 2});
     ITensor* inputTensors[] = {s1->getOutput(0), s2->getOutput(0), s3->getOutput(0), s4->getOutput(0)};
     auto cat = network->addConcatenation(inputTensors, 4);
-    auto conv = convBnLeaky(network, weightMap, *cat->getOutput(0), outch, ksize, 1, 1, lname + ".conv");
+    auto conv = convBlock(network, weightMap, *cat->getOutput(0), outch, ksize, 1, 1, lname + ".conv");
     return conv;
 }
 
 ILayer* bottleneck(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, bool shortcut, int g, float e, std::string lname) {
-    auto cv1 = convBnLeaky(network, weightMap, input, (int)((float)c2 * e), 1, 1, 1, lname + ".cv1");
-    auto cv2 = convBnLeaky(network, weightMap, *cv1->getOutput(0), c2, 3, 1, g, lname + ".cv2");
+    auto cv1 = convBlock(network, weightMap, input, (int)((float)c2 * e), 1, 1, 1, lname + ".cv1");
+    auto cv2 = convBlock(network, weightMap, *cv1->getOutput(0), c2, 3, 1, g, lname + ".cv2");
     if (shortcut && c1 == c2) {
         auto ew = network->addElementWise(input, *cv2->getOutput(0), ElementWiseOperation::kSUM);
         return ew;
@@ -228,7 +234,7 @@ ILayer* bottleneck(INetworkDefinition *network, std::map<std::string, Weights>& 
 ILayer* bottleneckCSP(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int n, bool shortcut, int g, float e, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int c_ = (int)((float)c2 * e);
-    auto cv1 = convBnLeaky(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
+    auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
     auto cv2 = network->addConvolutionNd(input, c_, DimsHW{1, 1}, weightMap[lname + ".cv2.weight"], emptywts);
     ITensor *y1 = cv1->getOutput(0);
     for (int i = 0; i < n; i++) {
@@ -244,13 +250,13 @@ ILayer* bottleneckCSP(INetworkDefinition *network, std::map<std::string, Weights
     auto lr = network->addActivation(*bn->getOutput(0), ActivationType::kLEAKY_RELU);
     lr->setAlpha(0.1);
 
-    auto cv4 = convBnLeaky(network, weightMap, *lr->getOutput(0), c2, 1, 1, 1, lname + ".cv4");
+    auto cv4 = convBlock(network, weightMap, *lr->getOutput(0), c2, 1, 1, 1, lname + ".cv4");
     return cv4;
 }
 
 ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k1, int k2, int k3, std::string lname) {
     int c_ = c1 / 2;
-    auto cv1 = convBnLeaky(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
+    auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
 
     auto pool1 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{k1, k1});
     pool1->setPaddingNd(DimsHW{k1 / 2, k1 / 2});
@@ -265,7 +271,7 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
     ITensor* inputTensors[] = {cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0)};
     auto cat = network->addConcatenation(inputTensors, 4);
 
-    auto cv2 = convBnLeaky(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
+    auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
 }
 
