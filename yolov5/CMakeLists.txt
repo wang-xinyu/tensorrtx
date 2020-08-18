@@ -36,6 +36,7 @@ target_link_libraries(yolov5 nvinfer)
 target_link_libraries(yolov5 cudart)
 target_link_libraries(yolov5 myplugins)
 target_link_libraries(yolov5 ${OpenCV_LIBS})
+target_link_libraries(myplugins nvinfer cudart)
 
 add_definitions(-O2 -pthread)
 
