@@ -27,6 +27,7 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
 cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu ${PROJECT_SOURCE_DIR}/hardswish.cu)
+target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
@@ -36,7 +37,6 @@ target_link_libraries(yolov5 nvinfer)
 target_link_libraries(yolov5 cudart)
 target_link_libraries(yolov5 myplugins)
 target_link_libraries(yolov5 ${OpenCV_LIBS})
-target_link_libraries(myplugins nvinfer cudart)
 
 add_definitions(-O2 -pthread)
 
