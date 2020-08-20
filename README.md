@@ -10,6 +10,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
 - `14 Aug 2020`. Update yolov5 to v3.0 release.
 - `3 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) implemented yolov5 s/m/l/x (yolov5 v2.0 release).
 - `6 July 2020`. Add yolov3-tiny, and got 333fps on GTX1080.
