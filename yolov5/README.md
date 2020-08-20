@@ -22,21 +22,21 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0 and v3.0.
 ## How to Run, yolov5s as example
 
 ```
-1. generate yolov5s.wts from pytorch implementation with yolov5s.pt
+1. generate yolov5s.wts from pytorch with yolov5s.pt
 
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov5.git
 // download its weights 'yolov5s.pt'
-cd yolov5
-cp ../tensorrtx/yolov5/gen_wts.py .
+// copy tensorrtx/yolov5/gen_wts.py into ultralytics/yolov5
 // ensure the file name is yolov5s.pt and yolov5s.wts in gen_wts.py
+// go to ultralytics/yolov5
 python gen_wts.py
 // a file 'yolov5s.wts' will be generated.
 
-2. put yolov5s.wts into yolov5, build and run
+2. build tensorrtx/yolov5 and run
 
-mv yolov5s.wts ../tensorrtx/yolov5/
-cd ../tensorrtx/yolov5
+// put yolov5s.wts into tensorrtx/yolov5
+// go to tensorrtx/yolov5
 // ensure the macro NET in yolov5.cpp is s
 mkdir build
 cd build
@@ -46,6 +46,12 @@ sudo ./yolov5 -s             // serialize model to plan file i.e. 'yolov5s.engin
 sudo ./yolov5 -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
+
+4. optional, load and run the tensorrt model in python
+
+// install python-tensorrt, pycuda, etc.
+// ensure the yolov5s.engine and libmyplugins.so have been built
+python yolov5_trt.py
 ```
 
 <p align="center">
