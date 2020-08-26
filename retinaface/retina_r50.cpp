@@ -34,7 +34,6 @@ const char* OUTPUT_BLOB_NAME = "prob";
 
 using namespace nvinfer1;
 static Logger gLogger;
-REGISTER_TENSORRT_PLUGIN(DecodePluginCreator);
 
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
