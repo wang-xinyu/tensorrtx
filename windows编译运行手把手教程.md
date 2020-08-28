@@ -18,7 +18,7 @@
 
 * 增加windows下的文件夹处理头文件dirent.h，放在当前文件下include下。下载地址 https://github.com/tronkko/dirent
 
-  ![image-20200828131208257](imgs/image-20200828131208257.png)
+  ![image-20200828131208257](https://user-images.githubusercontent.com/20653176/91524367-99217f00-e931-11ea-9a13-fb420403b73b.png)
 
 ## 编译
 
@@ -98,29 +98,29 @@ target_link_libraries(yolov5 Threads::Threads)       #8
 
 #### 1 打开cmake-gui，并设置相应路径：如下图
 
-![image-20200828124434245](imgs/image-20200828124434245.png)
+![image-20200828124434245](https://user-images.githubusercontent.com/20653176/91524158-1dbfcd80-e931-11ea-8a82-518eaf391d5a.png)
 
 #### 点击1处**Configure**，弹出窗口，并选择相应环境：
 
-![image-20200828124902923](imgs/image-20200828124902923.png)
+![image-20200828124902923](https://user-images.githubusercontent.com/20653176/91524303-75f6cf80-e931-11ea-8591-64a8a1a9292b.png)
 
 点击Finish完成设置，等待生成完成：
 
-![image-20200828124951872](imgs/image-20200828124951872.png)
+![image-20200828124951872](https://user-images.githubusercontent.com/20653176/91524340-8b6bf980-e931-11ea-9ea4-141f5b94aa0a.png)
 
 #### 点击2处Generate
 
-![image-20200828125046738](imgs/image-20200828125046738.png)
+![image-20200828125046738](https://user-images.githubusercontent.com/20653176/91524350-8eff8080-e931-11ea-9ed1-82c5af2f558f.png)
 
 #### 点击3处Open Project，打开工程
 
-![image-20200828125215067](imgs/image-20200828125215067.png)
+![image-20200828125215067](https://user-images.githubusercontent.com/20653176/91524352-9030ad80-e931-11ea-877e-dc08bfaef731.png)
 
 ## 运行
 
 点击“生成-生成解决方案”。等待编译完成。
 
-![image-20200828125402056](imgs/image-20200828125402056.png)
+![image-20200828125402056](https://user-images.githubusercontent.com/20653176/91524356-9161da80-e931-11ea-84ba-177e12200e04.png)
 
 ### 运行方法1：命令行
 
@@ -133,17 +133,17 @@ yolov5.exe -d  ../samples // deserialize plan file and run inference, the images
 
 **注意：在生成engine时，wts文件要放置在工程文件xxx.vcxproj所在文件的上一级目录**，或者直接修改源码，直接指向绝对地址：
 
-![image-20200828125938472](imgs/image-20200828125938472.png)
+![image-20200828125938472](https://user-images.githubusercontent.com/20653176/91524358-93c43480-e931-11ea-81b6-ae01b92e1146.png)
 
 ### 运行方法2：vs直接运行，可debug
 
 在vs中，在工程上右键，先选择“设为启动项”，然后选择“属性”。在属性页设置参数。设置完成后点击运行即可，可以打断点debug。
 
-![image-20200828130117902](imgs/image-20200828130117902.png)
+![image-20200828130117902](https://user-images.githubusercontent.com/20653176/91524360-94f56180-e931-11ea-9873-39bed7ee19f1.png)
 
-![image-20200828130415658](imgs/image-20200828130415658.png)
+![image-20200828130415658](https://user-images.githubusercontent.com/20653176/91524362-96bf2500-e931-11ea-8c79-8db3a25fc135.png)
 
-![image-20200828131516231](imgs/image-20200828131516231.png)
+![image-20200828131516231](https://user-images.githubusercontent.com/20653176/91524370-9a52ac00-e931-11ea-8c1a-acf828fe81b4.png)
 
 **注意：**
 
