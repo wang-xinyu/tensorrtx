@@ -1,28 +1,21 @@
-# windows编译运行手把手教程
+# How to Compile and Run on Windows
 
-## 说明
+This tutorial can be applied to any models in this repo. Only need to adapt couple of lines.
 
-本教程可以用于https://github.com/wang-xinyu/tensorrtx 该仓库中所有项目，只需要修改几处代码即可，修改之处后面会详细注明。
+## Environments
 
-## 所需环境
-
-* vs 版本可不限（仅测试了 vs2015 vs2017）
-
+* vs (only vs2015, vs2017 tested)
 * cuda
-
-* TensorRT需要和本机的cuda版本适配（需要7.0以上版本）
-
-* Cmake 
-
-* opencv （需要和vs版本适配）
-
-* 增加windows下的文件夹处理头文件dirent.h，放在当前文件下include下。下载地址 https://github.com/tronkko/dirent
+* TensorRT
+* Cmake
+* opencv
+* dirent.h for windows, put into tensorrtx/include, download from https://github.com/tronkko/dirent
 
   ![image-20200828131208257](https://user-images.githubusercontent.com/20653176/91524367-99217f00-e931-11ea-9a13-fb420403b73b.png)
 
-## 编译
+## Compile and Run
 
-### 修改CmakeLists.txt
+### 1. Modify CmakeLists.txt
 
 ```cmake
 cmake_minimum_required(VERSION 2.6)
@@ -39,7 +32,7 @@ set(CMAKE_BUILD_TYPE Debug)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads)
 
-#设置cuda信息
+# setup CUDA
 find_package(CUDA REQUIRED)
 message(STATUS "    libraries: ${CUDA_LIBRARIES}")
 message(STATUS "    include path: ${CUDA_INCLUDE_DIRS}")
@@ -48,15 +41,15 @@ include_directories(${CUDA_INCLUDE_DIRS})
 
 set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11; -g; -G;-gencode; arch=compute_75;code=sm_75)
 ####
-enable_language(CUDA)  # 这一句添加后 ，就会在vs中不需要再手动设置cuda 
+enable_language(CUDA)  # add this line, then no need to setup cuda path in vs
 ####
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${TRT_DIR}\\include)
 
-#-D_MWAITXINTRIN_H_INCLUDED  解决error: identifier "__builtin_ia32_mwaitx" is undefined
+# -D_MWAITXINTRIN_H_INCLUDED for solving error: identifier "__builtin_ia32_mwaitx" is undefined
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -D_MWAITXINTRIN_H_INCLUDED")
 
-# 设置opencv的信息
+# setup opencv
 find_package(OpenCV QUIET
     NO_MODULE
     NO_DEFAULT_PATH
@@ -86,58 +79,56 @@ target_link_libraries(yolov5 ${CUDA_LIBRARIES})   #7
 target_link_libraries(yolov5 Threads::Threads)       #8
 ```
 
-注意：在CamakeLists.txt中，有8处需要修改，在#1-#8标注的位置
+Notice: 8 lines to adapt in CMakeLists.txt, marked with #1-#8
 
-1. #1 为当前编译的工程名，根据你所编译的工程名修改，也可以自定义
-2. #2 为本机的opencv地址
-3. #3 为本机TensorRT的安装位置
-4. #4 为当前编译工程中所涉及的文件，包括.cpp .cu .h等文件，另外第一个参数要与#1设置的相同
-5. #5 -#8 为链接lib，工程名需要和#1设置的一样。
+- #1 project name, set according to your project name
+- #2 your opencv path
+- #3 your tensorrt path
+- #4 source file needed, including .cpp .cu .h
+- #5-#8 libs needed
 
-### cmake-gui编译
+### 2. run cmake-gui to config the project
 
-#### 1 打开cmake-gui，并设置相应路径：如下图
+#### 2.1 open cmake-gui and set the path
 
 ![image-20200828124434245](https://user-images.githubusercontent.com/20653176/91524158-1dbfcd80-e931-11ea-8a82-518eaf391d5a.png)
 
-#### 点击1处**Configure**，弹出窗口，并选择相应环境：
+#### 2.2 click **Configure** and set the envs
 
 ![image-20200828124902923](https://user-images.githubusercontent.com/20653176/91524303-75f6cf80-e931-11ea-8591-64a8a1a9292b.png)
 
-点击Finish完成设置，等待生成完成：
+#### 2.3 click **Finish**, and wait for the `Configuring done`
 
 ![image-20200828124951872](https://user-images.githubusercontent.com/20653176/91524340-8b6bf980-e931-11ea-9ea4-141f5b94aa0a.png)
 
-#### 点击2处Generate
+#### 2.4 click **Generate**
 
 ![image-20200828125046738](https://user-images.githubusercontent.com/20653176/91524350-8eff8080-e931-11ea-9ed1-82c5af2f558f.png)
 
-#### 点击3处Open Project，打开工程
+#### 2.5 click **Open Project**
 
 ![image-20200828125215067](https://user-images.githubusercontent.com/20653176/91524352-9030ad80-e931-11ea-877e-dc08bfaef731.png)
 
-## 运行
-
-点击“生成-生成解决方案”。等待编译完成。
+#### 2.6 Click **Generate -> Generate solution**
 
 ![image-20200828125402056](https://user-images.githubusercontent.com/20653176/91524356-9161da80-e931-11ea-84ba-177e12200e04.png)
 
-### 运行方法1：命令行
+### 3. run in command line
 
-命令行cd到exe的路径（比如：E:\LearningCodes\GithubRepo\tensorrtx\yolov5\build\Debug）,
+cd to the path of exe (e.g. E:\LearningCodes\GithubRepo\tensorrtx\yolov5\build\Debug)
 
 ```
 yolov5.exe -s             // serialize model to plan file i.e. 'yolov5s.engine'
 yolov5.exe -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
 ```
 
-**注意：在生成engine时，wts文件要放置在工程文件xxx.vcxproj所在文件的上一级目录**，或者直接修改源码，直接指向绝对地址：
+**Notice**: while serializing the model, the .wts should put in the parent dir of xxx.vcxproj, or just modify the .wts path in yolov5.cpp
 
 ![image-20200828125938472](https://user-images.githubusercontent.com/20653176/91524358-93c43480-e931-11ea-81b6-ae01b92e1146.png)
 
-### 运行方法2：vs直接运行，可debug
+### 4. run in vs
 
-在vs中，在工程上右键，先选择“设为启动项”，然后选择“属性”。在属性页设置参数。设置完成后点击运行即可，可以打断点debug。
+In vs, firstly `Set As Startup Project`, and then setup `Project ==> Properties ==> Configuration Properties ==> Debugging ==> Command Arguments` as `-s` or `-d ../yolov3-spp/samples`. Then can run or debug.
 
 ![image-20200828130117902](https://user-images.githubusercontent.com/20653176/91524360-94f56180-e931-11ea-9873-39bed7ee19f1.png)
 
@@ -145,6 +136,4 @@ yolov5.exe -d  ../samples // deserialize plan file and run inference, the images
 
 ![image-20200828131516231](https://user-images.githubusercontent.com/20653176/91524370-9a52ac00-e931-11ea-8c1a-acf828fe81b4.png)
 
-**注意：**
-
-**运行时需要将tensorRt的dll和opencv的dll拷贝到exe所在路径。或者将tensorRt和opencv的bin文件夹路径添加到环境变量中（不建议）**
+**Notice**: The .dll of tensorrt and opencv should be put in the same directory with exe file. Or set environment variables in windows.(Not recommended)
