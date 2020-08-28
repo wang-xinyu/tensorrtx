@@ -87,7 +87,7 @@ float iou(float lbox[4], float rbox[4]) {
     return interBoxS/(lbox[2]*lbox[3] + rbox[2]*rbox[3] -interBoxS);
 }
 
-bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
+bool cmp(const Yolo::Detection& a, const Yolo::Detection& b) {
     return a.conf > b.conf;
 }
 

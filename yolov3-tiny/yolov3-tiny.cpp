@@ -36,7 +36,6 @@ static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
-REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
@@ -101,7 +100,7 @@ float iou(float lbox[4], float rbox[4]) {
     return interBoxS/(lbox[2]*lbox[3] + rbox[2]*rbox[3] -interBoxS);
 }
 
-bool cmp(Yolo::Detection& a, Yolo::Detection& b) {
+bool cmp(const Yolo::Detection& a, const Yolo::Detection& b) {
     return a.det_confidence > b.det_confidence;
 }
 
