@@ -28,6 +28,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -
 
 #cuda_add_library(leaky ${PROJECT_SOURCE_DIR}/leaky.cu)
 cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
+target_link_libraries(yololayer nvinfer cudart)
 
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
