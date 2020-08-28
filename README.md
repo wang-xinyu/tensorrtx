@@ -10,6 +10,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `28 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) added a tutorial for compiling and running tensorrtx on windows.
 - `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
 - `14 Aug 2020`. Update yolov5 to v3.0 release.
 - `3 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) implemented yolov5 s/m/l/x (yolov5 v2.0 release).
@@ -24,6 +25,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - [Migrating from TensorRT 4 to 7](./tutorials/migrating_from_tensorrt_4_to_7.md)
 - [How to implement multi-GPU processing, taking YOLOv4 as example](./tutorials/multi_GPU_processing.md)
 - [Check if Your GPU support FP16/INT8](./tutorials/check_fp16_int8_support.md)
+- [How to Compile and Run on Windows](./tutorials/run_on_windows.md)
 - [Deploy YOLOv4 with Triton Inference Server](https://github.com/isarsoft/yolov4-triton-tensorrt)
 
 ## Test Environment
