@@ -2,7 +2,7 @@
 
 ## 说明
 
-本教程可以用于https://github.com/wang-xinyu/tensorrtx该仓库中所有项目，只需要修改几处代码即可，修改之处后面会详细注明。
+本教程可以用于https://github.com/wang-xinyu/tensorrtx 该仓库中所有项目，只需要修改几处代码即可，修改之处后面会详细注明。
 
 ## 所需环境
 
