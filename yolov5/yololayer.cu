@@ -28,6 +28,11 @@ namespace nvinfer1
     
     YoloLayerPlugin::~YoloLayerPlugin()
     {
+        for(int ii = 0; ii < mKernelCount; ii ++)
+        {
+            CUDA_CHECK(cudaFree(mAnchor[ii]));
+        }
+        CUDA_CHECK(cudaFreeHost(mAnchor));
     }
 
     // create the plugin at runtime from a byte stream
