@@ -40,7 +40,7 @@ cv::Mat preprocess_img(cv::Mat& img) {
         y = 0;
     }
     cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_CUBIC);
+    cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
     cv::Mat out(Yolo::INPUT_H, Yolo::INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
     re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
     return out;
