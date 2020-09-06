@@ -447,37 +447,12 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
-    const ICudaEngine& engine = context.getEngine();
-
-    // Pointers to input and output device buffers to pass to engine.
-    // Engine requires exactly IEngine::getNbBindings() number of buffers.
-    assert(engine.getNbBindings() == 2);
-    void* buffers[2];
-
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine.getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
-
-    // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
-
-    // Create stream
-    cudaStream_t stream;
-    CHECK(cudaStreamCreate(&stream));
-
+void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* input, float* output, int batchSize) {
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
-
-    // Release stream and buffers
-    cudaStreamDestroy(stream);
-    CHECK(cudaFree(buffers[inputIndex]));
-    CHECK(cudaFree(buffers[outputIndex]));
 }
 
 int main(int argc, char** argv) {
@@ -535,6 +510,20 @@ int main(int argc, char** argv) {
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
     delete[] trtModelStream;
+    assert(engine->getNbBindings() == 2);
+    void* buffers[2];
+    // In order to bind the buffers, we need to know the names of the input and output tensors.
+    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
+    const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
+    const int outputIndex = engine->getBindingIndex(OUTPUT_BLOB_NAME);
+    assert(inputIndex == 0);
+    assert(outputIndex == 1);
+    // Create GPU buffers on device
+    CHECK(cudaMalloc(&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
+    CHECK(cudaMalloc(&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
+    // Create stream
+    cudaStream_t stream;
+    CHECK(cudaStreamCreate(&stream));
 
     int fcount = 0;
     for (int f = 0; f < (int)file_names.size(); f++) {
@@ -559,7 +548,7 @@ int main(int argc, char** argv) {
 
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, BATCH_SIZE);
+        doInference(*context, stream, buffers, data, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
@@ -581,6 +570,10 @@ int main(int argc, char** argv) {
         fcount = 0;
     }
 
+    // Release stream and buffers
+    cudaStreamDestroy(stream);
+    CHECK(cudaFree(buffers[inputIndex]));
+    CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
     context->destroy();
     engine->destroy();
