@@ -8,16 +8,15 @@ The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorc
 
 ## How to Run
 
-win版本请看最后的链接。
+* 1. generate .wts
 
-* 1 生成wts
-  从pytoch仓库下载到代码和模型。配置好环境后
+  Download code and model from [DBNet](https://github.com/BaofengZan/DBNet.pytorch) and config your environments.
 
-  在tools/predict.py中，将save_wts属性置为True，运行后，就在在tools文件夹下生成wts文件。
+  In tools/predict.py, set `save_wts` as `True`, and run, the .wts will be generated.
 
-  同时也可以导出onnx。将onnx属性设置为True即可。
+  onnx can also be exported, just need to set `onnx` as `True`.
 
-* 2 cmake 生成工程
+* 2. cmake and make
 
   ```
   mkdir build
@@ -29,13 +28,13 @@ win版本请看最后的链接。
   ```
 
 
-## windows版本
+## For windows
 
 https://github.com/BaofengZan/DBNet-TensorRT
 
-## 不足之处
+## Todo
 
-* 1 common文件中，下面两个函数可以合并，自己偷了个懒。
+* 1. In common.hpp, the following two functions can be merged.
 
 ```c++
 ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) 
@@ -45,5 +44,6 @@ ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>&
 ILayer* convBnLeaky2(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true)
 ```
 
-* 2 后处理中与pytorch版本也有好多不同之处，这都是可以改进提升的。
-* 3 在pyorch中数据预处理是将图像短边resize到1024，长边按比例缩放，最后将新的宽高截到32的倍数。而在自己的repo中直接将图像resize到640*640，较为粗暴。
+* 2. The postprocess method here should be optimized, which is a little different from pytorch side.
+
+* 3. The input image here is resized to 640x640 directly, while the pytorch side is using `letterbox` method.
