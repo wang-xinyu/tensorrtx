@@ -12,8 +12,8 @@ namespace decodeplugin
         float class_confidence;
         float landmark[10];
     };
-    static const int INPUT_H = 928;
-    static const int INPUT_W = 1600;
+    static const int INPUT_H = 480;
+    static const int INPUT_W = 640;
 }
 
 namespace nvinfer1
