@@ -100,7 +100,7 @@ float iou(float lbox[4], float rbox[4]) {
     return interBoxS / ((lbox[2] - lbox[0]) * (lbox[3] - lbox[1]) + (rbox[2] - rbox[0]) * (rbox[3] - rbox[1]) -interBoxS + 0.000001f);
 }
 
-bool cmp(decodeplugin::Detection& a, decodeplugin::Detection& b) {
+bool cmp(const decodeplugin::Detection& a, const decodeplugin::Detection& b) {
     return a.class_confidence > b.class_confidence;
 }
 
