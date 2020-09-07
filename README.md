@@ -10,6 +10,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `7 Sep 2020`. Implement retinaface(mobilenet0.25), and got 333fps on GTX1080.
 - `28 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) added a tutorial for compiling and running tensorrtx on windows.
 - `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
 - `14 Aug 2020`. Update yolov5 to v3.0 release.
