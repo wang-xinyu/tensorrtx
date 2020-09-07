@@ -1,7 +1,7 @@
 # RetinaFace
 
  The pytorch implementation is [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface), I forked it into 
-[wang-xinyu/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) and add genwts.py
+[wang-xinyu/Pytorch_Retinaface](https://github.com/wang-xinyu/Pytorch_Retinaface) and add genwts.py
 
 This branch is using TensorRT 7 API, branch [trt4->retinaface](https://github.com/wang-xinyu/tensorrtx/tree/trt4/retinaface) is using TensorRT 4.
 

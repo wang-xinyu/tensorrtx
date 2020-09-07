@@ -59,7 +59,7 @@ Following models are implemented.
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov5](./yolov5)| yolov5-s/m/l/x v1.0 v2.0 v3.0, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
-|[retinaface](./retinaface)| resnet-50, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
+|[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
 |[dbnet](./dbnet)| Scene Text Detection, weights from [BaofengZan/DBNet.pytorch](https://github.com/BaofengZan/DBNet.pytorch) |
@@ -91,20 +91,20 @@ Some tricky operations encountered in these models, already solved, but might ha
 
 | Models | Device | BatchSize | Mode | Input Shape(HxW) | FPS |
 |-|-|:-:|:-:|:-:|:-:|
-| YOLOv3-tiny | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 333 |
-| YOLOv3(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 39.2 |
-| YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 38.5 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 35.7 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 40.9 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 41.3 | 
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 142 |
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP16 | 608x608 | 173 |
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP16 | 608x608 | 190 |
-| YOLOv5-m | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 71 |
-| YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 43 |
-| YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP16 | 608x608 | 29 |
-| RetinaFace(resnet50) | TX2 | 1 | FP16 | 384x640 | 15 |
-| RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 928x1600 | 15 |
+| YOLOv3-tiny | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 333 |
+| YOLOv3(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 39.2 |
+| YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 38.5 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 35.7 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 40.9 |
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 41.3 | 
+| YOLOv5-s | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 142 |
+| YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 173 |
+| YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 190 |
+| YOLOv5-m | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 71 |
+| YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 43 |
+| YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 29 |
+| RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 90 |
+| RetinaFace(mobilenet0.25) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 333 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
 
 Help wanted, if you got speed results, please add an issue or PR.

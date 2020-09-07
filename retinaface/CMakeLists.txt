@@ -30,11 +30,17 @@ target_link_libraries(decodeplugin nvinfer cudart)
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
 
-add_executable(retina_50 ${PROJECT_SOURCE_DIR}/retina_r50.cpp)
-target_link_libraries(retina_50 nvinfer)
-target_link_libraries(retina_50 cudart)
-target_link_libraries(retina_50 decodeplugin)
-target_link_libraries(retina_50 ${OpenCV_LIBRARIES})
+add_executable(retina_r50 ${PROJECT_SOURCE_DIR}/retina_r50.cpp)
+target_link_libraries(retina_r50 nvinfer)
+target_link_libraries(retina_r50 cudart)
+target_link_libraries(retina_r50 decodeplugin)
+target_link_libraries(retina_r50 ${OpenCV_LIBRARIES})
+
+add_executable(retina_mnet ${PROJECT_SOURCE_DIR}/retina_mnet.cpp)
+target_link_libraries(retina_mnet nvinfer)
+target_link_libraries(retina_mnet cudart)
+target_link_libraries(retina_mnet decodeplugin)
+target_link_libraries(retina_mnet ${OpenCV_LIBRARIES})
 
 add_definitions(-O2 -pthread)
 
