@@ -86,7 +86,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |retinaface output decode| implement a plugin to decode bbox, confidence and landmarks, see retinaface. |
 |mish| mish activation is implemented as a plugin, mish is used in yolov4 |
 |prelu| mxnet's prelu activation with trainable gamma is implemented as a plugin, used in arcface |
-|HardSwish| HardSwish activation is implemented as a plugin, used in yolov5 v3.0 |
+|HardSwish| hard_swish = x * hard_sigmoid, used in yolov5 v3.0 |
 
 ## Speed Benchmark
 

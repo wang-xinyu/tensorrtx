@@ -9,7 +9,6 @@
 #include <dirent.h>
 #include "NvInfer.h"
 #include "yololayer.h"
-#include "hardswish.h"
 
 #define CHECK(status) \
     do\
@@ -201,13 +200,14 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv1->setNbGroups(g);
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
-    auto creator = getPluginRegistry()->getPluginCreator("HardSwishLayer_TRT", "1");
-    const PluginFieldCollection* pluginData = creator->getFieldNames();
-    IPluginV2 *pluginObj = creator->createPlugin(("hardswish" + lname).c_str(), pluginData);
-    ITensor* inputTensors[] = {bn1->getOutput(0)};
-    auto hs = network->addPluginV2(inputTensors, 1, *pluginObj);
-
-    return hs;
+    // hard_swish = x * hard_sigmoid
+    auto hsig = network->addActivation(*bn1->getOutput(0), ActivationType::kHARD_SIGMOID);
+    assert(hsig);
+    hsig->setAlpha(1.0 / 6.0);
+    hsig->setBeta(0.5);
+    auto ew = network->addElementWise(*bn1->getOutput(0), *hsig->getOutput(0), ElementWiseOperation::kPROD);
+    assert(ew);
+    return ew;
 }
 
 ILayer* focus(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int ksize, std::string lname) {
