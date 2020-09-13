@@ -10,6 +10,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `13 Sep 2020`. Add crnn, and got 1000fps on GTX1080.
 - `7 Sep 2020`. Implement retinaface(mobilenet0.25), and got 333fps on GTX1080.
 - `28 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) added a tutorial for compiling and running tensorrtx on windows.
 - `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
@@ -64,6 +65,7 @@ Following models are implemented.
 |[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
 |[dbnet](./dbnet)| Scene Text Detection, weights from [BaofengZan/DBNet.pytorch](https://github.com/BaofengZan/DBNet.pytorch) |
+|[crnn](./crnn)| pytorch implementation from [meijieru/crnn.pytorch](https://github.com/meijieru/crnn.pytorch) |
 
 ## Tricky Operations
 
@@ -87,6 +89,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |mish| mish activation is implemented as a plugin, mish is used in yolov4 |
 |prelu| mxnet's prelu activation with trainable gamma is implemented as a plugin, used in arcface |
 |HardSwish| hard_swish = x * hard_sigmoid, used in yolov5 v3.0 |
+|LSTM| Implemented pytorch nn.LSTM() with tensorrt api |
 
 ## Speed Benchmark
 
@@ -107,6 +110,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 90 |
 | RetinaFace(mobilenet0.25) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 333 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
+| CRNN | Xeon E5-2620/GTX1080 | 1 | FP32 | 32x100 | 1000 |
 
 Help wanted, if you got speed results, please add an issue or PR.
 
