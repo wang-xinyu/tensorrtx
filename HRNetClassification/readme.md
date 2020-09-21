@@ -18,7 +18,7 @@ The Pytorch implementation is [HRNet-Image-Classification](https://github.com/HR
   cd build
   cmake ..
   make
-  sudo ./dbnet -s             // serialize model to plan file i.e. 'DBNet.engine'
+  sudo ./dbnet -s             // serialize model to plan file i.e. 'hrnet.engine'
   sudo ./dbnet -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
   ```
 
