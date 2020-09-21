@@ -10,12 +10,6 @@
 #include "NvInferPlugin.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
-#ifdef WIN32 
-#include "include/dirent.h"  // WIN32
-#else
-#include <dirent.h>  // LINUX
-#endif 
-
 
 using namespace nvinfer1;
 static Logger gLogger;
@@ -38,29 +32,6 @@ static const int OUTPUT_SIZE = 1000;
             abort();\
         }\
     } while (0)
-
-int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
-    DIR *p_dir = opendir(p_dir_name);
-    if (p_dir == nullptr) {
-        return -1;
-    }
-
-    struct dirent* p_file = nullptr;
-    while ((p_file = readdir(p_dir)) != nullptr) {
-        if (strcmp(p_file->d_name, ".") != 0 &&
-            strcmp(p_file->d_name, "..") != 0) {
-            //std::string cur_file_name(p_dir_name);
-            //cur_file_name += "/";
-            //cur_file_name += p_file->d_name;
-            std::string cur_file_name(p_file->d_name);
-            file_names.push_back(cur_file_name);
-        }
-    }
-
-    closedir(p_dir);
-    return 0;
-}
-
 
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
@@ -1027,13 +998,14 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
 
 
 int main(int argc, char** argv) {
-
     cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
     char *trtModelStream{ nullptr };
     size_t size{ 0 };
     std::string engine_name = "hrnet.engine";
-    if (argc == 2 && std::string(argv[1]) == "-s") {
+    //engine_name = "E:\\LearningCodes\\GithubRepo\\tensorrtx\\yolov5\\build\\yolov5s.wts";
+    argv[1] = "-d";
+    if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{ nullptr };
         APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
@@ -1046,7 +1018,8 @@ int main(int argc, char** argv) {
         modelStream->destroy();
         return 0;
     }
-    else if (argc == 3 && std::string(argv[1]) == "-d") {
+    else if (std::string(argv[1]) == "-d")
+    {
         std::ifstream file(engine_name, std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
@@ -1058,18 +1031,14 @@ int main(int argc, char** argv) {
             file.close();
         }
     }
-    else {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5 -s  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5 -d ../samples  // deserialize plan file and run inference" << std::endl;
-        return -1;
-    }
 
     std::vector<std::string> file_names;
-    if (read_files_in_dir(argv[2], file_names) < 0) {
-        std::cout << "read_files_in_dir failed." << std::endl;
-        return -1;
-    }
+    file_names.push_back("E:\\Datasets\\tiny-imagenet-200\\tiny-imagenet-200\\val\\images\\val_41.JPEG");
+    //if (read_files_in_dir(argv[2], file_names) < 0) {
+    //    std::cout << "read_files_in_dir failed." << std::endl;
+    //    return -1;
+    //}
+
     // prepare input data ---------------------------
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
