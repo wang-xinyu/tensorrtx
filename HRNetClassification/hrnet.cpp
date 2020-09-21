@@ -344,11 +344,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto id_1018 = ResBlock(network, weightMap, *id_1008->getOutput(0), 256, 64, 1, "layer1.1");
     
     // transition1-1
-    // 左侧分支
     auto id_1021 = convBnLeaky(network, weightMap, *id_1018->getOutput(0), 18, 3, 1, 1, "transition1.0.0", "transition1.0.1");
     auto id_1031 = liteResBlock(network, weightMap, *id_1021->getOutput(0), 18, "stage2.0.branches.0.0");
     auto id_1038 = liteResBlock(network, weightMap, *id_1031->getOutput(0), 18, "stage2.0.branches.0.1");
-
     //右侧分支
     auto id_1024 = convBnLeaky(network, weightMap, *id_1018->getOutput(0), 36, 3, 2, 1, "transition1.1.0.0", "transition1.1.0.1");
     auto id_1045 = liteResBlock(network, weightMap, *id_1024->getOutput(0), 36, "stage2.0.branches.1.0");
@@ -473,7 +471,6 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     //
     auto id_1252 = liteResBlock(network, weightMap, *id_1199->getOutput(0), 18, "stage3.1.branches.0.0");
     auto id_1259 = liteResBlock(network, weightMap, *id_1252->getOutput(0), 18, "stage3.1.branches.0.1");
-   
     auto id_1266 = liteResBlock(network, weightMap, *id_1235->getOutput(0), 36, "stage3.1.branches.1.0");
     auto id_1273 = liteResBlock(network, weightMap, *id_1266->getOutput(0), 36, "stage3.1.branches.1.1");
     auto id_1280 = liteResBlock(network, weightMap, *id_1245->getOutput(0), 72, "stage3.1.branches.2.0");
@@ -552,10 +549,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     //
     auto id_1405 = liteResBlock(network, weightMap, *id_1352->getOutput(0), 18, "stage3.2.branches.0.0");
     auto id_1412= liteResBlock(network, weightMap, *id_1405->getOutput(0), 18, "stage3.2.branches.0.1");
-
     auto id_1419 = liteResBlock(network, weightMap, *id_1388->getOutput(0), 36, "stage3.2.branches.1.0");
     auto id_1426 = liteResBlock(network, weightMap, *id_1419->getOutput(0), 36, "stage3.2.branches.1.1");
-
     auto id_1433 = liteResBlock(network, weightMap, *id_1398->getOutput(0), 72, "stage3.2.branches.2.0");
     auto id_1440 = liteResBlock(network, weightMap, *id_1433->getOutput(0), 72, "stage3.2.branches.2.1");
 
@@ -568,8 +563,6 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IScaleLayer* id_1442 = addBatchNorm2d(network, weightMap, *id_1441->getOutput(0), "stage3.2.fuse_layers.0.1.1", 1e-5);
     ILayer* id_1471 = netAddUpsample(network, id_1442->getOutput(0), 18, 2);
     IElementWiseLayer* id_1472 = network->addElementWise(*id_1412->getOutput(0), *id_1471->getOutput(0), ElementWiseOperation::kSUM);
-
-
 
     IConvolutionLayer* id_1473= network->addConvolution(*id_1440->getOutput(0), 18, DimsHW{ 1, 1 }, weightMap["stage3.2.fuse_layers.0.2.0.weight"], emptywts);
     assert(id_1473);
@@ -625,10 +618,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     //
     auto id_1561 = liteResBlock(network, weightMap, *id_1505->getOutput(0), 18, "stage4.0.branches.0.0");
     auto id_1568 = liteResBlock(network, weightMap, *id_1561->getOutput(0), 18, "stage4.0.branches.0.1");
-
     auto id_1575 = liteResBlock(network, weightMap, *id_1541->getOutput(0), 36, "stage4.0.branches.1.0");
     auto id_1582 = liteResBlock(network, weightMap, *id_1575->getOutput(0), 36, "stage4.0.branches.1.1");
-
     auto id_1589 = liteResBlock(network, weightMap, *id_1551->getOutput(0), 72, "stage4.0.branches.2.0");
     auto id_1596 = liteResBlock(network, weightMap, *id_1589->getOutput(0), 72, "stage4.0.branches.2.1");
 
@@ -768,17 +759,13 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IElementWiseLayer* id_1834 = network->addElementWise(*id_1833->getOutput(0), *id_1831->getOutput(0), ElementWiseOperation::kSUM);
     IElementWiseLayer* id_1835 = network->addElementWise(*id_1834->getOutput(0), *id_1610->getOutput(0), ElementWiseOperation::kSUM);
     IActivationLayer* id_1836 = network->addActivation(*id_1835->getOutput(0), ActivationType::kRELU);
-
     //
     auto id_1843 = liteResBlock(network, weightMap, *id_1707->getOutput(0), 18, "stage4.1.branches.0.0");
     auto id_1850 = liteResBlock(network, weightMap, *id_1843->getOutput(0), 18, "stage4.1.branches.0.1");
-
     auto id_1857 = liteResBlock(network, weightMap, *id_1775->getOutput(0), 36, "stage4.1.branches.1.0");
     auto id_1864 = liteResBlock(network, weightMap, *id_1857->getOutput(0), 36, "stage4.1.branches.1.1");
-
     auto id_1871 = liteResBlock(network, weightMap, *id_1817->getOutput(0), 72, "stage4.1.branches.2.0");
     auto id_1878 = liteResBlock(network, weightMap, *id_1871->getOutput(0), 72, "stage4.1.branches.2.1");
-
     auto id_1885 = liteResBlock(network, weightMap, *id_1836->getOutput(0), 144, "stage4.1.branches.3.0");
     auto id_1892 = liteResBlock(network, weightMap, *id_1885->getOutput(0), 144, "stage4.1.branches.3.1");
     
@@ -931,17 +918,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     pool->setPaddingNd(DimsHW{ 0, 0 });
     pool->setStrideNd(DimsHW{ 1, 1 });
     // self.classifier = nn.Linear(2048, 1000)
-    // 使用内置的API
     IFullyConnectedLayer* out = network->addFullyConnected(*pool->getOutput(0), 1000, weightMap["classifier.weight"], weightMap["classifier.bias"]);
     assert(out);
-
-    // top k
-    //ITopKLayer* topk = network->addTopK(*out->getOutput(0), TopKOperation::kMAX, 1, 2);
-    //topk->getOutput(1)->setName(OUTPUT_BLOB_NAME);
-    //std::cout << "set name out" << std::endl;
-    //network->markOutput(*topk->getOutput(1));
-
-    //2
     out->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     std::cout << "set name out" << std::endl;
     network->markOutput(*out->getOutput(0));
@@ -1105,7 +1083,7 @@ int main(int argc, char** argv) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::cout << "infer time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         float maxp = 0;
         int index = 0;
         for (int b = 0; b < fcount; b++) {
@@ -1119,6 +1097,6 @@ int main(int argc, char** argv) {
                 }
             }
         }
-        std::cout << index << std::endl;
+        std::cout << "out index: " << index << std::endl;
     }
 }

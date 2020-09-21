@@ -26,7 +26,7 @@ The Pytorch implementation is [HRNet-Image-Classification](https://github.com/HR
 
 The test img:
 
-![](imgs/93732833-ac103200-fc05-11ea-88ff-6f59f316a377.JPEG)
+![](https://user-images.githubusercontent.com/20653176/93732833-ac103200-fc05-11ea-88ff-6f59f316a377.JPEG)
 
 Pytorch Result:
 
