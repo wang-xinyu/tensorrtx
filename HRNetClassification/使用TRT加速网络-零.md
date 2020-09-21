@@ -12,7 +12,7 @@ paper：https://arxiv.org/abs/1908.07919
 
 HRNet分类器网络看起来很简单，如下图
 
-![682463-20200104221712824-157549407](imgs/93747510-69f8e780-fc29-11ea-8fe7-b8a24acd8a08.png)
+![682463-20200104221712824-157549407](https://user-images.githubusercontent.com/20653176/93749152-ff957680-fc2b-11ea-883c-79046e41ace8.png)
 
 从网络中可看到基本组件很简单：卷积和upsmple。【这里就表明网络TRT加速时不会有plugin的需求。】
 
@@ -62,19 +62,19 @@ deactivate xx  # 推出环境
 
 下面的为FC层：
 
-![image-20200918141448071](https://user-images.githubusercontent.com/20653176/93748503-fa83f780-fc2a-11ea-903b-ba183fd517db.png)
+![image-20200918141448071](https://user-images.githubusercontent.com/20653176/93749177-0de39280-fc2c-11ea-8a20-b8ab0b3b940f.png)
 
 Conv+BN+Relu层
 
-![image-20200918141632723](imgs/93748592-18e9f300-fc2b-11ea-8d1b-942114d50a6b.png)
+![image-20200918141632723](https://user-images.githubusercontent.com/20653176/93749201-189e2780-fc2c-11ea-9aad-0ac7723575c4.png)
 
 ResBlock层
 
-![image-20200918141709487](imgs/93748630-27380f00-fc2b-11ea-8347-8a69291cdea1.png)
+![image-20200918141709487](https://user-images.githubusercontent.com/20653176/93749220-2358bc80-fc2c-11ea-998a-0892755dfbc0.png)
 
 单击节点。会有详细信息，这些信息使搭建网络变得方便。
 
-![image-20200918141931327](imgs/93748660-3454fe00-fc2b-11ea-96dc-87a8a48ffa81.png)
+![image-20200918141931327](https://user-images.githubusercontent.com/20653176/93749222-2489e980-fc2c-11ea-9025-c5d367efd7f9.png)
 
 
 
