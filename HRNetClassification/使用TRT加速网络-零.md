@@ -104,7 +104,7 @@ $$
 
 3 各个层名使用onnx 的id，这样在搭建网络时不会晕。，根据onnx的结点信息，各层之间的连接也不会出错。
 
-![image-20200918142959711](imgs/image-20200918142959711.png)
+![image-20200918142959711](https://user-images.githubusercontent.com/20653176/93749484-8fd3bb80-fc2c-11ea-951d-3c1f403e521a.png)
 
 ## 6 TRT网络debug
 
