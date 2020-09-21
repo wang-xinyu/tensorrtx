@@ -10,11 +10,8 @@
 #include "NvInferPlugin.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
-#ifdef WIN32 
-#include "include/dirent.h"  // WIN32
-#else
 #include <dirent.h>  // LINUX
-#endif 
+
 
 
 using namespace nvinfer1;
