@@ -1,6 +1,6 @@
 # HRNet
 
-The Pytorch implementation is [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification).
+The Pytorch implementation is [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification).  The implemented model is **HRNet-W18-C-Small-v2** 
 
 
 ## How to Run
