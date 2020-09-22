@@ -12,7 +12,7 @@ paper：https://arxiv.org/abs/1908.07919
 
 HRNet分类器网络看起来很简单，如下图
 
-![img](imgs/682463-20200104221712824-157549407.png)
+![682463-20200104221712824-157549407](https://user-images.githubusercontent.com/20653176/93749152-ff957680-fc2b-11ea-883c-79046e41ace8.png)
 
 从网络中可看到基本组件很简单：卷积和upsmple。【这里就表明网络TRT加速时不会有plugin的需求。】
 
@@ -58,23 +58,23 @@ deactivate xx  # 推出环境
 
 比如下面红线框出的一大块实际上就是upsample层
 
-<img src="imgs/image-20200918141353768.png" alt="image-20200918141353768" style="zoom:80%;" />
+![](imgs/93747936-0ae7a280-fc2a-11ea-86c1-9f72622402b9.png))
 
 下面的为FC层：
 
-![image-20200918141448071](imgs/image-20200918141448071.png)
+![image-20200918141448071](https://user-images.githubusercontent.com/20653176/93749177-0de39280-fc2c-11ea-8a20-b8ab0b3b940f.png)
 
 Conv+BN+Relu层
 
-![image-20200918141632723](imgs/image-20200918141632723.png)
+![image-20200918141632723](https://user-images.githubusercontent.com/20653176/93749201-189e2780-fc2c-11ea-9aad-0ac7723575c4.png)
 
 ResBlock层
 
-![image-20200918141709487](imgs/image-20200918141709487.png)
+![image-20200918141709487](https://user-images.githubusercontent.com/20653176/93749220-2358bc80-fc2c-11ea-998a-0892755dfbc0.png)
 
 单击节点。会有详细信息，这些信息使搭建网络变得方便。
 
-![image-20200918141931327](imgs/image-20200918141931327.png)
+![image-20200918141931327](https://user-images.githubusercontent.com/20653176/93749222-2489e980-fc2c-11ea-9025-c5d367efd7f9.png)
 
 
 
@@ -82,15 +82,9 @@ ResBlock层
 
 搭建网络时需要从wts中查看层名，各个卷积层信息需要从代码中分析。
 
-其中卷积层后面的size信息为：
-$$
-InKsize * OutKsize * Kszie*Ksize
-$$
-比如第二个卷积层： 卷积层 的输入维度64 输出维度64 卷积核大小3*3
-$$
-64*64*3*3=36864
-$$
-![image-20200918142140645](imgs/image-20200918142140645.png)
+![image_f](https://user-images.githubusercontent.com/20653176/93750398-fd341c00-fc2d-11ea-9077-ee749b6aef41.png)
+
+![image-20200918142959711](https://user-images.githubusercontent.com/20653176/93749484-8fd3bb80-fc2c-11ea-951d-3c1f403e521a.png)
 
 ## 5 TRT搭建网络
 
@@ -104,7 +98,7 @@ $$
 
 3 各个层名使用onnx 的id，这样在搭建网络时不会晕。，根据onnx的结点信息，各层之间的连接也不会出错。
 
-![image-20200918142959711](imgs/image-20200918142959711.png)
+
 
 ## 6 TRT网络debug
 
