@@ -10,6 +10,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `21 Sep 2020`. [BaofengZan](https://github.com/BaofengZan) added hrnet classification and step by step tutorial(Chinese).
 - `16 Sep 2020`. [hwh-hit](https://github.com/hwh-hit) added ufld(Ultra-Fast-Lane-Detection, ECCV2020).
 - `13 Sep 2020`. Add crnn, and got 1000fps on GTX1080.
 - `7 Sep 2020`. Implement retinaface(mobilenet0.25), and got 333fps on GTX1080.
@@ -30,6 +31,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - [Check if Your GPU support FP16/INT8](./tutorials/check_fp16_int8_support.md)
 - [How to Compile and Run on Windows](./tutorials/run_on_windows.md)
 - [Deploy YOLOv4 with Triton Inference Server](https://github.com/isarsoft/yolov4-triton-tensorrt)
+- [From pytorch to trt step by step, hrnet as example(Chinese)](./tutorials/from_pytorch_to_trt_stepbystep_hrnet.md)
 
 ## Test Environment
 
@@ -68,6 +70,7 @@ Following models are implemented.
 |[dbnet](./dbnet)| Scene Text Detection, weights from [BaofengZan/DBNet.pytorch](https://github.com/BaofengZan/DBNet.pytorch) |
 |[crnn](./crnn)| pytorch implementation from [meijieru/crnn.pytorch](https://github.com/meijieru/crnn.pytorch) |
 |[ufld](./ufld)| pytorch implementation from [Ultra-Fast-Lane-Detection](https://github.com/cfzd/Ultra-Fast-Lane-Detection), ECCV2020 |
+|[hrnet](./hrnet)| hrnet-image-classification, pytorch implementation from [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification) |
 
 ## Tricky Operations
 

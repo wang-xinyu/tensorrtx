@@ -9,10 +9,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
 find_package(CUDA REQUIRED)
-
-set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11;-g;-G;-gencode;arch=compute_30;code=sm_30)
-
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(/usr/local/cuda/include)
+link_directories(/usr/local/cuda/lib64)
 
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
