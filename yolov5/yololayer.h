@@ -7,35 +7,20 @@
 
 namespace Yolo
 {
-    static constexpr int CHECK_COUNT = 3;
-    static constexpr float IGNORE_THRESH = 0.1f;
+	static constexpr int CHECK_COUNT = 3;
+	static constexpr float IGNORE_THRESH = 0.1f;
+	struct YoloKernel
+	{
+		int width;
+		int height;
+		float anchors[CHECK_COUNT * 2];
+	};
+
+
     static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
     static constexpr int CLASS_NUM = 80;
     static constexpr int INPUT_H = 608;
-    static constexpr int INPUT_W = 608;
-
-    struct YoloKernel
-    {
-        int width;
-        int height;
-        float anchors[CHECK_COUNT*2];
-    };
-
-    static constexpr YoloKernel yolo1 = {
-        INPUT_W / 32,
-        INPUT_H / 32,
-        {116,90,  156,198,  373,326}
-    };
-    static constexpr YoloKernel yolo2 = {
-        INPUT_W / 16,
-        INPUT_H / 16,
-        {30,61,  62,45,  59,119}
-    };
-    static constexpr YoloKernel yolo3 = {
-        INPUT_W / 8,
-        INPUT_H / 8,
-        {10,13,  16,30,  33,23}
-    };
+    static constexpr int INPUT_W = 608;  
 
     static constexpr int LOCATIONS = 4;
     struct alignas(float) Detection{
@@ -51,9 +36,9 @@ namespace nvinfer1
     class YoloLayerPlugin: public IPluginV2IOExt
     {
         public:
-            explicit YoloLayerPlugin();
+            //YoloLayerPlugin() {};
+            YoloLayerPlugin(int classCount, int netWidth, int netHeight, const std::vector<Yolo::YoloKernel>& vYoloKernel);
             YoloLayerPlugin(const void* data, size_t length);
-
             ~YoloLayerPlugin();
 
             int getNbOutputs() const override
@@ -104,14 +89,18 @@ namespace nvinfer1
 
             void detachFromContext() override;
 
+			//void set_yolo(const std::vector<Yolo::YoloKernel> fyolo, const Yolo::YoloModelInfo modelinfo);
+
         private:
             void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
-            int mClassCount;
-            int mKernelCount;
-            std::vector<Yolo::YoloKernel> mYoloKernel;
             int mThreadCount = 256;
-            void** mAnchor;
             const char* mPluginNamespace;
+            //
+            int mKernelCount;
+            int mClassCount;
+            int mYoloV5NetWidth;
+            int mYoloV5NetHeight;
+            std::vector<Yolo::YoloKernel> mYoloKernel;
     };
 
     class YoloPluginCreator : public IPluginCreator
@@ -146,7 +135,7 @@ namespace nvinfer1
             static PluginFieldCollection mFC;
             static std::vector<PluginField> mPluginAttributes;
     };
-    REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
+
 };
 
 #endif 
