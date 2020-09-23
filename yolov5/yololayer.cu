@@ -143,58 +143,58 @@ namespace nvinfer1
 		const int netwidth, const int netheight, int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT * 2], int classes, int outputElem)
 	{
  
-        int idx = threadIdx.x + blockDim.x * blockIdx.x; // Ïß³Ìid
+        int idx = threadIdx.x + blockDim.x * blockIdx.x; // çº¿ç¨‹id
         if (idx >= noElements) return;
 
         int total_grid = yoloWidth * yoloHeight; // 13*13 // 26*26 // 52*52
         int bnIdx = idx / total_grid;
         idx = idx - total_grid*bnIdx;
-        int info_len_i = 5 + classes;  // Ô¤²âÃ¿¸ö¿òµÄ³¤¶È
+        int info_len_i = 5 + classes;  // é¢„æµ‹æ¯ä¸ªæ¡†çš„é•¿åº¦
         const float* curInput = input + bnIdx * (info_len_i * total_grid * CHECK_COUNT); 
-		//CHECK_COUNT ÊÇÃ¿¸öcell¶ÔÓ¦µÄanchor¸öÊı
-		// curInputÊÇÃ¿´ÎÏß³Ì¼ÆËãµÄÊäÈë£¬Ó¦¸ÃÒª¶ÔÓ¦Ò»¸ö³ß¶ÈÉÏµÄĞÅÏ¢£¬±ÈÈçÎª 3*85* 13*13
+		//CHECK_COUNT æ˜¯æ¯ä¸ªcellå¯¹åº”çš„anchorä¸ªæ•°
+		// curInputæ˜¯æ¯æ¬¡çº¿ç¨‹è®¡ç®—çš„è¾“å…¥ï¼Œåº”è¯¥è¦å¯¹åº”ä¸€ä¸ªå°ºåº¦ä¸Šçš„ä¿¡æ¯ï¼Œæ¯”å¦‚ä¸º 3*85* 13*13
 
-        for (int k = 0; k < 3; ++k) { // 3¸ö³ß¶È
-			//ĞĞ´æ´¢£¬ k * info_len_i*total_grid µÚk¸ö³ß¶ÈÉÏµÄÊäÈëÆğÊ¼µã£¬
-			// ´æ´¢µÄ¸ñÊ½£º x y w h prob [80¸öÀà±ğprob]
+        for (int k = 0; k < 3; ++k) { // 3ä¸ªå°ºåº¦
+			//è¡Œå­˜å‚¨ï¼Œ k * info_len_i*total_grid ç¬¬kä¸ªå°ºåº¦ä¸Šçš„è¾“å…¥èµ·å§‹ç‚¹ï¼Œ
+			// å­˜å‚¨çš„æ ¼å¼ï¼š x y w h prob [80ä¸ªç±»åˆ«prob]
 			// 
-            float box_prob = Logist(curInput[idx + k * info_len_i * total_grid + 4 * total_grid]); // È¡³öprob
+            float box_prob = Logist(curInput[idx + k * info_len_i * total_grid + 4 * total_grid]); // å–å‡ºprob
             if (box_prob < IGNORE_THRESH) continue;
             int class_id = 0;
             float max_cls_prob = 0.0;
             for (int i = 5; i < info_len_i; ++i) {
-				// ´ÓµÚ5¸ö¿ªÊ¼¶¼ÎªÀà±ğµÄprob
+				// ä»ç¬¬5ä¸ªå¼€å§‹éƒ½ä¸ºç±»åˆ«çš„prob
                 float p = Logist(curInput[idx + k * info_len_i * total_grid + i * total_grid]);
                 if (p > max_cls_prob) {
                     max_cls_prob = p;
                     class_id = i - 5;
                 }
             }
-            float *res_count = output + bnIdx*outputElem; // Êä³öÎ»ÖÃ£¬stepÎª£º 1 + 1000¸ö¿ò 
-            int count = (int)atomicAdd(res_count, 1); // ¿òµÄ×ÜÊı
+            float *res_count = output + bnIdx*outputElem; // è¾“å‡ºä½ç½®ï¼Œstepä¸ºï¼š 1 + 1000ä¸ªæ¡† 
+            int count = (int)atomicAdd(res_count, 1); // æ¡†çš„æ€»æ•°
             if (count >= 1000) return;
             char* data = (char *)res_count + sizeof(float) + count * sizeof(Detection);
             Detection* det =  (Detection*)(data);
 			
-			// Ã¿¸ö³ß¶È¶¼ÊÇĞĞ´æ´¢µÄ
-			//ÏÂÃæ¼ÆËãĞĞÁĞÎ»ÖÃ
+			// æ¯ä¸ªå°ºåº¦éƒ½æ˜¯è¡Œå­˜å‚¨çš„
+			//ä¸‹é¢è®¡ç®—è¡Œåˆ—ä½ç½®
             int row = idx / yoloWidth;
             int col = idx % yoloWidth;
 			//printf("anchor_x = %d\n", int(anchors[2 * k]));
 			//printf("anchor_y = %d\n", int(anchors[2 * k + 1]));
             //Location
-			// pytorch¼ÆËã·½Ê½£º
+			// pytorchè®¡ç®—æ–¹å¼ï¼š
 			//    y = x[i].sigmoid()
 			//    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
             //    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh 
-			//X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth  (netWidth ÎªÊäÈëÍ¼µÄ´óĞ¡±ÈÈç416)
+			//X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth  (netWidth ä¸ºè¾“å…¥å›¾çš„å¤§å°æ¯”å¦‚416)
 		    det->bbox[0] = (col - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * netwidth / yoloWidth;
 			det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
 			
-			// W: (Pw * e^tw) / FeaturemapW * netwidth  // PwÎªanchorµÄĞÅÏ¢  yolov3µÄ¼ÆËã·½Ê½
-			// v5¼ÆËã·½Ê½¸Ä±ä£ºhttps://github.com/ultralytics/yolov5/issues/471
+			// W: (Pw * e^tw) / FeaturemapW * netwidth  // Pwä¸ºanchorçš„ä¿¡æ¯  yolov3çš„è®¡ç®—æ–¹å¼
+			// v5è®¡ç®—æ–¹å¼æ”¹å˜ï¼šhttps://github.com/ultralytics/yolov5/issues/471
 			det->bbox[2] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]);
-			det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2*k];  // Ó³Éäµ½Ô­Í¼
+			det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2*k];  // æ˜ å°„åˆ°åŸå›¾
 			det->bbox[3] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 3 * total_grid]);
 			det->bbox[3] = det->bbox[3] * det->bbox[3] * anchors[2*k + 1];
 			det->conf = box_prob * max_cls_prob;
@@ -266,7 +266,7 @@ namespace nvinfer1
 
     IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
     {
-        // ¹¹Ôìº¯ÊıµÄĞÎ²Î
+        // æ„é€ å‡½æ•°çš„å½¢å‚
         int ClassCount;
         int YoloV5NetWidth;
         int YoloV5NetHeight;
@@ -323,7 +323,7 @@ namespace nvinfer1
                 vYoloKernel.push_back(kernel);
             }
         }
-        std::reverse(vYoloKernel.begin(), vYoloKernel.end()); // ·´×ª£¬ÒªÓëyolo²ãÊäÈëµÄinputË³Ğò¶ÔÓ¦
+        std::reverse(vYoloKernel.begin(), vYoloKernel.end()); // åè½¬ï¼Œè¦ä¸yoloå±‚è¾“å…¥çš„inputé¡ºåºå¯¹åº”
         //YoloLayerPlugin* obj = new YoloLayerPlugin();
         YoloLayerPlugin* obj = new YoloLayerPlugin(ClassCount, YoloV5NetWidth, YoloV5NetHeight, vYoloKernel);
         obj->setPluginNamespace(mNamespace.c_str());

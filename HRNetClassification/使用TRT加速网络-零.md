@@ -81,7 +81,9 @@ ResBlock层
 如果无法导出onnx：
 
 搭建网络时需要从wts中查看层名，各个卷积层信息需要从代码中分析。
-![image-20200918142959711](https://user-images.githubusercontent.com/20653176/93750398-fd341c00-fc2d-11ea-9077-ee749b6aef41.png)
+
+![image_f](https://user-images.githubusercontent.com/20653176/93750398-fd341c00-fc2d-11ea-9077-ee749b6aef41.png)
+
 ![image-20200918142959711](https://user-images.githubusercontent.com/20653176/93749484-8fd3bb80-fc2c-11ea-951d-3c1f403e521a.png)
 
 ## 5 TRT搭建网络
