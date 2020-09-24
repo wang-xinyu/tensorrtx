@@ -27,31 +27,26 @@ static Logger gLogger;
 
 std::vector<float> GetAnchors(std::map<std::string, Weights>& weightMap)
 {
-    std::vector<float> anchors_yolo; // 共有18个元素
-    //获取anchor值
+    std::vector<float> anchors_yolo; 
     Weights Yolo_Anchors = weightMap["model.24.anchor_grid"];
     assert(Yolo_Anchors.count == 18);
     int each_yololayer_anchorsnum = Yolo_Anchors.count / 3;
     const float* tempAnchors = (const float*)(Yolo_Anchors.values);
-    float* Anchors = new float[Yolo_Anchors.count];
-    Anchors = const_cast<float*>(tempAnchors);
     for (int i = 0; i < Yolo_Anchors.count; i++)
     {
         if (i < each_yololayer_anchorsnum)
         {
-            anchors_yolo.push_back(Anchors[i]);  // 应该对应的是 fature为8的
+            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
         }
         if ((i >= each_yololayer_anchorsnum) && (i < (2 * each_yololayer_anchorsnum)))
         {
-            anchors_yolo.push_back(Anchors[i]);
+            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
         }
         if (i >= (2 * each_yololayer_anchorsnum))
         {
-            anchors_yolo.push_back(Anchors[i]);
+            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
         }
     }
-    delete[] Anchors;
-
     return anchors_yolo;
 }
 
@@ -100,7 +95,6 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     IDeconvolutionLayer* deconv15 = network->addDeconvolutionNd(*conv14->getOutput(0), 128, DimsHW{2, 2}, deconvwts15, emptywts);
     deconv15->setStrideNd(DimsHW{2, 2});
     deconv15->setNbGroups(128);
-	//weightMap["deconv15"] = deconvwts15;
 
     ITensor* inputTensors16[] = {deconv15->getOutput(0), bottleneck_csp4->getOutput(0)};
     auto cat16 = network->addConcatenation(inputTensors16, 2);
@@ -119,10 +113,9 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     auto bottleneck_csp23 = bottleneckCSP(network, weightMap, *cat22->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.23");
     IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
-    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");  
-    std::vector<float> anchors_yolo= GetAnchors(weightMap);
-    PluginField pluginMultidata[4]; // struct数组 存储4种数据。
-    // 填充 类别 网络宽高
+    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1"); 
+    std::vector<float> anchors_yolo = GetAnchors(weightMap);
+    PluginField pluginMultidata[4];
     int* NetData = new int[3];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
@@ -154,7 +147,6 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     PluginFieldCollection pluginData;
     pluginData.nbFields = 4;
     pluginData.fields = pluginMultidata;
-
     IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
     ITensor* inputTensors_yolo[] = { det2->getOutput(0), det1->getOutput(0), det0->getOutput(0) };
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
@@ -176,6 +168,21 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
+    for (int i = 0; i < 4; ++i)
+    {
+        if (pluginMultidata[i].data)
+        {
+            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
+            delete[] pluginMultidata[i].data;
+            temp = NULL;
+            pluginMultidata[i].data = NULL;
+        }
+        if (pluginMultidata[i].name)
+        {
+            delete[] pluginMultidata[i].name;
+            pluginMultidata[i].name = NULL;
+        }
+    }
     for (auto& mem : weightMap)
     {
         if ((void*)mem.second.values)
@@ -183,7 +190,6 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
             free((void*)(mem.second.values));
         }
     }
-
     return engine;
 }
 
@@ -262,8 +268,7 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
 
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4]; // struct数组 存储4种数据。
-    // 填充 类别 网络宽高
+    PluginField pluginMultidata[4];
     int* NetData = new int[3];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
@@ -295,8 +300,7 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
     PluginFieldCollection pluginData;
     pluginData.nbFields = 4;
     pluginData.fields = pluginMultidata;
-
-    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);;
+    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
     ITensor* inputTensors_yolo[] = {det2->getOutput(0), det1->getOutput(0), det0->getOutput(0)};
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
 
@@ -317,6 +321,21 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
+    for (int i = 0; i < 4; ++i)
+    {
+        if (pluginMultidata[i].data)
+        {
+            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
+            delete[] pluginMultidata[i].data;
+            temp = NULL;
+            pluginMultidata[i].data = NULL;
+        }
+        if (pluginMultidata[i].name)
+        {
+            delete[] pluginMultidata[i].name;
+            pluginMultidata[i].name = NULL;
+        }
+    }
     for (auto& mem : weightMap)
     {
         free((void*)(mem.second.values));
@@ -398,8 +417,7 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
 
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4]; // struct数组 存储4种数据。
-    // 填充 类别 网络宽高
+    PluginField pluginMultidata[4];
     int* NetData = new int[3];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
@@ -431,7 +449,6 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     PluginFieldCollection pluginData;
     pluginData.nbFields = 4;
     pluginData.fields = pluginMultidata;
-
     IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
     ITensor* inputTensors_yolo[] = {det2->getOutput(0), det1->getOutput(0), det0->getOutput(0)};
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
@@ -453,6 +470,21 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
+    for (int i = 0; i < 4; ++i)
+    {
+        if (pluginMultidata[i].data)
+        {
+            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
+            delete[] pluginMultidata[i].data;
+            temp = NULL;
+            pluginMultidata[i].data = NULL;
+        }
+        if (pluginMultidata[i].name)
+        {
+            delete[] pluginMultidata[i].name;
+            pluginMultidata[i].name = NULL;
+        }
+    }
     for (auto& mem : weightMap)
     {
         free((void*)(mem.second.values));
@@ -536,8 +568,7 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
 
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4]; // struct数组 存储4种数据。
-    // 填充 类别 网络宽高
+    PluginField pluginMultidata[4];
     int* NetData = new int[3];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
@@ -569,7 +600,6 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
     PluginFieldCollection pluginData;
     pluginData.nbFields = 4;
     pluginData.fields = pluginMultidata;
-
     IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
     ITensor* inputTensors_yolo[] = { det2->getOutput(0), det1->getOutput(0), det0->getOutput(0) };
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
@@ -591,6 +621,21 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
+    for (int i = 0; i < 4; ++i)
+    {
+        if (pluginMultidata[i].data)
+        {
+            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
+            delete[] pluginMultidata[i].data;
+            temp = NULL;
+            pluginMultidata[i].data = NULL;
+        }
+        if (pluginMultidata[i].name)
+        {
+            delete[] pluginMultidata[i].name;
+            pluginMultidata[i].name = NULL;
+        }
+    }
     for (auto& mem : weightMap)
     {
         free((void*)(mem.second.values));
@@ -632,7 +677,6 @@ int main(int argc, char** argv) {
     size_t size{0};
     std::string engine_name = STR2(NET);
     engine_name = "yolov5" + engine_name + ".engine";
-    argv[1] = "-d";
     if (argc == 2 && std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
         APIToModel(BATCH_SIZE, &modelStream);

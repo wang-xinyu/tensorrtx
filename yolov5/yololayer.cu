@@ -6,14 +6,14 @@ using namespace Yolo;
 
 namespace nvinfer1
 {
-	YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, const std::vector<Yolo::YoloKernel>& vYoloKernel)
-	{
+    YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, const std::vector<Yolo::YoloKernel>& vYoloKernel)
+    {
         mClassCount = classCount;
         mYoloV5NetWidth = netWidth;
         mYoloV5NetHeight = netHeight;
         mYoloKernel = vYoloKernel;
         mKernelCount = vYoloKernel.size();
-	}
+    }
     YoloLayerPlugin::~YoloLayerPlugin()
     {
     }
@@ -26,8 +26,8 @@ namespace nvinfer1
         read(d, mClassCount);
         read(d, mThreadCount);
         read(d, mKernelCount);
-		read(d, mYoloV5NetWidth);
-		read(d, mYoloV5NetHeight);
+        read(d, mYoloV5NetWidth);
+        read(d, mYoloV5NetHeight);
         mYoloKernel.resize(mKernelCount);
         auto kernelSize = mKernelCount*sizeof(YoloKernel);
         memcpy(mYoloKernel.data(),d,kernelSize);
@@ -44,8 +44,8 @@ namespace nvinfer1
         write(d, mClassCount);
         write(d, mThreadCount);
         write(d, mKernelCount);
-		write(d, mYoloV5NetWidth);
-		write(d, mYoloV5NetHeight);
+        write(d, mYoloV5NetWidth);
+        write(d, mYoloV5NetHeight);
         auto kernelSize = mKernelCount*sizeof(YoloKernel);
         memcpy(d,mYoloKernel.data(),kernelSize);
         d += kernelSize;
@@ -130,8 +130,8 @@ namespace nvinfer1
     // Clone the plugin
     IPluginV2IOExt* YoloLayerPlugin::clone() const
     {
-		//YoloLayerPlugin *p = nullptr;
-		//p = new YoloLayerPlugin();
+        //YoloLayerPlugin *p = nullptr;
+        //p = new YoloLayerPlugin();
         YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV5NetWidth, mYoloV5NetHeight, mYoloKernel);
         p->setPluginNamespace(mPluginNamespace);
         return p;
@@ -139,9 +139,9 @@ namespace nvinfer1
 
     __device__ float Logist(float data){ return 1.0f / (1.0f + expf(-data)); };
 
-	__global__ void CalDetection(const float *input, float *output, int noElements,
-		const int netwidth, const int netheight, int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT * 2], int classes, int outputElem)
-	{
+    __global__ void CalDetection(const float *input, float *output, int noElements,
+        const int netwidth, const int netheight, int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT * 2], int classes, int outputElem)
+    {
  
         int idx = threadIdx.x + blockDim.x * blockIdx.x; // 线程id
         if (idx >= noElements) return;
@@ -149,65 +149,57 @@ namespace nvinfer1
         int total_grid = yoloWidth * yoloHeight; // 13*13 // 26*26 // 52*52
         int bnIdx = idx / total_grid;
         idx = idx - total_grid*bnIdx;
-        int info_len_i = 5 + classes;  // 预测每个框的长度
+        int info_len_i = 5 + classes; 
         const float* curInput = input + bnIdx * (info_len_i * total_grid * CHECK_COUNT); 
-		//CHECK_COUNT 是每个cell对应的anchor个数
-		// curInput是每次线程计算的输入，应该要对应一个尺度上的信息，比如为 3*85* 13*13
 
-        for (int k = 0; k < 3; ++k) { // 3个尺度
-			//行存储， k * info_len_i*total_grid 第k个尺度上的输入起始点，
-			// 存储的格式： x y w h prob [80个类别prob]
-			// 
-            float box_prob = Logist(curInput[idx + k * info_len_i * total_grid + 4 * total_grid]); // 取出prob
+
+        for (int k = 0; k < 3; ++k) { 
+            float box_prob = Logist(curInput[idx + k * info_len_i * total_grid + 4 * total_grid]); 
             if (box_prob < IGNORE_THRESH) continue;
             int class_id = 0;
             float max_cls_prob = 0.0;
             for (int i = 5; i < info_len_i; ++i) {
-				// 从第5个开始都为类别的prob
                 float p = Logist(curInput[idx + k * info_len_i * total_grid + i * total_grid]);
                 if (p > max_cls_prob) {
                     max_cls_prob = p;
                     class_id = i - 5;
                 }
             }
-            float *res_count = output + bnIdx*outputElem; // 输出位置，step为： 1 + 1000个框 
-            int count = (int)atomicAdd(res_count, 1); // 框的总数
+            float *res_count = output + bnIdx*outputElem; // 
+            int count = (int)atomicAdd(res_count, 1); // 
             if (count >= 1000) return;
             char* data = (char *)res_count + sizeof(float) + count * sizeof(Detection);
             Detection* det =  (Detection*)(data);
-			
-			// 每个尺度都是行存储的
-			//下面计算行列位置
+            
             int row = idx / yoloWidth;
             int col = idx % yoloWidth;
-			//printf("anchor_x = %d\n", int(anchors[2 * k]));
-			//printf("anchor_y = %d\n", int(anchors[2 * k + 1]));
+
             //Location
-			// pytorch计算方式：
-			//    y = x[i].sigmoid()
-			//    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
+            // pytorch：
+            //    y = x[i].sigmoid()
+            //    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
             //    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh 
-			//X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth  (netWidth 为输入图的大小比如416)
-		    det->bbox[0] = (col - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * netwidth / yoloWidth;
-			det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
-			
-			// W: (Pw * e^tw) / FeaturemapW * netwidth  // Pw为anchor的信息  yolov3的计算方式
-			// v5计算方式改变：https://github.com/ultralytics/yolov5/issues/471
-			det->bbox[2] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]);
-			det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2*k];  // 映射到原图
-			det->bbox[3] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 3 * total_grid]);
-			det->bbox[3] = det->bbox[3] * det->bbox[3] * anchors[2*k + 1];
-			det->conf = box_prob * max_cls_prob;
-			det->class_id = class_id;
+            //X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth  (netWidth 为输入图的大小比如416)
+            det->bbox[0] = (col - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * netwidth / yoloWidth;
+            det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
+            
+            // W: (Pw * e^tw) / FeaturemapW * netwidth  
+            // v5：https://github.com/ultralytics/yolov5/issues/471
+            det->bbox[2] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]);
+            det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2*k];  // 
+            det->bbox[3] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 3 * total_grid]);
+            det->bbox[3] = det->bbox[3] * det->bbox[3] * anchors[2*k + 1];
+            det->conf = box_prob * max_cls_prob;
+            det->class_id = class_id;
         }
     }
 
     void YoloLayerPlugin::forwardGpu(const float *const * inputs, float* output, cudaStream_t stream, int batchSize) 
-	{
+    {
 
-		void* devAnchor;
-		size_t AnchorLen = sizeof(float)* CHECK_COUNT * 2;
-		CUDA_CHECK(cudaMalloc(&devAnchor, AnchorLen));
+        void* devAnchor;
+        size_t AnchorLen = sizeof(float)* CHECK_COUNT * 2;
+        CUDA_CHECK(cudaMalloc(&devAnchor, AnchorLen));
 
 
         int outputElem = 1 + 1000 * sizeof(Detection) / sizeof(float);
@@ -220,15 +212,15 @@ namespace nvinfer1
         {
             const auto& yolo = mYoloKernel[i];
             numElem = yolo.width*yolo.height*batchSize;
-			CUDA_CHECK(cudaMemcpy(devAnchor, yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
+            CUDA_CHECK(cudaMemcpy(devAnchor, yolo.anchors, AnchorLen, cudaMemcpyHostToDevice));
             if (numElem < mThreadCount)
                 mThreadCount = numElem;
 
-			//printf("Net: %d  %d \n", mYoloV5NetWidth, mYoloV5NetHeight);
-			CalDetection << < (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount >> >
-				(inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetWidth, yolo.width, yolo.height, (float *)devAnchor, mClassCount, outputElem);
+            //printf("Net: %d  %d \n", mYoloV5NetWidth, mYoloV5NetHeight);
+            CalDetection << < (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount >> >
+                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetWidth, yolo.width, yolo.height, (float *)devAnchor, mClassCount, outputElem);
         }
-		CUDA_CHECK(cudaFree(devAnchor));
+        CUDA_CHECK(cudaFree(devAnchor));
     }
 
 
@@ -323,8 +315,7 @@ namespace nvinfer1
                 vYoloKernel.push_back(kernel);
             }
         }
-        std::reverse(vYoloKernel.begin(), vYoloKernel.end()); // 反转，要与yolo层输入的input顺序对应
-        //YoloLayerPlugin* obj = new YoloLayerPlugin();
+        std::reverse(vYoloKernel.begin(), vYoloKernel.end()); 
         YoloLayerPlugin* obj = new YoloLayerPlugin(ClassCount, YoloV5NetWidth, YoloV5NetHeight, vYoloKernel);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
@@ -338,5 +329,5 @@ namespace nvinfer1
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }
-	REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
+    REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 }

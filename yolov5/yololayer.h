@@ -7,14 +7,14 @@
 
 namespace Yolo
 {
-	static constexpr int CHECK_COUNT = 3;
-	static constexpr float IGNORE_THRESH = 0.1f;
-	struct YoloKernel
-	{
-		int width;
-		int height;
-		float anchors[CHECK_COUNT * 2];
-	};
+       static constexpr int CHECK_COUNT = 3;
+       static constexpr float IGNORE_THRESH = 0.1f;
+       struct YoloKernel
+       {
+              int width;
+              int height;
+              float anchors[CHECK_COUNT * 2];
+       };
 
 
     static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
@@ -88,8 +88,7 @@ namespace nvinfer1
             void configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) override;
 
             void detachFromContext() override;
-
-			//void set_yolo(const std::vector<Yolo::YoloKernel> fyolo, const Yolo::YoloModelInfo modelinfo);
+            //void set_yolo(const std::vector<Yolo::YoloKernel> fyolo, const Yolo::YoloModelInfo modelinfo);
 
         private:
             void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
