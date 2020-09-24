@@ -146,7 +146,7 @@ namespace nvinfer1
         const int netwidth, const int netheight, int maxoutobject, int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT * 2], int classes, int outputElem)
     {
  
-        int idx = threadIdx.x + blockDim.x * blockIdx.x; // 线程id
+        int idx = threadIdx.x + blockDim.x * blockIdx.x; 
         if (idx >= noElements) return;
 
         int total_grid = yoloWidth * yoloHeight; // 13*13 // 26*26 // 52*52
@@ -182,7 +182,7 @@ namespace nvinfer1
             //    y = x[i].sigmoid()
             //    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
             //    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh 
-            //X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth  (netWidth 为输入图的大小比如416)
+            //X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth 
             det->bbox[0] = (col - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * netwidth / yoloWidth;
             det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
             
@@ -261,7 +261,6 @@ namespace nvinfer1
 
     IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
     {
-        // 构造函数的形参
         int ClassCount;
         int YoloV5NetWidth;
         int YoloV5NetHeight;
