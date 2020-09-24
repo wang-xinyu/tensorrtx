@@ -32,8 +32,9 @@ cv::Mat preprocess_img(cv::Mat& img) {
         h = r_w * img.rows;
         x = 0;
         y = (Yolo::INPUT_H - h) / 2;
-    } else {
-        w = r_h* img.cols;
+    }
+    else {
+        w = r_h * img.cols;
         h = Yolo::INPUT_H;
         x = (Yolo::INPUT_W - w) / 2;
         y = 0;
@@ -50,40 +51,41 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     float r_w = Yolo::INPUT_W / (img.cols * 1.0);
     float r_h = Yolo::INPUT_H / (img.rows * 1.0);
     if (r_h > r_w) {
-        l = bbox[0] - bbox[2]/2.f;
-        r = bbox[0] + bbox[2]/2.f;
-        t = bbox[1] - bbox[3]/2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
-        b = bbox[1] + bbox[3]/2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
+        l = bbox[0] - bbox[2] / 2.f;
+        r = bbox[0] + bbox[2] / 2.f;
+        t = bbox[1] - bbox[3] / 2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
+        b = bbox[1] + bbox[3] / 2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
         l = l / r_w;
         r = r / r_w;
         t = t / r_w;
         b = b / r_w;
-    } else {
-        l = bbox[0] - bbox[2]/2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
-        r = bbox[0] + bbox[2]/2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
-        t = bbox[1] - bbox[3]/2.f;
-        b = bbox[1] + bbox[3]/2.f;
+    }
+    else {
+        l = bbox[0] - bbox[2] / 2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
+        r = bbox[0] + bbox[2] / 2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
+        t = bbox[1] - bbox[3] / 2.f;
+        b = bbox[1] + bbox[3] / 2.f;
         l = l / r_h;
         r = r / r_h;
         t = t / r_h;
         b = b / r_h;
     }
-    return cv::Rect(l, t, r-l, b-t);
+    return cv::Rect(l, t, r - l, b - t);
 }
 
 float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
-        std::max(lbox[0] - lbox[2]/2.f , rbox[0] - rbox[2]/2.f), //left
-        std::min(lbox[0] + lbox[2]/2.f , rbox[0] + rbox[2]/2.f), //right
-        std::max(lbox[1] - lbox[3]/2.f , rbox[1] - rbox[3]/2.f), //top
-        std::min(lbox[1] + lbox[3]/2.f , rbox[1] + rbox[3]/2.f), //bottom
+        (std::max)(lbox[0] - lbox[2] / 2.f , rbox[0] - rbox[2] / 2.f), //left
+        (std::min)(lbox[0] + lbox[2] / 2.f , rbox[0] + rbox[2] / 2.f), //right
+        (std::max)(lbox[1] - lbox[3] / 2.f , rbox[1] - rbox[3] / 2.f), //top
+        (std::min)(lbox[1] + lbox[3] / 2.f , rbox[1] + rbox[3] / 2.f), //bottom
     };
 
-    if(interBox[2] > interBox[3] || interBox[0] > interBox[1])
+    if (interBox[2] > interBox[3] || interBox[0] > interBox[1])
         return 0.0f;
 
-    float interBoxS =(interBox[1]-interBox[0])*(interBox[3]-interBox[2]);
-    return interBoxS/(lbox[2]*lbox[3] + rbox[2]*rbox[3] -interBoxS);
+    float interBoxS = (interBox[1] - interBox[0])*(interBox[3] - interBox[2]);
+    return interBoxS / (lbox[2] * lbox[3] + rbox[2] * rbox[3] - interBoxS);
 }
 
 bool cmp(const Yolo::Detection& a, const Yolo::Detection& b) {
@@ -109,7 +111,7 @@ void nms(std::vector<Yolo::Detection>& res, float *output, float conf_thresh, fl
             res.push_back(item);
             for (size_t n = m + 1; n < dets.size(); ++n) {
                 if (iou(item.bbox, dets[n].bbox) > nms_thresh) {
-                    dets.erase(dets.begin()+n);
+                    dets.erase(dets.begin() + n);
                     --n;
                 }
             }
@@ -134,7 +136,7 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
 
     while (count--)
     {
-        Weights wt{DataType::kFLOAT, nullptr, 0};
+        Weights wt{ DataType::kFLOAT, nullptr, 0 };
         uint32_t size;
 
         // Read name and type of blob
@@ -149,7 +151,7 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
             input >> std::hex >> val[x];
         }
         wt.values = val;
-        
+
         wt.count = size;
         weightMap[name] = wt;
     }
@@ -168,19 +170,19 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     for (int i = 0; i < len; i++) {
         scval[i] = gamma[i] / sqrt(var[i] + eps);
     }
-    Weights scale{DataType::kFLOAT, scval, len};
-    
+    Weights scale{ DataType::kFLOAT, scval, len };
+
     float *shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
     }
-    Weights shift{DataType::kFLOAT, shval, len};
+    Weights shift{ DataType::kFLOAT, shval, len };
 
     float *pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         pval[i] = 1.0;
     }
-    Weights power{DataType::kFLOAT, pval, len};
+    Weights power{ DataType::kFLOAT, pval, len };
 
     weightMap[lname + ".scale"] = scale;
     weightMap[lname + ".shift"] = shift;
@@ -191,12 +193,12 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 }
 
 ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
     int p = ksize / 2;
-    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap[lname + ".conv.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".conv.weight"], emptywts);
     assert(conv1);
-    conv1->setStrideNd(DimsHW{s, s});
-    conv1->setPaddingNd(DimsHW{p, p});
+    conv1->setStrideNd(DimsHW{ s, s });
+    conv1->setPaddingNd(DimsHW{ p, p });
     conv1->setNbGroups(g);
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
@@ -211,11 +213,11 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
 }
 
 ILayer* focus(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int ksize, std::string lname) {
-    ISliceLayer *s1 = network->addSlice(input, Dims3{0, 0, 0}, Dims3{inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2}, Dims3{1, 2, 2});
-    ISliceLayer *s2 = network->addSlice(input, Dims3{0, 1, 0}, Dims3{inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2}, Dims3{1, 2, 2});
-    ISliceLayer *s3 = network->addSlice(input, Dims3{0, 0, 1}, Dims3{inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2}, Dims3{1, 2, 2});
-    ISliceLayer *s4 = network->addSlice(input, Dims3{0, 1, 1}, Dims3{inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2}, Dims3{1, 2, 2});
-    ITensor* inputTensors[] = {s1->getOutput(0), s2->getOutput(0), s3->getOutput(0), s4->getOutput(0)};
+    ISliceLayer *s1 = network->addSlice(input, Dims3{ 0, 0, 0 }, Dims3{ inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2 }, Dims3{ 1, 2, 2 });
+    ISliceLayer *s2 = network->addSlice(input, Dims3{ 0, 1, 0 }, Dims3{ inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2 }, Dims3{ 1, 2, 2 });
+    ISliceLayer *s3 = network->addSlice(input, Dims3{ 0, 0, 1 }, Dims3{ inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2 }, Dims3{ 1, 2, 2 });
+    ISliceLayer *s4 = network->addSlice(input, Dims3{ 0, 1, 1 }, Dims3{ inch, Yolo::INPUT_H / 2, Yolo::INPUT_W / 2 }, Dims3{ 1, 2, 2 });
+    ITensor* inputTensors[] = { s1->getOutput(0), s2->getOutput(0), s3->getOutput(0), s4->getOutput(0) };
     auto cat = network->addConcatenation(inputTensors, 4);
     auto conv = convBlock(network, weightMap, *cat->getOutput(0), outch, ksize, 1, 1, lname + ".conv");
     return conv;
@@ -232,18 +234,18 @@ ILayer* bottleneck(INetworkDefinition *network, std::map<std::string, Weights>& 
 }
 
 ILayer* bottleneckCSP(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int n, bool shortcut, int g, float e, std::string lname) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
     int c_ = (int)((float)c2 * e);
     auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
-    auto cv2 = network->addConvolutionNd(input, c_, DimsHW{1, 1}, weightMap[lname + ".cv2.weight"], emptywts);
+    auto cv2 = network->addConvolutionNd(input, c_, DimsHW{ 1, 1 }, weightMap[lname + ".cv2.weight"], emptywts);
     ITensor *y1 = cv1->getOutput(0);
     for (int i = 0; i < n; i++) {
         auto b = bottleneck(network, weightMap, *y1, c_, c_, shortcut, g, 1.0, lname + ".m." + std::to_string(i));
         y1 = b->getOutput(0);
     }
-    auto cv3 = network->addConvolutionNd(*y1, c_, DimsHW{1, 1}, weightMap[lname + ".cv3.weight"], emptywts);
+    auto cv3 = network->addConvolutionNd(*y1, c_, DimsHW{ 1, 1 }, weightMap[lname + ".cv3.weight"], emptywts);
 
-    ITensor* inputTensors[] = {cv3->getOutput(0), cv2->getOutput(0)};
+    ITensor* inputTensors[] = { cv3->getOutput(0), cv2->getOutput(0) };
     auto cat = network->addConcatenation(inputTensors, 2);
 
     IScaleLayer* bn = addBatchNorm2d(network, weightMap, *cat->getOutput(0), lname + ".bn", 1e-4);
@@ -258,17 +260,17 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
     int c_ = c1 / 2;
     auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
 
-    auto pool1 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{k1, k1});
-    pool1->setPaddingNd(DimsHW{k1 / 2, k1 / 2});
-    pool1->setStrideNd(DimsHW{1, 1});
-    auto pool2 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{k2, k2});
-    pool2->setPaddingNd(DimsHW{k2 / 2, k2 / 2});
-    pool2->setStrideNd(DimsHW{1, 1});
-    auto pool3 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{k3, k3});
-    pool3->setPaddingNd(DimsHW{k3 / 2, k3 / 2});
-    pool3->setStrideNd(DimsHW{1, 1});
+    auto pool1 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{ k1, k1 });
+    pool1->setPaddingNd(DimsHW{ k1 / 2, k1 / 2 });
+    pool1->setStrideNd(DimsHW{ 1, 1 });
+    auto pool2 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{ k2, k2 });
+    pool2->setPaddingNd(DimsHW{ k2 / 2, k2 / 2 });
+    pool2->setStrideNd(DimsHW{ 1, 1 });
+    auto pool3 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{ k3, k3 });
+    pool3->setPaddingNd(DimsHW{ k3 / 2, k3 / 2 });
+    pool3->setStrideNd(DimsHW{ 1, 1 });
 
-    ITensor* inputTensors[] = {cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0)};
+    ITensor* inputTensors[] = { cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0) };
     auto cat = network->addConcatenation(inputTensors, 4);
 
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
@@ -284,7 +286,7 @@ int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_nam
     struct dirent* p_file = nullptr;
     while ((p_file = readdir(p_dir)) != nullptr) {
         if (strcmp(p_file->d_name, ".") != 0 &&
-                strcmp(p_file->d_name, "..") != 0) {
+            strcmp(p_file->d_name, "..") != 0) {
             //std::string cur_file_name(p_dir_name);
             //cur_file_name += "/";
             //cur_file_name += p_file->d_name;
@@ -297,5 +299,71 @@ int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_nam
     return 0;
 }
 
+std::vector<float> GetAnchors(std::map<std::string, Weights>& weightMap)
+{
+    std::vector<float> anchors_yolo;
+    Weights Yolo_Anchors = weightMap["model.24.anchor_grid"];
+    assert(Yolo_Anchors.count == 18);
+    int each_yololayer_anchorsnum = Yolo_Anchors.count / 3;
+    const float* tempAnchors = (const float*)(Yolo_Anchors.values);
+    for (int i = 0; i < Yolo_Anchors.count; i++)
+    {
+        if (i < each_yololayer_anchorsnum)
+        {
+            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
+        }
+        if ((i >= each_yololayer_anchorsnum) && (i < (2 * each_yololayer_anchorsnum)))
+        {
+            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
+        }
+        if (i >= (2 * each_yololayer_anchorsnum))
+        {
+            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
+        }
+    }
+    return anchors_yolo;
+}
+
+IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, IConvolutionLayer* det0, IConvolutionLayer* det1, IConvolutionLayer* det2)
+{
+    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
+    std::vector<float> anchors_yolo = GetAnchors(weightMap);
+    PluginField pluginMultidata[4];
+    int* NetData = new int[4];
+    NetData[0] = Yolo::CLASS_NUM;
+    NetData[1] = Yolo::INPUT_W;
+    NetData[2] = Yolo::INPUT_H;
+    NetData[3] = Yolo::MAX_OUTPUT_BBOX_COUNT;
+    pluginMultidata[0].data = NetData;
+    pluginMultidata[0].length = 3;
+    std::string name = "netdata";
+    pluginMultidata[0].name = new char[name.size() + 1];
+    strcpy(const_cast<char*>(pluginMultidata[0].name), name.c_str());
+    pluginMultidata[0].type = PluginFieldType::kFLOAT32;
+    int scale[3] = { 8, 16, 32 };
+    for (int k = 1; k < 4; k++)
+    {
+        int* plugindata = new int[8];
+        plugindata[0] = Yolo::INPUT_W / scale[k - 1];
+        plugindata[1] = Yolo::INPUT_H / scale[k - 1];
+        for (int i = 2; i < 8; i++)
+        {
+            plugindata[i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
+        }
+        pluginMultidata[k].data = plugindata;
+        pluginMultidata[k].length = 8;
+        std::string name = "yolodata" + std::to_string(k);
+        pluginMultidata[k].name = new char[name.size() + 1];
+        strcpy(const_cast<char*>(pluginMultidata[k].name), name.c_str());
+        pluginMultidata[k].type = PluginFieldType::kFLOAT32;
+    }
+    PluginFieldCollection pluginData;
+    pluginData.nbFields = 4;
+    pluginData.fields = pluginMultidata;
+    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
+    ITensor* inputTensors_yolo[] = { det2->getOutput(0), det1->getOutput(0), det0->getOutput(0) };
+    auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
+    return yolo;
+}
 #endif
 

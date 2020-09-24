@@ -20,47 +20,22 @@
 static const int INPUT_H = Yolo::INPUT_H;
 static const int INPUT_W = Yolo::INPUT_W;
 static const int CLASS_NUM = Yolo::CLASS_NUM;
-static const int MAXOBJECT = Yolo::MAX_OUTPUT_BBOX_COUNT;
 static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
 
-std::vector<float> GetAnchors(std::map<std::string, Weights>& weightMap)
-{
-    std::vector<float> anchors_yolo; 
-    Weights Yolo_Anchors = weightMap["model.24.anchor_grid"];
-    assert(Yolo_Anchors.count == 18);
-    int each_yololayer_anchorsnum = Yolo_Anchors.count / 3;
-    const float* tempAnchors = (const float*)(Yolo_Anchors.values);
-    for (int i = 0; i < Yolo_Anchors.count; i++)
-    {
-        if (i < each_yololayer_anchorsnum)
-        {
-            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
-        }
-        if ((i >= each_yololayer_anchorsnum) && (i < (2 * each_yololayer_anchorsnum)))
-        {
-            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
-        }
-        if (i >= (2 * each_yololayer_anchorsnum))
-        {
-            anchors_yolo.push_back(const_cast<float*>(tempAnchors)[i]);
-        }
-    }
-    return anchors_yolo;
-}
 
 // Creat the engine using only the API and not any parser.
 ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../yolov5s.wts");
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
     // yolov5 backbone
     auto focus0 = focus(network, weightMap, *data, 3, 32, 3, "model.0");
@@ -81,78 +56,40 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     for (int i = 0; i < 256 * 2 * 2; i++) {
         deval[i] = 1.0;
     }
-    Weights deconvwts11{DataType::kFLOAT, deval, 256 * 2 * 2};
-    IDeconvolutionLayer* deconv11 = network->addDeconvolutionNd(*conv10->getOutput(0), 256, DimsHW{2, 2}, deconvwts11, emptywts);
-    deconv11->setStrideNd(DimsHW{2, 2});
+    Weights deconvwts11{ DataType::kFLOAT, deval, 256 * 2 * 2 };
+    IDeconvolutionLayer* deconv11 = network->addDeconvolutionNd(*conv10->getOutput(0), 256, DimsHW{ 2, 2 }, deconvwts11, emptywts);
+    deconv11->setStrideNd(DimsHW{ 2, 2 });
     deconv11->setNbGroups(256);
     weightMap["deconv11"] = deconvwts11;
 
-    ITensor* inputTensors12[] = {deconv11->getOutput(0), bottleneck_csp6->getOutput(0)};
+    ITensor* inputTensors12[] = { deconv11->getOutput(0), bottleneck_csp6->getOutput(0) };
     auto cat12 = network->addConcatenation(inputTensors12, 2);
     auto bottleneck_csp13 = bottleneckCSP(network, weightMap, *cat12->getOutput(0), 512, 256, 1, false, 1, 0.5, "model.13");
     auto conv14 = convBlock(network, weightMap, *bottleneck_csp13->getOutput(0), 128, 1, 1, 1, "model.14");
 
-    Weights deconvwts15{DataType::kFLOAT, deval, 128 * 2 * 2};
-    IDeconvolutionLayer* deconv15 = network->addDeconvolutionNd(*conv14->getOutput(0), 128, DimsHW{2, 2}, deconvwts15, emptywts);
-    deconv15->setStrideNd(DimsHW{2, 2});
+    Weights deconvwts15{ DataType::kFLOAT, deval, 128 * 2 * 2 };
+    IDeconvolutionLayer* deconv15 = network->addDeconvolutionNd(*conv14->getOutput(0), 128, DimsHW{ 2, 2 }, deconvwts15, emptywts);
+    deconv15->setStrideNd(DimsHW{ 2, 2 });
     deconv15->setNbGroups(128);
 
-    ITensor* inputTensors16[] = {deconv15->getOutput(0), bottleneck_csp4->getOutput(0)};
+    ITensor* inputTensors16[] = { deconv15->getOutput(0), bottleneck_csp4->getOutput(0) };
     auto cat16 = network->addConcatenation(inputTensors16, 2);
     auto bottleneck_csp17 = bottleneckCSP(network, weightMap, *cat16->getOutput(0), 256, 128, 1, false, 1, 0.5, "model.17");
-    IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
+    IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
 
     auto conv18 = convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), 128, 3, 2, 1, "model.18");
-    ITensor* inputTensors19[] = {conv18->getOutput(0), conv14->getOutput(0)};
+    ITensor* inputTensors19[] = { conv18->getOutput(0), conv14->getOutput(0) };
     auto cat19 = network->addConcatenation(inputTensors19, 2);
     auto bottleneck_csp20 = bottleneckCSP(network, weightMap, *cat19->getOutput(0), 256, 256, 1, false, 1, 0.5, "model.20");
-    IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
+    IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
 
     auto conv21 = convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), 256, 3, 2, 1, "model.21");
-    ITensor* inputTensors22[] = {conv21->getOutput(0), conv10->getOutput(0)};
+    ITensor* inputTensors22[] = { conv21->getOutput(0), conv10->getOutput(0) };
     auto cat22 = network->addConcatenation(inputTensors22, 2);
     auto bottleneck_csp23 = bottleneckCSP(network, weightMap, *cat22->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.23");
-    IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{1, 1}, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
+    IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
-    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1"); 
-    std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4];
-    int* NetData = new int[4];
-    NetData[0] = CLASS_NUM;
-    NetData[1] = INPUT_W;
-    NetData[2] = INPUT_H;
-    NetData[3] = MAXOBJECT;
-    pluginMultidata[0].data = NetData;
-    pluginMultidata[0].length = 3;
-    std::string name = "netdata";
-    pluginMultidata[0].name = new char[name.size() + 1];
-    strcpy(const_cast<char*>(pluginMultidata[0].name), name.c_str());
-    pluginMultidata[0].type = PluginFieldType::kFLOAT32;
-
-    int scale[3] = { 8, 16, 32 };
-    for (int k = 1; k < 4; k++)
-    {
-        int* plugindata = new int[8];
-        plugindata[0] = INPUT_W / scale[k - 1];
-        plugindata[1] = INPUT_H / scale[k - 1];
-        for (int i = 2; i < 8; i++)
-        {
-            plugindata[i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
-        }
-        pluginMultidata[k].data = plugindata;
-        pluginMultidata[k].length = 8;
-        std::string name = "yolodata" + std::to_string(k);
-        pluginMultidata[k].name = new char[name.size() + 1];
-        strcpy(const_cast<char*>(pluginMultidata[k].name), name.c_str());
-        pluginMultidata[k].type = PluginFieldType::kFLOAT32;
-    }
-    PluginFieldCollection pluginData;
-    pluginData.nbFields = 4;
-    pluginData.fields = pluginMultidata;
-    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
-    ITensor* inputTensors_yolo[] = { det2->getOutput(0), det1->getOutput(0), det0->getOutput(0) };
-    auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
-
+    auto yolo = addYoLoLayer(network, weightMap, det0, det1, det2);
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
 
@@ -170,27 +107,10 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
-    for (int i = 0; i < 4; ++i)
-    {
-        if (pluginMultidata[i].data)
-        {
-            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
-            delete[] pluginMultidata[i].data;
-            temp = NULL;
-            pluginMultidata[i].data = NULL;
-        }
-        if (pluginMultidata[i].name)
-        {
-            delete[] pluginMultidata[i].name;
-            pluginMultidata[i].name = NULL;
-        }
-    }
     for (auto& mem : weightMap)
     {
-        if ((void*)mem.second.values)
-        {
-            free((void*)(mem.second.values));
-        }
+        free((void*)(mem.second.values));
+
     }
     return engine;
 }
@@ -242,71 +162,25 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
 
     ITensor* inputTensors16[] = { deconv15->getOutput(0), bottleneck_csp4->getOutput(0) };
     auto cat16 = network->addConcatenation(inputTensors16, 2);
-
     auto bottleneck_csp17 = bottleneckCSP(network, weightMap, *cat16->getOutput(0), 384, 192, 2, false, 1, 0.5, "model.17");
 
     //yolo layer 0
     IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
-
     auto conv18 = convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), 192, 3, 2, 1, "model.18");
-
-    ITensor* inputTensors19[] = {conv18->getOutput(0), conv14->getOutput(0)};
+    ITensor* inputTensors19[] = { conv18->getOutput(0), conv14->getOutput(0) };
     auto cat19 = network->addConcatenation(inputTensors19, 2);
-
     auto bottleneck_csp20 = bottleneckCSP(network, weightMap, *cat19->getOutput(0), 384, 384, 2, false, 1, 0.5, "model.20");
 
     //yolo layer 1
     IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
-
     auto conv21 = convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), 384, 3, 2, 1, "model.21");
-
     ITensor* inputTensors22[] = { conv21->getOutput(0), conv10->getOutput(0) };
     auto cat22 = network->addConcatenation(inputTensors22, 2);
-
     auto bottleneck_csp23 = bottleneckCSP(network, weightMap, *cat22->getOutput(0), 768, 768, 2, false, 1, 0.5, "model.23");
-
     // yolo layer 2
     IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
-    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
-    std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4];
-    int* NetData = new int[4];
-    NetData[0] = CLASS_NUM;
-    NetData[1] = INPUT_W;
-    NetData[2] = INPUT_H;
-    NetData[3] = MAXOBJECT;
-    pluginMultidata[0].data = NetData;
-    pluginMultidata[0].length = 3;
-    std::string name = "netdata";
-    pluginMultidata[0].name = new char[name.size() + 1];
-    strcpy(const_cast<char*>(pluginMultidata[0].name), name.c_str());
-    pluginMultidata[0].type = PluginFieldType::kFLOAT32;
-
-    int scale[3] = { 8, 16, 32 };
-    for (int k = 1; k < 4; k++)
-    {
-        int* plugindata = new int[8];
-        plugindata[0] = INPUT_W / scale[k - 1];
-        plugindata[1] = INPUT_H / scale[k - 1];
-        for (int i = 2; i < 8; i++)
-        {
-            plugindata[i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
-        }
-        pluginMultidata[k].data = plugindata;
-        pluginMultidata[k].length = 8;
-        std::string name = "yolodata" + std::to_string(k);
-        pluginMultidata[k].name = new char[name.size() + 1];
-        strcpy(const_cast<char*>(pluginMultidata[k].name), name.c_str());
-        pluginMultidata[k].type = PluginFieldType::kFLOAT32;
-    }
-    PluginFieldCollection pluginData;
-    pluginData.nbFields = 4;
-    pluginData.fields = pluginMultidata;
-    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
-    ITensor* inputTensors_yolo[] = {det2->getOutput(0), det1->getOutput(0), det0->getOutput(0)};
-    auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
-
+    auto yolo = addYoLoLayer(network, weightMap, det0, det1, det2);
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
 
@@ -324,21 +198,6 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
-    for (int i = 0; i < 4; ++i)
-    {
-        if (pluginMultidata[i].data)
-        {
-            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
-            delete[] pluginMultidata[i].data;
-            temp = NULL;
-            pluginMultidata[i].data = NULL;
-        }
-        if (pluginMultidata[i].name)
-        {
-            delete[] pluginMultidata[i].name;
-            pluginMultidata[i].name = NULL;
-        }
-    }
     for (auto& mem : weightMap)
     {
         free((void*)(mem.second.values));
@@ -391,72 +250,26 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     IDeconvolutionLayer* deconv15 = network->addDeconvolutionNd(*conv14->getOutput(0), 256, DimsHW{ 2, 2 }, deconvwts15, emptywts);
     deconv15->setStrideNd(DimsHW{ 2, 2 });
     deconv15->setNbGroups(256);
-    ITensor* inputTensors16[] = {deconv15->getOutput(0), bottleneck_csp4->getOutput(0)};
+    ITensor* inputTensors16[] = { deconv15->getOutput(0), bottleneck_csp4->getOutput(0) };
     auto cat16 = network->addConcatenation(inputTensors16, 2);
 
     auto bottleneck_csp17 = bottleneckCSP(network, weightMap, *cat16->getOutput(0), 512, 256, 3, false, 1, 0.5, "model.17");
 
     // yolo layer 0
     IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
-
     auto conv18 = convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), 256, 3, 2, 1, "model.18");
-
-    ITensor* inputTensors19[] = {conv18->getOutput(0), conv14->getOutput(0)};
+    ITensor* inputTensors19[] = { conv18->getOutput(0), conv14->getOutput(0) };
     auto cat19 = network->addConcatenation(inputTensors19, 2);
-
     auto bottleneck_csp20 = bottleneckCSP(network, weightMap, *cat19->getOutput(0), 512, 512, 3, false, 1, 0.5, "model.20");
-
     //yolo layer 1
     IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
-
     auto conv21 = convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), 512, 3, 2, 1, "model.21");
-
-    ITensor* inputTensors22[] = {conv21->getOutput(0), conv10->getOutput(0)};
+    ITensor* inputTensors22[] = { conv21->getOutput(0), conv10->getOutput(0) };
     auto cat22 = network->addConcatenation(inputTensors22, 2);
-
     auto bottleneck_csp23 = bottleneckCSP(network, weightMap, *cat22->getOutput(0), 1024, 1024, 3, false, 1, 0.5, "model.23");
-
     IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
-    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
-    std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4];
-    int* NetData = new int[4];
-    NetData[0] = CLASS_NUM;
-    NetData[1] = INPUT_W;
-    NetData[2] = INPUT_H;
-    NetData[3] = MAXOBJECT;
-    pluginMultidata[0].data = NetData;
-    pluginMultidata[0].length = 3;
-    std::string name = "netdata";
-    pluginMultidata[0].name = new char[name.size() + 1];
-    strcpy(const_cast<char*>(pluginMultidata[0].name), name.c_str());
-    pluginMultidata[0].type = PluginFieldType::kFLOAT32;
-
-    int scale[3] = { 8, 16, 32 };
-    for (int k = 1; k < 4; k++)
-    {
-        int* plugindata = new int[8];
-        plugindata[0] = INPUT_W / scale[k - 1];
-        plugindata[1] = INPUT_H / scale[k - 1];
-        for (int i = 2; i < 8; i++)
-        {
-            plugindata[i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
-        }
-        pluginMultidata[k].data = plugindata;
-        pluginMultidata[k].length = 8;
-        std::string name = "yolodata" + std::to_string(k);
-        pluginMultidata[k].name = new char[name.size() + 1];
-        strcpy(const_cast<char*>(pluginMultidata[k].name), name.c_str());
-        pluginMultidata[k].type = PluginFieldType::kFLOAT32;
-    }
-    PluginFieldCollection pluginData;
-    pluginData.nbFields = 4;
-    pluginData.fields = pluginMultidata;
-    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
-    ITensor* inputTensors_yolo[] = {det2->getOutput(0), det1->getOutput(0), det0->getOutput(0)};
-    auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
-
+    auto yolo = addYoLoLayer(network, weightMap, det0, det1, det2);
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
 
@@ -474,21 +287,6 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
-    for (int i = 0; i < 4; ++i)
-    {
-        if (pluginMultidata[i].data)
-        {
-            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
-            delete[] pluginMultidata[i].data;
-            temp = NULL;
-            pluginMultidata[i].data = NULL;
-        }
-        if (pluginMultidata[i].name)
-        {
-            delete[] pluginMultidata[i].name;
-            pluginMultidata[i].name = NULL;
-        }
-    }
     for (auto& mem : weightMap)
     {
         free((void*)(mem.second.values));
@@ -549,66 +347,20 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
 
     // yolo layer 0
     IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
-
     auto conv18 = convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), 320, 3, 2, 1, "model.18");
-
     ITensor* inputTensors19[] = { conv18->getOutput(0), conv14->getOutput(0) };
     auto cat19 = network->addConcatenation(inputTensors19, 2);
-
     auto bottleneck_csp20 = bottleneckCSP(network, weightMap, *cat19->getOutput(0), 640, 640, 4, false, 1, 0.5, "model.20");
-
     // yolo layer 1
     IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
-
     auto conv21 = convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), 640, 3, 2, 1, "model.21");
-
     ITensor* inputTensors22[] = { conv21->getOutput(0), conv10->getOutput(0) };
     auto cat22 = network->addConcatenation(inputTensors22, 2);
-
     auto bottleneck_csp23 = bottleneckCSP(network, weightMap, *cat22->getOutput(0), 1280, 1280, 4, false, 1, 0.5, "model.23");
-
     // yolo layer 2
     IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
-    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
-    std::vector<float> anchors_yolo = GetAnchors(weightMap);
-    PluginField pluginMultidata[4];
-    int* NetData = new int[4];
-    NetData[0] = CLASS_NUM;
-    NetData[1] = INPUT_W;
-    NetData[2] = INPUT_H;
-    NetData[3] = MAXOBJECT;
-    pluginMultidata[0].data = NetData;
-    pluginMultidata[0].length = 3;
-    std::string name = "netdata";
-    pluginMultidata[0].name = new char[name.size() + 1];
-    strcpy(const_cast<char*>(pluginMultidata[0].name), name.c_str());
-    pluginMultidata[0].type = PluginFieldType::kFLOAT32;
-
-    int scale[3] = { 8, 16, 32 };
-    for (int k = 1; k < 4; k++)
-    {
-        int* plugindata = new int[8];
-        plugindata[0] = INPUT_W / scale[k - 1];
-        plugindata[1] = INPUT_H / scale[k - 1];
-        for (int i = 2; i < 8; i++)
-        {
-            plugindata[i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
-        }
-        pluginMultidata[k].data = plugindata;
-        pluginMultidata[k].length = 8;
-        std::string name = "yolodata" + std::to_string(k);
-        pluginMultidata[k].name = new char[name.size() + 1];
-        strcpy(const_cast<char*>(pluginMultidata[k].name), name.c_str());
-        pluginMultidata[k].type = PluginFieldType::kFLOAT32;
-    }
-    PluginFieldCollection pluginData;
-    pluginData.nbFields = 4;
-    pluginData.fields = pluginMultidata;
-    IPluginV2 *pluginObj = creator->createPlugin("yololayer", &pluginData);
-    ITensor* inputTensors_yolo[] = { det2->getOutput(0), det1->getOutput(0), det0->getOutput(0) };
-    auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
-
+    auto yolo = addYoLoLayer(network, weightMap, det0, det1, det2);
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
 
@@ -626,21 +378,6 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
-    for (int i = 0; i < 4; ++i)
-    {
-        if (pluginMultidata[i].data)
-        {
-            int* temp = static_cast<int*>(const_cast<void*>(pluginMultidata[i].data));
-            delete[] pluginMultidata[i].data;
-            temp = NULL;
-            pluginMultidata[i].data = NULL;
-        }
-        if (pluginMultidata[i].name)
-        {
-            delete[] pluginMultidata[i].name;
-            pluginMultidata[i].name = NULL;
-        }
-    }
     for (auto& mem : weightMap)
     {
         free((void*)(mem.second.values));
@@ -678,12 +415,12 @@ void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffer
 int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
-    char *trtModelStream{nullptr};
-    size_t size{0};
+    char *trtModelStream{ nullptr };
+    size_t size{ 0 };
     std::string engine_name = STR2(NET);
     engine_name = "yolov5" + engine_name + ".engine";
     if (argc == 2 && std::string(argv[1]) == "-s") {
-        IHostMemory* modelStream{nullptr};
+        IHostMemory* modelStream{ nullptr };
         APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
         std::ofstream p(engine_name, std::ios::binary);
@@ -694,7 +431,8 @@ int main(int argc, char** argv) {
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
         modelStream->destroy();
         return 0;
-    } else if (argc == 3 && std::string(argv[1]) == "-d") {
+    }
+    else if (argc == 3 && std::string(argv[1]) == "-d") {
         std::ifstream file(engine_name, std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
@@ -705,7 +443,8 @@ int main(int argc, char** argv) {
             file.read(trtModelStream, size);
             file.close();
         }
-    } else {
+    }
+    else {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./yolov5 -s  // serialize model to plan file" << std::endl;
         std::cerr << "./yolov5 -d ../samples  // deserialize plan file and run inference" << std::endl;
