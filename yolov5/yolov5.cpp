@@ -20,6 +20,7 @@
 static const int INPUT_H = Yolo::INPUT_H;
 static const int INPUT_W = Yolo::INPUT_W;
 static const int CLASS_NUM = Yolo::CLASS_NUM;
+static const int MAXOBJECT = Yolo::MAX_OUTPUT_BBOX_COUNT;
 static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
@@ -116,10 +117,11 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1"); 
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
     PluginField pluginMultidata[4];
-    int* NetData = new int[3];
+    int* NetData = new int[4];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
     NetData[2] = INPUT_H;
+    NetData[3] = MAXOBJECT;
     pluginMultidata[0].data = NetData;
     pluginMultidata[0].length = 3;
     std::string name = "netdata";
@@ -269,10 +271,11 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
     PluginField pluginMultidata[4];
-    int* NetData = new int[3];
+    int* NetData = new int[4];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
     NetData[2] = INPUT_H;
+    NetData[3] = MAXOBJECT;
     pluginMultidata[0].data = NetData;
     pluginMultidata[0].length = 3;
     std::string name = "netdata";
@@ -418,10 +421,11 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
     PluginField pluginMultidata[4];
-    int* NetData = new int[3];
+    int* NetData = new int[4];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
     NetData[2] = INPUT_H;
+    NetData[3] = MAXOBJECT;
     pluginMultidata[0].data = NetData;
     pluginMultidata[0].length = 3;
     std::string name = "netdata";
@@ -569,10 +573,11 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     std::vector<float> anchors_yolo = GetAnchors(weightMap);
     PluginField pluginMultidata[4];
-    int* NetData = new int[3];
+    int* NetData = new int[4];
     NetData[0] = CLASS_NUM;
     NetData[1] = INPUT_W;
     NetData[2] = INPUT_H;
+    NetData[3] = MAXOBJECT;
     pluginMultidata[0].data = NetData;
     pluginMultidata[0].length = 3;
     std::string name = "netdata";

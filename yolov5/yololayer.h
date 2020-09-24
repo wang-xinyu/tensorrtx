@@ -37,7 +37,7 @@ namespace nvinfer1
     {
         public:
             //YoloLayerPlugin() {};
-            YoloLayerPlugin(int classCount, int netWidth, int netHeight, const std::vector<Yolo::YoloKernel>& vYoloKernel);
+            YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel);
             YoloLayerPlugin(const void* data, size_t length);
             ~YoloLayerPlugin();
 
@@ -99,6 +99,7 @@ namespace nvinfer1
             int mClassCount;
             int mYoloV5NetWidth;
             int mYoloV5NetHeight;
+            int mMaxOutObject;
             std::vector<Yolo::YoloKernel> mYoloKernel;
     };
 
