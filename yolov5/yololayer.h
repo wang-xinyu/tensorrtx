@@ -9,36 +9,19 @@ namespace Yolo
 {
     static constexpr int CHECK_COUNT = 3;
     static constexpr float IGNORE_THRESH = 0.1f;
+    struct YoloKernel
+    {
+        int width;
+        int height;
+        float anchors[CHECK_COUNT * 2];
+    };
     static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
     static constexpr int CLASS_NUM = 80;
     static constexpr int INPUT_H = 608;
     static constexpr int INPUT_W = 608;
 
-    struct YoloKernel
-    {
-        int width;
-        int height;
-        float anchors[CHECK_COUNT*2];
-    };
-
-    static constexpr YoloKernel yolo1 = {
-        INPUT_W / 32,
-        INPUT_H / 32,
-        {116,90,  156,198,  373,326}
-    };
-    static constexpr YoloKernel yolo2 = {
-        INPUT_W / 16,
-        INPUT_H / 16,
-        {30,61,  62,45,  59,119}
-    };
-    static constexpr YoloKernel yolo3 = {
-        INPUT_W / 8,
-        INPUT_H / 8,
-        {10,13,  16,30,  33,23}
-    };
-
     static constexpr int LOCATIONS = 4;
-    struct alignas(float) Detection{
+    struct alignas(float) Detection {
         //center_x center_y w h
         float bbox[LOCATIONS];
         float conf;  // bbox_conf * cls_conf
@@ -48,105 +31,106 @@ namespace Yolo
 
 namespace nvinfer1
 {
-    class YoloLayerPlugin: public IPluginV2IOExt
+    class YoloLayerPlugin : public IPluginV2IOExt
     {
-        public:
-            explicit YoloLayerPlugin();
-            YoloLayerPlugin(const void* data, size_t length);
+    public:
+        YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel);
+        YoloLayerPlugin(const void* data, size_t length);
+        ~YoloLayerPlugin();
 
-            ~YoloLayerPlugin();
+        int getNbOutputs() const override
+        {
+            return 1;
+        }
 
-            int getNbOutputs() const override
-            {
-                return 1;
-            }
+        Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
 
-            Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
+        int initialize() override;
 
-            int initialize() override;
+        virtual void terminate() override {};
 
-            virtual void terminate() override {};
+        virtual size_t getWorkspaceSize(int maxBatchSize) const override { return 0; }
 
-            virtual size_t getWorkspaceSize(int maxBatchSize) const override { return 0;}
+        virtual int enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
-            virtual int enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) override;
+        virtual size_t getSerializationSize() const override;
 
-            virtual size_t getSerializationSize() const override;
+        virtual void serialize(void* buffer) const override;
 
-            virtual void serialize(void* buffer) const override;
+        bool supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) const override {
+            return inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT;
+        }
 
-            bool supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) const override {
-                return inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT;
-            }
+        const char* getPluginType() const override;
 
-            const char* getPluginType() const override;
+        const char* getPluginVersion() const override;
 
-            const char* getPluginVersion() const override;
+        void destroy() override;
 
-            void destroy() override;
+        IPluginV2IOExt* clone() const override;
 
-            IPluginV2IOExt* clone() const override;
+        void setPluginNamespace(const char* pluginNamespace) override;
 
-            void setPluginNamespace(const char* pluginNamespace) override;
+        const char* getPluginNamespace() const override;
 
-            const char* getPluginNamespace() const override;
+        DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
-            DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
+        bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
-            bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
+        bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
-            bool canBroadcastInputAcrossBatch(int inputIndex) const override;
+        void attachToContext(
+            cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
 
-            void attachToContext(
-                    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
+        void configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) override;
 
-            void configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) override;
+        void detachFromContext() override;
 
-            void detachFromContext() override;
-
-        private:
-            void forwardGpu(const float *const * inputs,float * output, cudaStream_t stream,int batchSize = 1);
-            int mClassCount;
-            int mKernelCount;
-            std::vector<Yolo::YoloKernel> mYoloKernel;
-            int mThreadCount = 256;
-            void** mAnchor;
-            const char* mPluginNamespace;
+    private:
+        void forwardGpu(const float *const * inputs, float * output, cudaStream_t stream, int batchSize = 1);
+        int mThreadCount = 256;
+        const char* mPluginNamespace;
+        int mKernelCount;
+        int mClassCount;
+        int mYoloV5NetWidth;
+        int mYoloV5NetHeight;
+        int mMaxOutObject;
+        std::vector<Yolo::YoloKernel> mYoloKernel;
+		void** mAnchor;
     };
 
     class YoloPluginCreator : public IPluginCreator
     {
-        public:
-            YoloPluginCreator();
+    public:
+        YoloPluginCreator();
 
-            ~YoloPluginCreator() override = default;
+        ~YoloPluginCreator() override = default;
 
-            const char* getPluginName() const override;
+        const char* getPluginName() const override;
 
-            const char* getPluginVersion() const override;
+        const char* getPluginVersion() const override;
 
-            const PluginFieldCollection* getFieldNames() override;
+        const PluginFieldCollection* getFieldNames() override;
 
-            IPluginV2IOExt* createPlugin(const char* name, const PluginFieldCollection* fc) override;
+        IPluginV2IOExt* createPlugin(const char* name, const PluginFieldCollection* fc) override;
 
-            IPluginV2IOExt* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
+        IPluginV2IOExt* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
-            void setPluginNamespace(const char* libNamespace) override
-            {
-                mNamespace = libNamespace;
-            }
+        void setPluginNamespace(const char* libNamespace) override
+        {
+            mNamespace = libNamespace;
+        }
 
-            const char* getPluginNamespace() const override
-            {
-                return mNamespace.c_str();
-            }
+        const char* getPluginNamespace() const override
+        {
+            return mNamespace.c_str();
+        }
 
-        private:
-            std::string mNamespace;
-            static PluginFieldCollection mFC;
-            static std::vector<PluginField> mPluginAttributes;
+    private:
+        std::string mNamespace;
+        static PluginFieldCollection mFC;
+        static std::vector<PluginField> mPluginAttributes;
     };
-    REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 };
 
 #endif 
