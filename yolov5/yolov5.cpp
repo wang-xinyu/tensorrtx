@@ -20,11 +20,10 @@
 static const int INPUT_H = Yolo::INPUT_H;
 static const int INPUT_W = Yolo::INPUT_W;
 static const int CLASS_NUM = Yolo::CLASS_NUM;
-static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
+static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
-
 
 // Creat the engine using only the API and not any parser.
 ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
@@ -431,8 +430,7 @@ int main(int argc, char** argv) {
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
         modelStream->destroy();
         return 0;
-    }
-    else if (argc == 3 && std::string(argv[1]) == "-d") {
+    } else if (argc == 3 && std::string(argv[1]) == "-d") {
         std::ifstream file(engine_name, std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
@@ -443,8 +441,7 @@ int main(int argc, char** argv) {
             file.read(trtModelStream, size);
             file.close();
         }
-    }
-    else {
+    } else {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./yolov5 -s  // serialize model to plan file" << std::endl;
         std::cerr << "./yolov5 -d ../samples  // deserialize plan file and run inference" << std::endl;
