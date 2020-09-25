@@ -153,8 +153,6 @@ namespace nvinfer1
     // Clone the plugin
     IPluginV2IOExt* YoloLayerPlugin::clone() const
     {
-        //YoloLayerPlugin *p = nullptr;
-        //p = new YoloLayerPlugin();
         YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, mYoloKernel);
         p->setPluginNamespace(mPluginNamespace);
         return p;
@@ -174,7 +172,6 @@ namespace nvinfer1
         idx = idx - total_grid * bnIdx;
         int info_len_i = 5 + classes;
         const float* curInput = input + bnIdx * (info_len_i * total_grid * CHECK_COUNT);
-
 
         for (int k = 0; k < 3; ++k) {
             float box_prob = Logist(curInput[idx + k * info_len_i * total_grid + 4 * total_grid]);
@@ -198,18 +195,18 @@ namespace nvinfer1
             int col = idx % yoloWidth;
 
             //Location
-            // pytorch：
-            //    y = x[i].sigmoid()
-            //    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
-            //    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh 
-            //X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth 
+            // pytorch:
+            //  y = x[i].sigmoid()
+            //  y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
+            //  y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh 
+            //  X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth 
             det->bbox[0] = (col - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * netwidth / yoloWidth;
             det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
 
             // W: (Pw * e^tw) / FeaturemapW * netwidth  
-            // v5：https://github.com/ultralytics/yolov5/issues/471
+            // v5: https://github.com/ultralytics/yolov5/issues/471
             det->bbox[2] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]);
-            det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2 * k];  // 
+            det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2 * k];
             det->bbox[3] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 3 * total_grid]);
             det->bbox[3] = det->bbox[3] * det->bbox[3] * anchors[2 * k + 1];
             det->conf = box_prob * max_cls_prob;
@@ -272,66 +269,34 @@ namespace nvinfer1
 
     IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
     {
-        int ClassCount;
-        int YoloV5NetWidth;
-        int YoloV5NetHeight;
-        int MaxOutObject;
-        std::vector<Yolo::YoloKernel> vYoloKernel;
+        int class_count = 80;
+        int input_w = 416;
+        int input_h = 416;
+        int max_output_object_count = 1000;
+        std::vector<Yolo::YoloKernel> yolo_kernels(3);
 
-        int* floatdata0;
-        int* floatdata1;
-        int* floatdata2;
-        int* floatdata3;
         const PluginField* fields = fc->fields;
         for (int i = 0; i < fc->nbFields; i++) {
-
             if (strcmp(fields[i].name, "netdata") == 0) {
                 assert(fields[i].type == PluginFieldType::kFLOAT32);
-                floatdata0 = (int*)(fields[i].data);
-                ClassCount = floatdata0[0];
-                YoloV5NetWidth = floatdata0[1];
-                YoloV5NetHeight = floatdata0[2];
-                MaxOutObject = floatdata0[3];
-            }
-            if (strcmp(fields[i].name, "yolodata1") == 0) {
+                int *tmp = (int*)(fields[i].data);
+                class_count = tmp[0];
+                input_w = tmp[1];
+                input_h = tmp[2];
+                max_output_object_count = tmp[3];
+            } else if (strstr(fields[i].name, "yolodata") != NULL) {
                 assert(fields[i].type == PluginFieldType::kFLOAT32);
-                floatdata1 = (int*)(fields[i].data);
+                int *tmp = (int*)(fields[i].data);
                 YoloKernel kernel;
-                kernel.width = floatdata1[0];
-                kernel.height = floatdata1[1];
-                for (int j = 0; j < fields[i].length - 2; j++)
-                {
-                    kernel.anchors[j] = floatdata1[j + 2];
+                kernel.width = tmp[0];
+                kernel.height = tmp[1];
+                for (int j = 0; j < fields[i].length - 2; j++) {
+                    kernel.anchors[j] = tmp[j + 2];
                 }
-                vYoloKernel.push_back(kernel);
-            }
-            if (strcmp(fields[i].name, "yolodata2") == 0) {
-                assert(fields[i].type == PluginFieldType::kFLOAT32);
-                floatdata2 = (int*)(fields[i].data);
-                YoloKernel kernel;
-                kernel.width = floatdata2[0];
-                kernel.height = floatdata2[1];
-                for (int j = 0; j < fields[i].length - 2; j++)
-                {
-                    kernel.anchors[j] = floatdata2[j + 2];
-                }
-                vYoloKernel.push_back(kernel);
-            }
-            if (strcmp(fields[i].name, "yolodata3") == 0) {
-                assert(fields[i].type == PluginFieldType::kFLOAT32);
-                floatdata3 = (int*)(fields[i].data);
-                YoloKernel kernel;
-                kernel.width = floatdata3[0];
-                kernel.height = floatdata3[1];
-                for (int j = 0; j < fields[i].length - 2; j++)
-                {
-                    kernel.anchors[j] = floatdata3[j + 2];
-                }
-                vYoloKernel.push_back(kernel);
+                yolo_kernels[2 - (fields[i].name[8] - '1')] = kernel;
             }
         }
-        std::reverse(vYoloKernel.begin(), vYoloKernel.end());
-        YoloLayerPlugin* obj = new YoloLayerPlugin(ClassCount, YoloV5NetWidth, YoloV5NetHeight, MaxOutObject, vYoloKernel);
+        YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, yolo_kernels);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }
@@ -339,10 +304,9 @@ namespace nvinfer1
     IPluginV2IOExt* YoloPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
     {
         // This object will be deleted when the network is destroyed, which will
-        // call MishPlugin::destroy()
+        // call YoloLayerPlugin::destroy()
         YoloLayerPlugin* obj = new YoloLayerPlugin(serialData, serialLength);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }
-    REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 }

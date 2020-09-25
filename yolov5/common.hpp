@@ -32,8 +32,7 @@ cv::Mat preprocess_img(cv::Mat& img) {
         h = r_w * img.rows;
         x = 0;
         y = (Yolo::INPUT_H - h) / 2;
-    }
-    else {
+    } else {
         w = r_h * img.cols;
         h = Yolo::INPUT_H;
         x = (Yolo::INPUT_W - w) / 2;
@@ -59,8 +58,7 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
         r = r / r_w;
         t = t / r_w;
         b = b / r_w;
-    }
-    else {
+    } else {
         l = bbox[0] - bbox[2] / 2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
         r = bbox[0] + bbox[2] / 2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
         t = bbox[1] - bbox[3] / 2.f;
@@ -299,7 +297,7 @@ int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_nam
     return 0;
 }
 
-std::vector<float> GetAnchors(std::map<std::string, Weights>& weightMap)
+std::vector<float> getAnchors(std::map<std::string, Weights>& weightMap)
 {
     std::vector<float> anchors_yolo;
     Weights Yolo_Anchors = weightMap["model.24.anchor_grid"];
@@ -327,34 +325,32 @@ std::vector<float> GetAnchors(std::map<std::string, Weights>& weightMap)
 IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, IConvolutionLayer* det0, IConvolutionLayer* det1, IConvolutionLayer* det2)
 {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
-    std::vector<float> anchors_yolo = GetAnchors(weightMap);
+    std::vector<float> anchors_yolo = getAnchors(weightMap);
     PluginField pluginMultidata[4];
-    int* NetData = new int[4];
+    int NetData[4];
     NetData[0] = Yolo::CLASS_NUM;
     NetData[1] = Yolo::INPUT_W;
     NetData[2] = Yolo::INPUT_H;
     NetData[3] = Yolo::MAX_OUTPUT_BBOX_COUNT;
     pluginMultidata[0].data = NetData;
     pluginMultidata[0].length = 3;
-    std::string name = "netdata";
-    pluginMultidata[0].name = new char[name.size() + 1];
-    strcpy(const_cast<char*>(pluginMultidata[0].name), name.c_str());
+    pluginMultidata[0].name = "netdata";
     pluginMultidata[0].type = PluginFieldType::kFLOAT32;
     int scale[3] = { 8, 16, 32 };
+    int plugindata[3][8];
+    std::string names[3];
     for (int k = 1; k < 4; k++)
     {
-        int* plugindata = new int[8];
-        plugindata[0] = Yolo::INPUT_W / scale[k - 1];
-        plugindata[1] = Yolo::INPUT_H / scale[k - 1];
+        plugindata[k - 1][0] = Yolo::INPUT_W / scale[k - 1];
+        plugindata[k - 1][1] = Yolo::INPUT_H / scale[k - 1];
         for (int i = 2; i < 8; i++)
         {
-            plugindata[i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
+            plugindata[k - 1][i] = int(anchors_yolo[(k - 1) * 6 + i - 2]);
         }
-        pluginMultidata[k].data = plugindata;
+        pluginMultidata[k].data = plugindata[k - 1];
         pluginMultidata[k].length = 8;
-        std::string name = "yolodata" + std::to_string(k);
-        pluginMultidata[k].name = new char[name.size() + 1];
-        strcpy(const_cast<char*>(pluginMultidata[k].name), name.c_str());
+        names[k - 1] = "yolodata" + std::to_string(k);
+        pluginMultidata[k].name = names[k - 1].c_str();
         pluginMultidata[k].type = PluginFieldType::kFLOAT32;
     }
     PluginFieldCollection pluginData;
