@@ -230,7 +230,7 @@ namespace nvinfer1
 
             //printf("Net: %d  %d \n", mYoloV5NetWidth, mYoloV5NetHeight);
             CalDetection << < (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount >> >
-                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetWidth, mMaxOutObject, yolo.width, yolo.height, (float *)mAnchor[i], mClassCount, outputElem);
+                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float *)mAnchor[i], mClassCount, outputElem);
         }
     }
 
