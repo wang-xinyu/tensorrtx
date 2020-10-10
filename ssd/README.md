@@ -10,16 +10,16 @@ For the Pytorch implementation, you can refer to [pytorch-ssd](https://github.co
 ```
 git clone https://github.com/qfgaohao/pytorch-ssd.git
 cd pytorch-ssd
-cp {tensorrtx}/ssdmobilenetv2/gen_wts.py .
+cp {tensorrtx}/ssd/gen_wts.py .
 python gen_wts.py
 ```
-2. Put ssdmobilenet.wts into tensorrtx/ssd-mobilenetv2
+2. Put ssdmobilenet.wts into tensorrtx/ssd
 ```
-cp {pytorch-ssd}/models/ssdmobilenet.wts {tensorrtx}/ssdmobilenetv2/ssd_mobilenet.wts
+cp {pytorch-ssd}/models/ssdmobilenet.wts {tensorrtx}/ssd/ssd_mobilenet.wts
 ```
 3. Build and run
 ```
-cd {tensorrtx}/ssd-mobilenetv2
+cd {tensorrtx}/ssd
 mkdir build
 cd build
 cmake ..
