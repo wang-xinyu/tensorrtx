@@ -10,6 +10,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `8 Oct 2020`. [ChrystleMyrnaLobo](https://github.com/ChrystleMyrnaLobo) added ssd(mobilenetv2).
 - `21 Sep 2020`. [BaofengZan](https://github.com/BaofengZan) added hrnet classification and step by step tutorial(Chinese).
 - `16 Sep 2020`. [hwh-hit](https://github.com/hwh-hit) added ufld(Ultra-Fast-Lane-Detection, ECCV2020).
 - `13 Sep 2020`. Add crnn, and got 1000fps on GTX1080.
@@ -71,6 +72,7 @@ Following models are implemented.
 |[crnn](./crnn)| pytorch implementation from [meijieru/crnn.pytorch](https://github.com/meijieru/crnn.pytorch) |
 |[ufld](./ufld)| pytorch implementation from [Ultra-Fast-Lane-Detection](https://github.com/cfzd/Ultra-Fast-Lane-Detection), ECCV2020 |
 |[hrnet](./hrnet)| hrnet-image-classification, pytorch implementation from [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification) |
+|[ssd](./ssd)| ssd(mobilenetv2), pytorch implementation from [qfgaohao/pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) |
 
 ## Tricky Operations
 
