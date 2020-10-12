@@ -4,6 +4,8 @@
 
 `NvInfer.h` is one of the headers of TensorRT. If you install the tensorrt DEB package, the headers should in `/usr/include/x86_64-linux-gnu/`. If you install tensorrt TAR or ZIP file, the `include_directories` and `link_directories` of tensorrt should be added in `CMakeLists.txt`.
 
+`dpkg -L` can print out the contents of a DEB package.
+
 ```
 $ dpkg -L libnvinfer-dev 
 /.

@@ -25,6 +25,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## Tutorials
 
+- [Install the dependencies.](./tutorials/install.md)
 - [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
 - [Frequently Asked Questions (FAQ)](./tutorials/faq.md)
 - [Migrating from TensorRT 4 to 7](./tutorials/migrating_from_tensorrt_4_to_7.md)
