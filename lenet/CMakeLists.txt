@@ -11,10 +11,15 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
+# include and link dirs of cuda and tensorrt, you need adapt them if yours are different
+# cuda
 include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
+# tensorrt
+include_directories(/usr/include/x86_64-linux-gnu/)
+link_directories(/usr/lib/x86_64-linux-gnu/)
 
-FILE(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/main.cpp ${PROJECT_SOURCE_DIR}/include/*.h)
+FILE(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/lenet.cpp ${PROJECT_SOURCE_DIR}/include/*.h)
 
 add_executable(${TARGET_NAME} ${SRC_FILES})
 target_link_libraries(${TARGET_NAME} nvinfer)
