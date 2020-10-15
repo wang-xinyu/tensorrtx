@@ -63,9 +63,9 @@ std::map<std::string, Weights> loadWeights(const std::string file)
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{1, INPUT_H, INPUT_W});
@@ -73,32 +73,32 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, Dat
 
     // Add convolution layer with 6 outputs and a 5x5 filter.
     std::map<std::string, Weights> weightMap = loadWeights("../lenet5.wts");
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 6, DimsHW{5, 5}, weightMap["conv1.weight"], weightMap["conv1.bias"]);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 6, DimsHW{5, 5}, weightMap["conv1.weight"], weightMap["conv1.bias"]);
     assert(conv1);
-    conv1->setStride(DimsHW{1, 1});
+    conv1->setStrideNd(DimsHW{1, 1});
 
     // Add activation layer using the ReLU algorithm.
     IActivationLayer* relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
     // Add max pooling layer with stride of 2x2 and kernel size of 2x2.
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kAVERAGE, DimsHW{2, 2});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kAVERAGE, DimsHW{2, 2});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
+    pool1->setStrideNd(DimsHW{2, 2});
 
     // Add second convolution layer with 16 outputs and a 5x5 filter.
-    IConvolutionLayer* conv2 = network->addConvolution(*pool1->getOutput(0), 16, DimsHW{5, 5}, weightMap["conv2.weight"], weightMap["conv2.bias"]);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*pool1->getOutput(0), 16, DimsHW{5, 5}, weightMap["conv2.weight"], weightMap["conv2.bias"]);
     assert(conv2);
-    conv2->setStride(DimsHW{1, 1});
+    conv2->setStrideNd(DimsHW{1, 1});
 
     // Add activation layer using the ReLU algorithm.
     IActivationLayer* relu2 = network->addActivation(*conv2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
 
     // Add second max pooling layer with stride of 2x2 and kernel size of 2x2>
-    IPoolingLayer* pool2 = network->addPooling(*relu2->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
+    IPoolingLayer* pool2 = network->addPoolingNd(*relu2->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
     assert(pool2);
-    pool2->setStride(DimsHW{2, 2});
+    pool2->setStrideNd(DimsHW{2, 2});
 
     // Add fully connected layer with 500 outputs.
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 120, weightMap["fc1.weight"], weightMap["fc1.bias"]);
@@ -128,8 +128,8 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, Dat
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
 
     // Don't need the network any more
     network->destroy();
@@ -147,9 +147,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createLenetEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createLenetEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
