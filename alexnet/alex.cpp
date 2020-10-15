@@ -1,12 +1,20 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "common.h"
+#include "logging.h"
 #include <fstream>
-#include <iostream>
 #include <map>
-#include <sstream>
-#include <vector>
 #include <chrono>
+
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 224;
@@ -63,9 +71,9 @@ std::map<std::string, Weights> loadWeights(const std::string file)
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
@@ -74,50 +82,49 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     std::map<std::string, Weights> weightMap = loadWeights("../alexnet.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    // Add convolution layer with 6 outputs and a 5x5 filter.
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 64, DimsHW{11, 11}, weightMap["features.0.weight"], weightMap["features.0.bias"]);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{11, 11}, weightMap["features.0.weight"], weightMap["features.0.bias"]);
     assert(conv1);
-    conv1->setStride(DimsHW{4, 4});
-    conv1->setPadding(DimsHW{2, 2});
+    conv1->setStrideNd(DimsHW{4, 4});
+    conv1->setPaddingNd(DimsHW{2, 2});
 
     // Add activation layer using the ReLU algorithm.
     IActivationLayer* relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
     // Add max pooling layer with stride of 2x2 and kernel size of 2x2.
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
+    pool1->setStrideNd(DimsHW{2, 2});
 
-    IConvolutionLayer* conv2 = network->addConvolution(*pool1->getOutput(0), 192, DimsHW{5, 5}, weightMap["features.3.weight"], weightMap["features.3.bias"]);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*pool1->getOutput(0), 192, DimsHW{5, 5}, weightMap["features.3.weight"], weightMap["features.3.bias"]);
     assert(conv2);
-    conv2->setPadding(DimsHW{2, 2});
+    conv2->setPaddingNd(DimsHW{2, 2});
     IActivationLayer* relu2 = network->addActivation(*conv2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
-    IPoolingLayer* pool2 = network->addPooling(*relu2->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool2 = network->addPoolingNd(*relu2->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool2);
-    pool2->setStride(DimsHW{2, 2});
+    pool2->setStrideNd(DimsHW{2, 2});
 
-    IConvolutionLayer* conv3 = network->addConvolution(*pool2->getOutput(0), 384, DimsHW{3, 3}, weightMap["features.6.weight"], weightMap["features.6.bias"]);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*pool2->getOutput(0), 384, DimsHW{3, 3}, weightMap["features.6.weight"], weightMap["features.6.bias"]);
     assert(conv3);
-    conv3->setPadding(DimsHW{1, 1});
+    conv3->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu3 = network->addActivation(*conv3->getOutput(0), ActivationType::kRELU);
     assert(relu3);
 
-    IConvolutionLayer* conv4 = network->addConvolution(*relu3->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.8.weight"], weightMap["features.8.bias"]);
+    IConvolutionLayer* conv4 = network->addConvolutionNd(*relu3->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.8.weight"], weightMap["features.8.bias"]);
     assert(conv4);
-    conv4->setPadding(DimsHW{1, 1});
+    conv4->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu4 = network->addActivation(*conv4->getOutput(0), ActivationType::kRELU);
     assert(relu4);
 
-    IConvolutionLayer* conv5 = network->addConvolution(*relu4->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.10.weight"], weightMap["features.10.bias"]);
+    IConvolutionLayer* conv5 = network->addConvolutionNd(*relu4->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.10.weight"], weightMap["features.10.bias"]);
     assert(conv5);
-    conv5->setPadding(DimsHW{1, 1});
+    conv5->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu5 = network->addActivation(*conv5->getOutput(0), ActivationType::kRELU);
     assert(relu5);
-    IPoolingLayer* pool3 = network->addPooling(*relu5->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool3 = network->addPoolingNd(*relu5->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool3);
-    pool3->setStride(DimsHW{2, 2});
+    pool3->setStrideNd(DimsHW{2, 2});
 
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool3->getOutput(0), 4096, weightMap["classifier.1.weight"], weightMap["classifier.1.bias"]);
     assert(fc1);
@@ -140,8 +147,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
     // Don't need the network any more
@@ -160,9 +167,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
