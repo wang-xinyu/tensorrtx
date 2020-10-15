@@ -9,8 +9,13 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(/usr/local/cuda-9.0/targets/aarch64-linux/include)
-link_directories(/usr/local/cuda-9.0/targets/aarch64-linux/lib)
+# include and link dirs of cuda and tensorrt, you need adapt them if yours are different
+# cuda
+include_directories(/usr/local/cuda/include)
+link_directories(/usr/local/cuda/lib64)
+# tensorrt
+include_directories(/usr/include/x86_64-linux-gnu/)
+link_directories(/usr/lib/x86_64-linux-gnu/)
 
 add_executable(alexnet ${PROJECT_SOURCE_DIR}/alex.cpp)
 target_link_libraries(alexnet nvinfer)
