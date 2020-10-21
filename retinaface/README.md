@@ -27,7 +27,7 @@ cd build
 cmake ..
 make
 sudo ./retina_r50 -s  // build and serialize model to file i.e. 'retina_r50.engine'
-wget https://github.com/TencentYoutuResearch/FaceDetection-DSFD/raw/master/data/worlds-largest-selfie.jpg
+wget https://github.com/Tencent/FaceDetection-DSFD/raw/master/data/worlds-largest-selfie.jpg
 sudo ./retina_r50 -d  // deserialize model file and run inference.
 
 3. check the images generated, as follows. result.jpg
