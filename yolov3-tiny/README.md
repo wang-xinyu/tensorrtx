@@ -5,7 +5,7 @@ The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytic
 ## Excute:
 
 ```
-1. generate yolov3-tiny.wts from pytorch implementation with yolov3-tiny.cfg and yolov3-tiny.weights
+1. generate yolov3-tiny.wts from pytorch implementation with yolov3-tiny.cfg and yolov3-tiny.weights, or download .wts from model zoo
 
 git clone https://github.com/ultralytics/yolov3.git
 // download its weights 'yolov3-tiny.pt' or 'yolov3-tiny.weights'
