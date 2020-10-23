@@ -22,7 +22,7 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0 and v3.0.
 ## How to Run, yolov5s as example
 
 ```
-1. generate yolov5s.wts from pytorch with yolov5s.pt
+1. generate yolov5s.wts from pytorch with yolov5s.pt, or download .wts from model zoo
 
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov5.git

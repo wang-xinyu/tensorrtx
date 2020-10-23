@@ -12,7 +12,7 @@ Following tricks are used in this yolov3-spp:
 ## Excute:
 
 ```
-1. generate yolov3-spp_ultralytics68.wts from pytorch implementation with yolov3-spp.cfg and yolov3-spp-ultralytics.pt
+1. generate yolov3-spp_ultralytics68.wts from pytorch implementation with yolov3-spp.cfg and yolov3-spp-ultralytics.pt, or download .wts from model zoo
 
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov3.git
