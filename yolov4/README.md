@@ -11,7 +11,7 @@ Following tricks are used in this yolov4:
 ## Excute:
 
 ```
-1. generate yolov4.wts from pytorch implementation with yolov4.cfg and yolov4.weights
+1. generate yolov4.wts from pytorch implementation with yolov4.cfg and yolov4.weights, or download .wts from model zoo
 
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov3.git

@@ -27,6 +27,7 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 - [Install the dependencies.](./tutorials/install.md)
 - [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
+- [The .wts file content format](./tutorials/getting_started.md#the-wts-content-format)
 - [Frequently Asked Questions (FAQ)](./tutorials/faq.md)
 - [Migrating from TensorRT 4 to 7](./tutorials/migrating_from_tensorrt_4_to_7.md)
 - [How to implement multi-GPU processing, taking YOLOv4 as example](./tutorials/multi_GPU_processing.md)
@@ -74,6 +75,12 @@ Following models are implemented.
 |[ufld](./ufld)| pytorch implementation from [Ultra-Fast-Lane-Detection](https://github.com/cfzd/Ultra-Fast-Lane-Detection), ECCV2020 |
 |[hrnet](./hrnet)| hrnet-image-classification, pytorch implementation from [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification) |
 |[ssd](./ssd)| ssd(mobilenetv2), pytorch implementation from [qfgaohao/pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) |
+
+## Model Zoo
+
+The .wts files can be downloaded from model zoo for quick evaluation. But it is recommanded to convert .wts from pytorch/mxnet model, so that you can retrain your own model.
+
+[BaiduPan](https://pan.baidu.com/s/19s6hO8esU7-TtZEXN7G3OA) pwd: uvv2
 
 ## Tricky Operations
 
@@ -130,4 +137,4 @@ Any contributions, questions and discussions are welcomed, contact me by followi
 
 E-mail: wangxinyu_es@163.com
 
-WeChat ID: wangxinyu0375 (可加我微信进tensorrtx交流群)
+WeChat ID: wangxinyu0375 (可加我微信进tensorrtx交流群，**备注：tensorrtx**)

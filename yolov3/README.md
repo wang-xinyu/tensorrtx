@@ -7,7 +7,7 @@ This branch is using tensorrt7 API, there is also a yolov3 implementation using 
 ## Excute:
 
 ```
-1. generate yolov3.wts from pytorch implementation with yolov3.cfg and yolov3.weights
+1. generate yolov3.wts from pytorch implementation with yolov3.cfg and yolov3.weights, or download .wts from model zoo
 
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov3.git
