@@ -4,27 +4,14 @@
 #include <sstream>
 #include <vector>
 #include <chrono>
-#include <opencv2/opencv.hpp>
-#include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "decode.h"
 #include "logging.h"
+#include "common.hpp"
+#include "calibrator.h"
 
-#define CHECK(status) \
-    do\
-    {\
-        auto ret = (status);\
-        if (ret != 0)\
-        {\
-            std::cerr << "Cuda failure: " << ret << std::endl;\
-            abort();\
-        }\
-    } while (0)
-
-#define USE_FP16  // comment out this if want to use FP32
+#define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define BATCH_SIZE 1
-#define TOP_K 5000
 #define VIS_THRESH 0.6
 
 // stuff we know about the network and the input/output blobs
@@ -34,180 +21,7 @@ static const int OUTPUT_SIZE = (INPUT_H / 8 * INPUT_W / 8 + INPUT_H / 16 * INPUT
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
-using namespace nvinfer1;
 static Logger gLogger;
-
-cv::Mat preprocess_img(cv::Mat& img) {
-    int w, h, x, y;
-    float r_w = INPUT_W / (img.cols*1.0);
-    float r_h = INPUT_H / (img.rows*1.0);
-    if (r_h > r_w) {
-        w = INPUT_W;
-        h = r_w * img.rows;
-        x = 0;
-        y = (INPUT_H - h) / 2;
-    } else {
-        w = r_h* img.cols;
-        h = INPUT_H;
-        x = (INPUT_W - w) / 2;
-        y = 0;
-    }
-    cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
-    cv::Mat out(INPUT_H, INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
-    re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
-    return out;
-}
-
-cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[10]) {
-    int l, r, t, b;
-    float r_w = INPUT_W / (img.cols * 1.0);
-    float r_h = INPUT_H / (img.rows * 1.0);
-    if (r_h > r_w) {
-        l = bbox[0] / r_w;
-        r = bbox[2] / r_w;
-        t = (bbox[1] - (INPUT_H - r_w * img.rows) / 2) / r_w;
-        b = (bbox[3] - (INPUT_H - r_w * img.rows) / 2) / r_w;
-        for (int i = 0; i < 10; i += 2) {
-            lmk[i] /= r_w;
-            lmk[i + 1] = (lmk[i + 1] - (INPUT_H - r_w * img.rows) / 2) / r_w;
-        }
-    } else {
-        l = (bbox[0] - (INPUT_W - r_h * img.cols) / 2) / r_h;
-        r = (bbox[2] - (INPUT_W - r_h * img.cols) / 2) / r_h;
-        t = bbox[1] / r_h;
-        b = bbox[3] / r_h;
-        for (int i = 0; i < 10; i += 2) {
-            lmk[i] = (lmk[i] - (INPUT_W - r_h * img.cols) / 2) / r_h;
-            lmk[i + 1] /= r_h;
-        }
-    }
-    return cv::Rect(l, t, r-l, b-t);
-}
-
-float iou(float lbox[4], float rbox[4]) {
-    float interBox[] = {
-        std::max(lbox[0], rbox[0]), //left
-        std::min(lbox[2], rbox[2]), //right
-        std::max(lbox[1], rbox[1]), //top
-        std::min(lbox[3], rbox[3]), //bottom
-    };
-
-    if(interBox[2] > interBox[3] || interBox[0] > interBox[1])
-        return 0.0f;
-
-    float interBoxS = (interBox[1] - interBox[0]) * (interBox[3] - interBox[2]);
-    return interBoxS / ((lbox[2] - lbox[0]) * (lbox[3] - lbox[1]) + (rbox[2] - rbox[0]) * (rbox[3] - rbox[1]) -interBoxS + 0.000001f);
-}
-
-bool cmp(const decodeplugin::Detection& a, const decodeplugin::Detection& b) {
-    return a.class_confidence > b.class_confidence;
-}
-
-void nms(std::vector<decodeplugin::Detection>& res, float *output, float nms_thresh = 0.4) {
-    std::vector<decodeplugin::Detection> dets;
-    for (int i = 0; i < output[0]; i++) {
-        if (output[15 * i + 1 + 4] <= 0.1) continue;
-        decodeplugin::Detection det;
-        memcpy(&det, &output[15 * i + 1], sizeof(decodeplugin::Detection));
-        dets.push_back(det);
-    }
-    std::sort(dets.begin(), dets.end(), cmp);
-    if (dets.size() > TOP_K) dets.erase(dets.begin() + TOP_K, dets.end());
-    for (size_t m = 0; m < dets.size(); ++m) {
-        auto& item = dets[m];
-        res.push_back(item);
-        //std::cout << item.class_confidence << " bbox " << item.bbox[0] << ", " << item.bbox[1] << ", " << item.bbox[2] << ", " << item.bbox[3] << std::endl;
-        for (size_t n = m + 1; n < dets.size(); ++n) {
-            if (iou(item.bbox, dets[n].bbox) > nms_thresh) {
-                dets.erase(dets.begin()+n);
-                --n;
-            }
-        }
-    }
-}
-
-// Load weights from files
-// TensorRT weight files have a simple space delimited format:
-// [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file) {
-    std::cout << "Loading weights: " << file << std::endl;
-    std::map<std::string, Weights> weightMap;
-
-    // Open weights file
-    std::ifstream input(file);
-    assert(input.is_open() && "Unable to load weight file.");
-
-    // Read number of weight blobs
-    int32_t count;
-    input >> count;
-    assert(count > 0 && "Invalid weight map file.");
-
-    while (count--)
-    {
-        Weights wt{DataType::kFLOAT, nullptr, 0};
-        uint32_t size;
-
-        // Read name and type of blob
-        std::string name;
-        input >> name >> std::dec >> size;
-        wt.type = DataType::kFLOAT;
-
-        // Load blob
-        uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
-            input >> std::hex >> val[x];
-        }
-        wt.values = val;
-        
-        wt.count = size;
-        weightMap[name] = wt;
-    }
-
-    return weightMap;
-}
-
-Weights getWeights(std::map<std::string, Weights>& weightMap, std::string key) {
-    if (weightMap.count(key) != 1) {
-        std::cerr << key << " not existed in weight map, fatal error!!!" << std::endl;
-        exit(-1);
-    }
-    return weightMap[key];
-}
-
-IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, float eps) {
-    float *gamma = (float*)weightMap[lname + ".weight"].values;
-    float *beta = (float*)weightMap[lname + ".bias"].values;
-    float *mean = (float*)weightMap[lname + ".running_mean"].values;
-    float *var = (float*)weightMap[lname + ".running_var"].values;
-    int len = weightMap[lname + ".running_var"].count;
-
-    float *scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
-    for (int i = 0; i < len; i++) {
-        scval[i] = gamma[i] / sqrt(var[i] + eps);
-    }
-    Weights scale{DataType::kFLOAT, scval, len};
-    
-    float *shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
-    for (int i = 0; i < len; i++) {
-        shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
-    }
-    Weights shift{DataType::kFLOAT, shval, len};
-
-    float *pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
-    for (int i = 0; i < len; i++) {
-        pval[i] = 1.0;
-    }
-    Weights power{DataType::kFLOAT, pval, len};
-
-    weightMap[lname + ".scale"] = scale;
-    weightMap[lname + ".shift"] = shift;
-    weightMap[lname + ".power"] = power;
-    IScaleLayer* scale_1 = network->addScale(input, ScaleMode::kCHANNEL, shift, scale, power);
-    assert(scale_1);
-    return scale_1;
-}
 
 ILayer* conv_bn(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, int oup, int s = 1, float leaky = 0.1) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
@@ -380,9 +194,16 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(1 << 20);
-#ifdef USE_FP16
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << builder->platformHasFastInt8() << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2 *calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./widerface_calib/", "mnet_int8calib.table", INPUT_BLOB_NAME);
+    config->setInt8Calibrator(calibrator);
 #endif
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
@@ -497,7 +318,7 @@ int main(int argc, char** argv) {
     //    data[i] = 1.0;
 
     cv::Mat img = cv::imread("worlds-largest-selfie.jpg");
-    cv::Mat pr_img = preprocess_img(img);
+    cv::Mat pr_img = preprocess_img(img, INPUT_W, INPUT_H);
     //cv::imwrite("preprocessed.jpg", pr_img);
 
     // For multi-batch, I feed the same image multiple times.
@@ -524,7 +345,7 @@ int main(int argc, char** argv) {
     auto start = std::chrono::system_clock::now();
     doInference(*context, data, prob, BATCH_SIZE);
     auto end = std::chrono::system_clock::now();
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us" << std::endl;
 
     for (int b = 0; b < BATCH_SIZE; b++) {
         std::vector<decodeplugin::Detection> res;
@@ -535,7 +356,7 @@ int main(int argc, char** argv) {
         cv::Mat tmp = img.clone();
         for (size_t j = 0; j < res.size(); j++) {
             if (res[j].class_confidence < VIS_THRESH) continue;
-            cv::Rect r = get_rect_adapt_landmark(tmp, res[j].bbox, res[j].landmark);
+            cv::Rect r = get_rect_adapt_landmark(tmp, INPUT_W, INPUT_H, res[j].bbox, res[j].landmark);
             cv::rectangle(tmp, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
             //cv::putText(tmp, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
             for (int k = 0; k < 10; k += 2) {
