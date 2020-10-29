@@ -49,7 +49,7 @@ bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int
         input_imgs_.push_back(pr_img);
     }
     img_idx_ += batchsize_;
-    cv::Mat blob = cv::dnn::blobFromImages(input_imgs_, 1.0, cv::Size(input_w_, input_h_), cv::Scalar(104, 117, 123), true, false);
+    cv::Mat blob = cv::dnn::blobFromImages(input_imgs_, 1.0, cv::Size(input_w_, input_h_), cv::Scalar(104, 117, 123), false, false);
 
     CHECK(cudaMemcpy(device_input_, blob.ptr<float>(0), input_count_ * sizeof(float), cudaMemcpyHostToDevice));
     assert(!strcmp(names[0], input_blob_name_));
