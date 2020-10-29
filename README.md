@@ -10,6 +10,8 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `29 Oct 2020`. First INT8 quantization implementation! Please check retinaface.
+- `23 Oct 2020`. Add a .wts model zoo for quick evaluation.
 - `8 Oct 2020`. [ChrystleMyrnaLobo](https://github.com/ChrystleMyrnaLobo) added ssd(mobilenetv2).
 - `21 Sep 2020`. [BaofengZan](https://github.com/BaofengZan) added hrnet classification and step by step tutorial(Chinese).
 - `16 Sep 2020`. [hwh-hit](https://github.com/hwh-hit) added ufld(Ultra-Fast-Lane-Detection, ECCV2020).
@@ -19,7 +21,6 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 - `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
 - `14 Aug 2020`. Update yolov5 to v3.0 release.
 - `3 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) implemented yolov5 s/m/l/x (yolov5 v2.0 release).
-- `6 July 2020`. Add yolov3-tiny, and got 333fps on GTX1080.
 - `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
 - `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
 
@@ -123,7 +124,8 @@ Some tricky operations encountered in these models, already solved, but might ha
 | YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 43 |
 | YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 29 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 90 |
-| RetinaFace(mobilenet0.25) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 333 |
+| RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | INT8 | 480x640 | 204 |
+| RetinaFace(mobilenet0.25) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 417 |
 | ArcFace(LResNet50E-IR) | Xeon E5-2620/GTX1080 | 1 | FP32 | 112x112 | 333 |
 | CRNN | Xeon E5-2620/GTX1080 | 1 | FP32 | 32x100 | 1000 |
 
