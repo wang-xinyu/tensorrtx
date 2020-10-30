@@ -2,8 +2,9 @@
 
 The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
 
-Currently, we support yolov5 v1.0(yolov5s only), v2.0 and v3.0.
+Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0 and v3.1.
 
+- For yolov5 v3.1, please visit [yolov5 release v3.1](https://github.com/ultralytics/yolov5/releases/tag/v3.1), and use the latest commit of this repo.
 - For yolov5 v3.0, please visit [yolov5 release v3.0](https://github.com/ultralytics/yolov5/releases/tag/v3.0), and use the latest commit of this repo.
 - For yolov5 v2.0, please visit [yolov5 release v2.0](https://github.com/ultralytics/yolov5/releases/tag/v2.0), and checkout commit ['7cd092d'](https://github.com/wang-xinyu/tensorrtx/commit/7cd092d38289123442157cf7defab78e816f4440) of this repo.
 - For yolov5 v1.0, please visit [yolov5 release v1.0](https://github.com/ultralytics/yolov5/releases/tag/v1.0), and checkout commit ['0504551'](https://github.com/wang-xinyu/tensorrtx/commit/0504551c0b7d0bac5f998eda349810ba410715de) of this repo.
@@ -12,7 +13,7 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0 and v3.0.
 
 - Choose the model s/m/l/x by `NET` macro in yolov5.cpp
 - Input shape defined in yololayer.h
-- Number of classes defined in yololayer.h
+- Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
 - FP16/FP32 can be selected by the macro in yolov5.cpp
 - GPU id can be selected by the macro in yolov5.cpp
 - NMS thresh in yolov5.cpp
