@@ -96,7 +96,7 @@ namespace nvinfer1
         int mYoloV5NetHeight;
         int mMaxOutObject;
         std::vector<Yolo::YoloKernel> mYoloKernel;
-		void** mAnchor;
+        void** mAnchor;
     };
 
     class YoloPluginCreator : public IPluginCreator
