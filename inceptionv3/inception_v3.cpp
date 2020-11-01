@@ -1,12 +1,24 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "common.h"
+#include "logging.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
+#include <cmath>
+
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 299;
@@ -99,10 +111,10 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 IActivationLayer* basicConv2d(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input,  int outch, DimsHW ksize, int s, DimsHW p, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, ksize, weightMap[lname + "conv.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, ksize, weightMap[lname + "conv.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{s, s});
-    conv1->setPadding(p);
+    conv1->setStrideNd(DimsHW{s, s});
+    conv1->setPaddingNd(p);
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "bn", 1e-3);
 
@@ -122,10 +134,10 @@ IConcatenationLayer* inceptionA(INetworkDefinition *network, std::map<std::strin
     relu3 = basicConv2d(network, weightMap, *relu3->getOutput(0), 96, DimsHW{3, 3}, 1, DimsHW{1, 1}, lname + "branch3x3dbl_2.");
     relu3 = basicConv2d(network, weightMap, *relu3->getOutput(0), 96, DimsHW{3, 3}, 1, DimsHW{1, 1}, lname + "branch3x3dbl_3.");
 
-    IPoolingLayer* pool1 = network->addPooling(input, PoolingType::kAVERAGE, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{1, 1});
-    pool1->setPadding(DimsHW{1, 1});
+    pool1->setStrideNd(DimsHW{1, 1});
+    pool1->setPaddingNd(DimsHW{1, 1});
     pool1->setAverageCountExcludesPadding(false);
     IActivationLayer* relu4 = basicConv2d(network, weightMap, *pool1->getOutput(0), pool_proj, DimsHW{1, 1}, 1, DimsHW{0, 0}, lname + "branch_pool.");
 
@@ -142,9 +154,9 @@ IConcatenationLayer* inceptionB(INetworkDefinition *network, std::map<std::strin
     relu2 = basicConv2d(network, weightMap, *relu2->getOutput(0), 96, DimsHW{3, 3}, 1, DimsHW{1, 1}, lname + "branch3x3dbl_2.");
     relu2 = basicConv2d(network, weightMap, *relu2->getOutput(0), 96, DimsHW{3, 3}, 2, DimsHW{0, 0}, lname + "branch3x3dbl_3.");
 
-    IPoolingLayer* pool1 = network->addPooling(input, PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
+    pool1->setStrideNd(DimsHW{2, 2});
 
     ITensor* inputTensors[] = {relu1->getOutput(0), relu2->getOutput(0), pool1->getOutput(0)};
     IConcatenationLayer* cat1 = network->addConcatenation(inputTensors, 3);
@@ -166,10 +178,10 @@ IConcatenationLayer* inceptionC(INetworkDefinition *network, std::map<std::strin
     relu3 = basicConv2d(network, weightMap, *relu3->getOutput(0), c7, DimsHW{7, 1}, 1, DimsHW{3, 0}, lname + "branch7x7dbl_4.");
     relu3 = basicConv2d(network, weightMap, *relu3->getOutput(0), 192, DimsHW{1, 7}, 1, DimsHW{0, 3}, lname + "branch7x7dbl_5.");
 
-    IPoolingLayer* pool1 = network->addPooling(input, PoolingType::kAVERAGE, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{1, 1});
-    pool1->setPadding(DimsHW{1, 1});
+    pool1->setStrideNd(DimsHW{1, 1});
+    pool1->setPaddingNd(DimsHW{1, 1});
     pool1->setAverageCountExcludesPadding(false);
     IActivationLayer* relu4 = basicConv2d(network, weightMap, *pool1->getOutput(0), 192, DimsHW{1, 1}, 1, DimsHW{0, 0}, lname + "branch_pool.");
 
@@ -188,9 +200,9 @@ IConcatenationLayer* inceptionD(INetworkDefinition *network, std::map<std::strin
     relu2 = basicConv2d(network, weightMap, *relu2->getOutput(0), 192, DimsHW{7, 1}, 1, DimsHW{3, 0}, lname + "branch7x7x3_3.");
     relu2 = basicConv2d(network, weightMap, *relu2->getOutput(0), 192, DimsHW{3, 3}, 2, DimsHW{0, 0}, lname + "branch7x7x3_4.");
 
-    IPoolingLayer* pool1 = network->addPooling(input, PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
+    pool1->setStrideNd(DimsHW{2, 2});
 
     ITensor* inputTensors[] = {relu1->getOutput(0), relu2->getOutput(0), pool1->getOutput(0)};
     IConcatenationLayer* cat1 = network->addConcatenation(inputTensors, 3);
@@ -216,10 +228,10 @@ IConcatenationLayer* inceptionE(INetworkDefinition *network, std::map<std::strin
     IConcatenationLayer* cat2 = network->addConcatenation(inputTensors1, 2);
     assert(cat2);
 
-    IPoolingLayer* pool1 = network->addPooling(input, PoolingType::kAVERAGE, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{1, 1});
-    pool1->setPadding(DimsHW{1, 1});
+    pool1->setStrideNd(DimsHW{1, 1});
+    pool1->setPaddingNd(DimsHW{1, 1});
     pool1->setAverageCountExcludesPadding(false);
     IActivationLayer* relu4 = basicConv2d(network, weightMap, *pool1->getOutput(0), 192, DimsHW{1, 1}, 1, DimsHW{0, 0}, lname + "branch_pool.");
 
@@ -230,9 +242,9 @@ IConcatenationLayer* inceptionE(INetworkDefinition *network, std::map<std::strin
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
@@ -253,13 +265,13 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     IActivationLayer* relu1 = basicConv2d(network, weightMap, *scale1->getOutput(0), 32, DimsHW{3, 3}, 2, DimsHW{0, 0}, "Conv2d_1a_3x3.");
     relu1 = basicConv2d(network, weightMap, *relu1->getOutput(0), 32, DimsHW{3, 3}, 1, DimsHW{0, 0}, "Conv2d_2a_3x3.");
     relu1 = basicConv2d(network, weightMap, *relu1->getOutput(0), 64, DimsHW{3, 3}, 1, DimsHW{1, 1}, "Conv2d_2b_3x3.");
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
+    pool1->setStrideNd(DimsHW{2, 2});
     relu1 = basicConv2d(network, weightMap, *pool1->getOutput(0), 80, DimsHW{1, 1}, 1, DimsHW{0, 0}, "Conv2d_3b_1x1.");
     relu1 = basicConv2d(network, weightMap, *relu1->getOutput(0), 192, DimsHW{3, 3}, 1, DimsHW{0, 0}, "Conv2d_4a_3x3.");
-    pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
-    pool1->setStride(DimsHW{2, 2});
+    pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    pool1->setStrideNd(DimsHW{2, 2});
 
     auto cat1 = inceptionA(network, weightMap, *pool1->getOutput(0), "Mixed_5b.", 32);
     cat1 = inceptionA(network, weightMap, *cat1->getOutput(0), "Mixed_5c.", 64);
@@ -273,7 +285,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     cat1 = inceptionE(network, weightMap, *cat1->getOutput(0), "Mixed_7b.");
     cat1 = inceptionE(network, weightMap, *cat1->getOutput(0), "Mixed_7c.");
 
-    IPoolingLayer* pool2 = network->addPooling(*cat1->getOutput(0), PoolingType::kAVERAGE, DimsHW{8, 8});
+    IPoolingLayer* pool2 = network->addPoolingNd(*cat1->getOutput(0), PoolingType::kAVERAGE, DimsHW{8, 8});
     assert(pool2);
 
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 1000, weightMap["fc.weight"], weightMap["fc.bias"]);
@@ -285,8 +297,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
     // Don't need the network any more
@@ -305,9 +317,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -316,6 +329,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     // Close everything down
     engine->destroy();
     builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
@@ -370,7 +384,7 @@ int main(int argc, char** argv)
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("inception.engine");
+        std::ofstream p("inception.engine", std::ios::binary);
         if (!p)
         {
             std::cerr << "could not open plan output file" << std::endl;
@@ -396,7 +410,7 @@ int main(int argc, char** argv)
 
 
     // Subtract mean from image
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[3 * INPUT_H * INPUT_W];
     for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
         data[i] = 1.0;
 
@@ -406,9 +420,10 @@ int main(int argc, char** argv)
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
+    delete[] trtModelStream;
 
     // Run inference
-    float prob[OUTPUT_SIZE];
+    static float prob[OUTPUT_SIZE];
     for (int i = 0; i < 100; i++) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
