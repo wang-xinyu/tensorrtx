@@ -1,12 +1,24 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "common.h"
+#include "logging.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
+#include <cmath>
+
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 224;
@@ -101,20 +113,20 @@ ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>&
     std::cout << lname << std::endl;
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int midch = inch * exp;
-    IConvolutionLayer* conv1 = network->addConvolution(input, midch, DimsHW{1, 1}, weightMap[lname + "layers.0.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, midch, DimsHW{1, 1}, weightMap[lname + "layers.0.weight"], emptywts);
     assert(conv1);
     IScaleLayer *bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "layers.1", 1e-5);
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), midch, DimsHW{ksize, ksize}, weightMap[lname + "layers.3.weight"], emptywts);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*relu1->getOutput(0), midch, DimsHW{ksize, ksize}, weightMap[lname + "layers.3.weight"], emptywts);
     assert(conv2);
-    conv2->setStride(DimsHW{s, s});
-    conv2->setPadding(DimsHW{ksize / 2, ksize / 2});
+    conv2->setStrideNd(DimsHW{s, s});
+    conv2->setPaddingNd(DimsHW{ksize / 2, ksize / 2});
     conv2->setNbGroups(midch);
     IScaleLayer *bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "layers.4", 1e-5);
     IActivationLayer* relu2 = network->addActivation(*bn2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
-    IConvolutionLayer* conv3 = network->addConvolution(*relu2->getOutput(0), outch, DimsHW{1, 1}, weightMap[lname + "layers.6.weight"], emptywts);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*relu2->getOutput(0), outch, DimsHW{1, 1}, weightMap[lname + "layers.6.weight"], emptywts);
     assert(conv3);
     IScaleLayer *bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "layers.7", 1e-5);
 
@@ -127,9 +139,9 @@ ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>&
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
@@ -138,21 +150,21 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     std::map<std::string, Weights> weightMap = loadWeights("../mnasnet.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 32, DimsHW{3, 3}, weightMap["layers.0.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 32, DimsHW{3, 3}, weightMap["layers.0.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{2, 2});
-    conv1->setPadding(DimsHW{1, 1});
+    conv1->setStrideNd(DimsHW{2, 2});
+    conv1->setPaddingNd(DimsHW{1, 1});
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "layers.1", 1e-5);
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), 32, DimsHW{3, 3}, weightMap["layers.3.weight"], emptywts);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*relu1->getOutput(0), 32, DimsHW{3, 3}, weightMap["layers.3.weight"], emptywts);
     assert(conv2);
-    conv2->setPadding(DimsHW{1, 1});
+    conv2->setPaddingNd(DimsHW{1, 1});
     conv2->setNbGroups(32);
     IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), "layers.4", 1e-5);
     IActivationLayer* relu2 = network->addActivation(*bn2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
-    IConvolutionLayer* conv3 = network->addConvolution(*relu2->getOutput(0), 16, DimsHW{1, 1}, weightMap["layers.6.weight"], emptywts);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*relu2->getOutput(0), 16, DimsHW{1, 1}, weightMap["layers.6.weight"], emptywts);
     assert(conv3);
     IScaleLayer* bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), "layers.7", 1e-5);
 
@@ -173,12 +185,12 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     ir1 = invertedRes(network, weightMap, *ir1->getOutput(0), "layers.12.3.", 96, 96, 5, 1, 6);
     ir1 = invertedRes(network, weightMap, *ir1->getOutput(0), "layers.13.0.", 96, 160, 3, 1, 6);
 
-    IConvolutionLayer* conv4 = network->addConvolution(*ir1->getOutput(0), 1280, DimsHW{1, 1}, weightMap["layers.14.weight"], emptywts);
+    IConvolutionLayer* conv4 = network->addConvolutionNd(*ir1->getOutput(0), 1280, DimsHW{1, 1}, weightMap["layers.14.weight"], emptywts);
     assert(conv4);
     IScaleLayer* bn4 = addBatchNorm2d(network, weightMap, *conv4->getOutput(0), "layers.15", 1e-5);
     IActivationLayer* relu3 = network->addActivation(*bn4->getOutput(0), ActivationType::kRELU);
     assert(relu3);
-    IPoolingLayer* pool2 = network->addPooling(*relu3->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
+    IPoolingLayer* pool2 = network->addPoolingNd(*relu3->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
     assert(pool2);
 
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 1000, weightMap["classifier.1.weight"], weightMap["classifier.1.bias"]);
@@ -190,8 +202,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
     // Don't need the network any more
@@ -210,9 +222,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -221,6 +234,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     // Close everything down
     engine->destroy();
     builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
@@ -275,7 +289,7 @@ int main(int argc, char** argv)
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("mnasnet.engine");
+        std::ofstream p("mnasnet.engine", std::ios::binary);
         if (!p)
         {
             std::cerr << "could not open plan output file" << std::endl;
@@ -312,6 +326,7 @@ int main(int argc, char** argv)
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
+    delete[] trtModelStream;
 
     // Run inference
     float prob[OUTPUT_SIZE];
