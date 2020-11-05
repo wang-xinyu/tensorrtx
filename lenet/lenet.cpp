@@ -75,7 +75,7 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, IBu
 {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor of shape { 1, 32, 32 } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{1, INPUT_H, INPUT_W});
     assert(data);
 
@@ -104,11 +104,11 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, IBu
     assert(relu2);
 
     // Add second max pooling layer with stride of 2x2 and kernel size of 2x2>
-    IPoolingLayer* pool2 = network->addPoolingNd(*relu2->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
+    IPoolingLayer* pool2 = network->addPoolingNd(*relu2->getOutput(0), PoolingType::kAVERAGE, DimsHW{2, 2});
     assert(pool2);
     pool2->setStrideNd(DimsHW{2, 2});
 
-    // Add fully connected layer with 500 outputs.
+    // Add fully connected layer
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 120, weightMap["fc1.weight"], weightMap["fc1.bias"]);
     assert(fc1);
 
@@ -116,7 +116,7 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, IBu
     IActivationLayer* relu3 = network->addActivation(*fc1->getOutput(0), ActivationType::kRELU);
     assert(relu3);
 
-    // Add second fully connected layer with 20 outputs.
+    // Add second fully connected layer
     IFullyConnectedLayer* fc2 = network->addFullyConnected(*relu3->getOutput(0), 84, weightMap["fc2.weight"], weightMap["fc2.bias"]);
     assert(fc2);
 
@@ -124,7 +124,7 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, IBu
     IActivationLayer* relu4 = network->addActivation(*fc2->getOutput(0), ActivationType::kRELU);
     assert(relu4);
 
-    // Add second fully connected layer with 20 outputs.
+    // Add third fully connected layer
     IFullyConnectedLayer* fc3 = network->addFullyConnected(*relu4->getOutput(0), OUTPUT_SIZE, weightMap["fc3.weight"], weightMap["fc3.bias"]);
     assert(fc3);
 
