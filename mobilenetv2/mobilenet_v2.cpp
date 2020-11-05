@@ -175,7 +175,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
