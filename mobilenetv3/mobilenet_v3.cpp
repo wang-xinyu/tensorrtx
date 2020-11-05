@@ -444,9 +444,8 @@ int main(int argc, char** argv)
         APIToModel(1, &modelStream, mode);
         assert(modelStream != nullptr);
 
-        std::ofstream p("mobilenetv3_" + mode + ".engine");
-        if (!p)
-        {
+        std::ofstream p("mobilenetv3_" + mode + ".engine", std::ios::binary);
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
