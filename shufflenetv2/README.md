@@ -6,12 +6,6 @@ ShuffleNetV2 with 0.5x output channels, as described in
 
 For the Pytorch implementation, you can refer to [pytorchx/shufflenet](https://github.com/wang-xinyu/pytorchx/tree/master/shufflenet)
 
-Following tricks are used in this shufflenet,
-
-- `torch.chunk` is used in shufflenet v2. We implemented the 'chunk(2, dim=C)' by tensorrt plugin. Which is the simplest plugin in this tensorrtx project. You can learn the basic procedures of build tensorrt plugin.
-- shuffle layer is used, the `channel_shuffle()` in pytorchx/shufflenet can be implemented by two shuffle layers in tensorrt.
-- Batchnorm layer, implemented by scale layer.
-
 ```
 // 1. generate shufflenet.wts from [pytorchx/shufflenet](https://github.com/wang-xinyu/pytorchx/tree/master/shufflenet)
 
