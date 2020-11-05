@@ -92,7 +92,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 |MaxPool2d(ceil_mode=True)| use a padding layer before maxpool to solve ceil_mode=True, see googlenet. |
 |average pool with padding| use setAverageCountExcludesPadding() when necessary, see inception. |
 |relu6| use `Relu6(x) = Relu(x) - Relu(x-6)`, see mobilenet. |
-|torch.chunk()| implement the 'chunk(2, dim=C)' by tensorrt plugin, see shufflenet. |
+|torch.chunk()| implement the 'chunk(2, dim=C)' by tensorrt plugin, see shufflenet in branch `trt4`. |
 |channel shuffle| use two shuffle layers to implement `channel_shuffle`, see shufflenet. |
 |adaptive pool| use fixed input dimension, and use regular average pooling, see shufflenet. |
 |leaky relu| I wrote a leaky relu plugin, but PRelu in `NvInferPlugin.h` can be used, see yolov3 in branch `trt4`. |
