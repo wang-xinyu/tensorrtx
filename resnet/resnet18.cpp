@@ -1,12 +1,24 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "common.h"
+#include "logging.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
+#include <cmath>
+
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 224;
@@ -99,27 +111,27 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 IActivationLayer* basicBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int stride, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{3, 3}, weightMap[lname + "conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{3, 3}, weightMap[lname + "conv1.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{stride, stride});
-    conv1->setPadding(DimsHW{1, 1});
+    conv1->setStrideNd(DimsHW{stride, stride});
+    conv1->setPaddingNd(DimsHW{1, 1});
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "bn1", 1e-5);
 
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), outch, DimsHW{3, 3}, weightMap[lname + "conv2.weight"], emptywts);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*relu1->getOutput(0), outch, DimsHW{3, 3}, weightMap[lname + "conv2.weight"], emptywts);
     assert(conv2);
-    conv2->setPadding(DimsHW{1, 1});
+    conv2->setPaddingNd(DimsHW{1, 1});
 
     IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "bn2", 1e-5);
 
     IElementWiseLayer* ew1;
     if (inch != outch) {
-        IConvolutionLayer* conv3 = network->addConvolution(input, outch, DimsHW{1, 1}, weightMap[lname + "downsample.0.weight"], emptywts);
+        IConvolutionLayer* conv3 = network->addConvolutionNd(input, outch, DimsHW{1, 1}, weightMap[lname + "downsample.0.weight"], emptywts);
         assert(conv3);
-        conv3->setStride(DimsHW{stride, stride});
+        conv3->setStrideNd(DimsHW{stride, stride});
         IScaleLayer* bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "downsample.1", 1e-5);
         ew1 = network->addElementWise(*bn3->getOutput(0), *bn2->getOutput(0), ElementWiseOperation::kSUM);
     } else {
@@ -131,34 +143,31 @@ IActivationLayer* basicBlock(INetworkDefinition *network, std::map<std::string, 
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../resnet18.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    // Add convolution layer with 6 outputs and a 5x5 filter.
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 64, DimsHW{7, 7}, weightMap["conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{7, 7}, weightMap["conv1.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{2, 2});
-    conv1->setPadding(DimsHW{3, 3});
+    conv1->setStrideNd(DimsHW{2, 2});
+    conv1->setPaddingNd(DimsHW{3, 3});
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "bn1", 1e-5);
 
-    // Add activation layer using the ReLU algorithm.
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
-    // Add max pooling layer with stride of 2x2 and kernel size of 2x2.
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
-    pool1->setPadding(DimsHW{1, 1});
+    pool1->setStrideNd(DimsHW{2, 2});
+    pool1->setPaddingNd(DimsHW{1, 1});
 
     IActivationLayer* relu2 = basicBlock(network, weightMap, *pool1->getOutput(0), 64, 64, 1, "layer1.0.");
     IActivationLayer* relu3 = basicBlock(network, weightMap, *relu2->getOutput(0), 64, 64, 1, "layer1.1.");
@@ -172,9 +181,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     IActivationLayer* relu8 = basicBlock(network, weightMap, *relu7->getOutput(0), 256, 512, 2, "layer4.0.");
     IActivationLayer* relu9 = basicBlock(network, weightMap, *relu8->getOutput(0), 512, 512, 1, "layer4.1.");
 
-    IPoolingLayer* pool2 = network->addPooling(*relu9->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
+    IPoolingLayer* pool2 = network->addPoolingNd(*relu9->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
     assert(pool2);
-    pool2->setStride(DimsHW{1, 1});
+    pool2->setStrideNd(DimsHW{1, 1});
     
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 1000, weightMap["fc.weight"], weightMap["fc.bias"]);
     assert(fc1);
@@ -185,8 +194,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
     // Don't need the network any more
@@ -205,9 +214,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -216,6 +226,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     // Close everything down
     engine->destroy();
     builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
@@ -256,8 +267,8 @@ int main(int argc, char** argv)
 {
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./resnet -s   // serialize model to plan file" << std::endl;
-        std::cerr << "./resnet -d   // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./resnet18 -s   // serialize model to plan file" << std::endl;
+        std::cerr << "./resnet18 -d   // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
@@ -270,7 +281,7 @@ int main(int argc, char** argv)
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("resnet18.engine");
+        std::ofstream p("resnet18.engine", std::ios::binary);
         if (!p)
         {
             std::cerr << "could not open plan output file" << std::endl;
@@ -296,7 +307,7 @@ int main(int argc, char** argv)
 
 
     // Subtract mean from image
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[3 * INPUT_H * INPUT_W];
     for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
         data[i] = 1.0;
 
@@ -306,9 +317,10 @@ int main(int argc, char** argv)
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
+    delete[] trtModelStream;
 
     // Run inference
-    float prob[OUTPUT_SIZE];
+    static float prob[OUTPUT_SIZE];
     for (int i = 0; i < 100; i++) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
