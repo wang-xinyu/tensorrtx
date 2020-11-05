@@ -1,13 +1,24 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "common.h"
+#include "logging.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
-#include "chunk.h"
+#include <cmath>
+
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 224;
@@ -97,19 +108,18 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname,
-        int inch, int outch, int s) {
+ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, int inch, int outch, int s) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int branch_features = outch / 2;
     ITensor *x1, *x2i, *x2o;
     if (s > 1) {
-        IConvolutionLayer* conv1 = network->addConvolution(input, inch, DimsHW{3, 3}, weightMap[lname + "branch1.0.weight"], emptywts);
+        IConvolutionLayer* conv1 = network->addConvolutionNd(input, inch, DimsHW{3, 3}, weightMap[lname + "branch1.0.weight"], emptywts);
         assert(conv1);
-        conv1->setStride(DimsHW{s, s});
-        conv1->setPadding(DimsHW{1, 1});
+        conv1->setStrideNd(DimsHW{s, s});
+        conv1->setPaddingNd(DimsHW{1, 1});
         conv1->setNbGroups(inch);
         IScaleLayer *bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "branch1.1", 1e-5);
-        IConvolutionLayer* conv2 = network->addConvolution(*bn1->getOutput(0), branch_features, DimsHW{1, 1}, weightMap[lname + "branch1.2.weight"], emptywts);
+        IConvolutionLayer* conv2 = network->addConvolutionNd(*bn1->getOutput(0), branch_features, DimsHW{1, 1}, weightMap[lname + "branch1.2.weight"], emptywts);
         assert(conv2);
         IScaleLayer *bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "branch1.3", 1e-5);
         IActivationLayer* relu1 = network->addActivation(*bn2->getOutput(0), ActivationType::kRELU);
@@ -117,27 +127,25 @@ ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>&
         x1 = relu1->getOutput(0);
         x2i = &input;
     } else {
-        ITensor* inputTensors[] = {&input};
-        ChunkPlugin *cp = new ChunkPlugin();
-        auto cp1 = network->addPlugin(inputTensors, 1, *cp);
-        assert(cp1);
-        cp1->setName((lname + "chunk").c_str());
-        x1 = cp1->getOutput(0);
-        x2i = cp1->getOutput(1);
+        Dims d = input.getDimensions();
+        ISliceLayer *s1 = network->addSlice(input, Dims3{ 0, 0, 0 }, Dims3{ d.d[0] / 2, d.d[1], d.d[2] }, Dims3{ 1, 1, 1 });
+        ISliceLayer *s2 = network->addSlice(input, Dims3{ d.d[0] / 2, 0, 0 }, Dims3{ d.d[0] / 2, d.d[1], d.d[2] }, Dims3{ 1, 1, 1 });
+        x1 = s1->getOutput(0);
+        x2i = s2->getOutput(0);
     }
 
-    IConvolutionLayer* conv3 = network->addConvolution(*x2i, branch_features, DimsHW{1, 1}, weightMap[lname + "branch2.0.weight"], emptywts);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*x2i, branch_features, DimsHW{1, 1}, weightMap[lname + "branch2.0.weight"], emptywts);
     assert(conv3);
     IScaleLayer *bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "branch2.1", 1e-5);
     IActivationLayer* relu2 = network->addActivation(*bn3->getOutput(0), ActivationType::kRELU);
     assert(relu2);
-    IConvolutionLayer* conv4 = network->addConvolution(*relu2->getOutput(0), branch_features, DimsHW{3, 3}, weightMap[lname + "branch2.3.weight"], emptywts);
+    IConvolutionLayer* conv4 = network->addConvolutionNd(*relu2->getOutput(0), branch_features, DimsHW{3, 3}, weightMap[lname + "branch2.3.weight"], emptywts);
     assert(conv4);
-    conv4->setStride(DimsHW{s, s});
-    conv4->setPadding(DimsHW{1, 1});
+    conv4->setStrideNd(DimsHW{s, s});
+    conv4->setPaddingNd(DimsHW{1, 1});
     conv4->setNbGroups(branch_features);
     IScaleLayer *bn4 = addBatchNorm2d(network, weightMap, *conv4->getOutput(0), lname + "branch2.4", 1e-5);
-    IConvolutionLayer* conv5 = network->addConvolution(*bn4->getOutput(0), branch_features, DimsHW{1, 1}, weightMap[lname + "branch2.5.weight"], emptywts);
+    IConvolutionLayer* conv5 = network->addConvolutionNd(*bn4->getOutput(0), branch_features, DimsHW{1, 1}, weightMap[lname + "branch2.5.weight"], emptywts);
     assert(conv5);
     IScaleLayer *bn5 = addBatchNorm2d(network, weightMap, *conv5->getOutput(0), lname + "branch2.6", 1e-5);
     IActivationLayer* relu3 = network->addActivation(*bn5->getOutput(0), ActivationType::kRELU);
@@ -148,9 +156,9 @@ ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>&
     assert(cat1);
 
     Dims dims = cat1->getOutput(0)->getDimensions();
-    std::cout << cat1->getOutput(0)->getName() << " dims";
+    std::cout << cat1->getOutput(0)->getName() << " dims: ";
     for (int i = 0; i < dims.nbDims; i++) {
-        std::cout << dims.d[i] << "-" << (int)dims.type[i] << "   ";
+        std::cout << dims.d[i] << ", ";
     }
     std::cout << std::endl;
 
@@ -160,20 +168,20 @@ ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>&
     sf1->setSecondTranspose(Permutation{1, 0, 2, 3});
 
     Dims dims1 = sf1->getOutput(0)->getDimensions();
-    std::cout << sf1->getOutput(0)->getName() << " dims";
+    std::cout << sf1->getOutput(0)->getName() << " dims: ";
     for (int i = 0; i < dims1.nbDims; i++) {
-        std::cout << dims1.d[i] << "-" << (int)dims1.type[i] << "   ";
+        std::cout << dims1.d[i] << ", ";
     }
     std::cout << std::endl;
 
     IShuffleLayer *sf2 = network->addShuffle(*sf1->getOutput(0));
     assert(sf2);
-    sf2->setReshapeDimensions(DimsCHW(dims.d[0], dims.d[1], dims.d[2]));
+    sf2->setReshapeDimensions(Dims3(dims.d[0], dims.d[1], dims.d[2]));
 
     Dims dims2 = sf2->getOutput(0)->getDimensions();
-    std::cout << sf2->getOutput(0)->getName() << " dims";
+    std::cout << sf2->getOutput(0)->getName() << " dims: ";
     for (int i = 0; i < dims2.nbDims; i++) {
-        std::cout << dims2.d[i] << "-" << (int)dims2.type[i] << "   ";
+        std::cout << dims2.d[i] << ", ";
     }
     std::cout << std::endl;
 
@@ -181,28 +189,28 @@ ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>&
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../shufflenet.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 24, DimsHW{3, 3}, weightMap["conv1.0.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 24, DimsHW{3, 3}, weightMap["conv1.0.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{2, 2});
-    conv1->setPadding(DimsHW{1, 1});
+    conv1->setStrideNd(DimsHW{2, 2});
+    conv1->setPaddingNd(DimsHW{1, 1});
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "conv1.1", 1e-5);
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
-    pool1->setPadding(DimsHW{1, 1});
+    pool1->setStrideNd(DimsHW{2, 2});
+    pool1->setPaddingNd(DimsHW{1, 1});
 
     ILayer* ir1 = invertedRes(network, weightMap, *pool1->getOutput(0), "stage2.0.", 24, 48, 2);
     ir1 = invertedRes(network, weightMap, *ir1->getOutput(0), "stage2.1.", 48, 48, 1);
@@ -221,12 +229,12 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
     ir1 = invertedRes(network, weightMap, *ir1->getOutput(0), "stage4.2.", 192, 192, 1);
     ir1 = invertedRes(network, weightMap, *ir1->getOutput(0), "stage4.3.", 192, 192, 1);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*ir1->getOutput(0), 1024, DimsHW{1, 1}, weightMap["conv5.0.weight"], emptywts);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*ir1->getOutput(0), 1024, DimsHW{1, 1}, weightMap["conv5.0.weight"], emptywts);
     assert(conv2);
     IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), "conv5.1", 1e-5);
     IActivationLayer* relu2 = network->addActivation(*bn2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
-    IPoolingLayer* pool2 = network->addPooling(*relu2->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
+    IPoolingLayer* pool2 = network->addPoolingNd(*relu2->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
     assert(pool2);
 
     IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 1000, weightMap["fc.weight"], weightMap["fc.bias"]);
@@ -238,8 +246,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
     // Don't need the network any more
@@ -258,9 +266,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -269,6 +278,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     // Close everything down
     engine->destroy();
     builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
@@ -323,9 +333,8 @@ int main(int argc, char** argv)
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("shufflenet.engine");
-        if (!p)
-        {
+        std::ofstream p("shufflenet.engine", std::ios::binary);
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
@@ -347,27 +356,25 @@ int main(int argc, char** argv)
         return -1;
     }
 
-
-    // Subtract mean from image
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[3 * INPUT_H * INPUT_W];
     for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
         data[i] = 1.0;
 
-    PluginFactory pf;
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, &pf);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
+    delete[] trtModelStream;
 
     // Run inference
-    float prob[OUTPUT_SIZE];
-    for (int i = 0; i < 100; i++) {
+    static float prob[OUTPUT_SIZE];
+    for (int i = 0; i < 10; i++) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
         auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us" << std::endl;
     }
 
     // Destroy the engine
