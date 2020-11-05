@@ -4,7 +4,7 @@ An implementation of SENet, proposed in Squeeze-and-Excitation Networks by Jie H
 
 [https://arxiv.org/abs/1709.01507](https://arxiv.org/abs/1709.01507)
 
-For the Pytorch implementation, you can refer to [wang-xinyu/senet.pytorch](https://github.com/wang-xinyu/senet.pytorch).
+For the Pytorch implementation, you can refer to [wang-xinyu/senet.pytorch](https://github.com/wang-xinyu/senet.pytorch), which is forked from [moskomule/senet.pytorch](https://github.com/moskomule/senet.pytorch).
 
 
 ```
