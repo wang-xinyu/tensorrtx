@@ -1,12 +1,23 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
-#include "common.h"
+#include "logging.h"
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
 #include <chrono>
+
+#define CHECK(status) \
+    do\
+    {\
+        auto ret = (status);\
+        if (ret != 0)\
+        {\
+            std::cerr << "Cuda failure: " << ret << std::endl;\
+            abort();\
+        }\
+    } while (0)
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 227;
@@ -64,19 +75,19 @@ std::map<std::string, Weights> loadWeights(const std::string file)
 
 IConcatenationLayer* fire(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname,
     int squeeze_planes, int e1x1_planes, int e3x3_planes) {
-    IConvolutionLayer* conv1 = network->addConvolution(input, squeeze_planes, DimsHW{1, 1}, weightMap[lname + "squeeze.weight"], weightMap[lname + "squeeze.bias"]);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, squeeze_planes, DimsHW{1, 1}, weightMap[lname + "squeeze.weight"], weightMap[lname + "squeeze.bias"]);
     assert(conv1);
     IActivationLayer* relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), e1x1_planes, DimsHW{1, 1}, weightMap[lname + "expand1x1.weight"], weightMap[lname + "expand1x1.bias"]);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*relu1->getOutput(0), e1x1_planes, DimsHW{1, 1}, weightMap[lname + "expand1x1.weight"], weightMap[lname + "expand1x1.bias"]);
     assert(conv2);
     IActivationLayer* relu2 = network->addActivation(*conv2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
 
-    IConvolutionLayer* conv3 = network->addConvolution(*relu1->getOutput(0), e3x3_planes, DimsHW{3, 3}, weightMap[lname + "expand3x3.weight"], weightMap[lname + "expand3x3.bias"]);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*relu1->getOutput(0), e3x3_planes, DimsHW{3, 3}, weightMap[lname + "expand3x3.weight"], weightMap[lname + "expand3x3.bias"]);
     assert(conv3);
-    conv3->setPadding(DimsHW{1, 1});
+    conv3->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu3 = network->addActivation(*conv3->getOutput(0), ActivationType::kRELU);
     assert(relu3);
 
@@ -87,54 +98,52 @@ IConcatenationLayer* fire(INetworkDefinition *network, std::map<std::string, Wei
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
 {
-    INetworkDefinition* network = builder->createNetwork();
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
+    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../squeezenet.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 64, DimsHW{3, 3}, weightMap["features.0.weight"], weightMap["features.0.bias"]);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["features.0.weight"], weightMap["features.0.bias"]);
     assert(conv1);
-    conv1->setStride(DimsHW{2, 2});
+    conv1->setStrideNd(DimsHW{2, 2});
     IActivationLayer* relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool1);
-    pool1->setStride(DimsHW{2, 2});
+    pool1->setStrideNd(DimsHW{2, 2});
 
     IConcatenationLayer* cat1 = fire(network, weightMap, *pool1->getOutput(0), "features.3.", 16, 64, 64);
     cat1 = fire(network, weightMap, *cat1->getOutput(0), "features.4.", 16, 64, 64);
 
-    IPaddingLayer* pad1 = network->addPadding(*cat1->getOutput(0), DimsHW{0, 0}, DimsHW{1, 1});
-    assert(pad1);
-    IPoolingLayer* pool2 = network->addPooling(*pad1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    IPoolingLayer* pool2 = network->addPoolingNd(*cat1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool2);
-    pool2->setStride(DimsHW{2, 2});
+    pool2->setStrideNd(DimsHW{2, 2});
+    pool2->setPostPadding(DimsHW{1, 1});
 
     cat1 = fire(network, weightMap, *pool2->getOutput(0), "features.6.", 32, 128, 128);
     cat1 = fire(network, weightMap, *cat1->getOutput(0), "features.7.", 32, 128, 128);
 
-    pad1 = network->addPadding(*cat1->getOutput(0), DimsHW{0, 0}, DimsHW{1, 1});
-    assert(pad1);
-    pool2 = network->addPooling(*pad1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
+    pool2 = network->addPoolingNd(*cat1->getOutput(0), PoolingType::kMAX, DimsHW{3, 3});
     assert(pool2);
-    pool2->setStride(DimsHW{2, 2});
+    pool2->setStrideNd(DimsHW{2, 2});
+    pool2->setPostPadding(DimsHW{1, 1});
 
     cat1 = fire(network, weightMap, *pool2->getOutput(0), "features.9.", 48, 192, 192);
     cat1 = fire(network, weightMap, *cat1->getOutput(0), "features.10.", 48, 192, 192);
     cat1 = fire(network, weightMap, *cat1->getOutput(0), "features.11.", 64, 256, 256);
     cat1 = fire(network, weightMap, *cat1->getOutput(0), "features.12.", 64, 256, 256);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*cat1->getOutput(0), 1000, DimsHW{1, 1}, weightMap["classifier.1.weight"], weightMap["classifier.1.bias"]);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*cat1->getOutput(0), 1000, DimsHW{1, 1}, weightMap["classifier.1.weight"], weightMap["classifier.1.bias"]);
     assert(conv2);
     IActivationLayer* relu2 = network->addActivation(*conv2->getOutput(0), ActivationType::kRELU);
     assert(relu2);
-    IPoolingLayer* pool3 = network->addPooling(*relu2->getOutput(0), PoolingType::kAVERAGE, DimsHW{14, 14});
+    IPoolingLayer* pool3 = network->addPoolingNd(*relu2->getOutput(0), PoolingType::kAVERAGE, DimsHW{14, 14});
     assert(pool3);
 
     pool3->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -143,8 +152,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    config->setMaxWorkspaceSize(1 << 20);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
     // Don't need the network any more
@@ -163,9 +172,10 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -174,6 +184,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     // Close everything down
     engine->destroy();
     builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
@@ -228,9 +239,8 @@ int main(int argc, char** argv)
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("squeezenet.engine");
-        if (!p)
-        {
+        std::ofstream p("squeezenet.engine", std::ios::binary);
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
@@ -253,25 +263,25 @@ int main(int argc, char** argv)
     }
 
 
-    // Subtract mean from image
-    float data[3 * INPUT_H * INPUT_W];
+    static float data[3 * INPUT_H * INPUT_W];
     for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
         data[i] = 1.0;
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
+    delete[] trtModelStream;
 
     // Run inference
-    float prob[OUTPUT_SIZE];
-    for (int i = 0; i < 100; i++) {
+    static float prob[OUTPUT_SIZE];
+    for (int i = 0; i < 10; i++) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, 1);
         auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us" << std::endl;
     }
 
     // Destroy the engine
