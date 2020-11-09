@@ -8,11 +8,6 @@ SqueezeNet 1.1 has 2.4x less computation and slightly fewer parameters
 
 For the Pytorch implementation, you can refer to [pytorchx/squeezenet](https://github.com/wang-xinyu/pytorchx/tree/master/squeezenet)
 
-Following tricks are used in this squeezenet,
-
-- MaxPool2d(ceil_mode=True), ceilmode=True, which is not supported in Tensorrt4, we use a padding layer before maxpool to solve this problem.
-- For Pytorch AdaptiveAvgPool2d(), we use fixed input dimension, and use regular average pooling to replace it.
-
 ```
 // 1. generate squeezenet.wts from [pytorchx/squeezenet](https://github.com/wang-xinyu/pytorchx/tree/master/squeezenet)
 
@@ -35,5 +30,4 @@ sudo ./squeezenet -d   // deserialize plan file and run inference
 
 // 4. see if the output is same as pytorchx/squeezenet
 ```
-
 
