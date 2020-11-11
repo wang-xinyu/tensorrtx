@@ -158,7 +158,7 @@ class YoLov5TRT(object):
         # 　Save image
         cv2.imwrite(save_name, image_raw)
 
-    def destory(self):
+    def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
         self.cfx.pop()
 
@@ -317,5 +317,5 @@ if __name__ == "__main__":
         thread1.start()
         thread1.join()
 
-    # destory the instance
-    yolov5_wrapper.destory()
+    # destroy the instance
+    yolov5_wrapper.destroy()
