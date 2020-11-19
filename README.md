@@ -10,6 +10,8 @@ All the models are implemented in pytorch or mxnet first, and export a weights f
 
 ## News
 
+- `19 Nov 2020`. YOLOv3-SPP supports dynamic input shape, including a dynamic plugin.
+- `17 Nov 2020`. [AlfengYuan](https://github.com/AlfengYuan) added a Dockerfile.
 - `7 Nov 2020`. All models migrated to trt7 API, and clean up the master branch.
 - `29 Oct 2020`. First INT8 quantization implementation! Please check retinaface.
 - `23 Oct 2020`. Add a .wts model zoo for quick evaluation.
@@ -66,7 +68,7 @@ Following models are implemented.
 |[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
-|[yolov5](./yolov5)| yolov5-s/m/l/x v1.0 v2.0 v3.0, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+|[yolov5](./yolov5)| yolov5-s/m/l/x v1.0 v2.0 v3.0 v3.1, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |

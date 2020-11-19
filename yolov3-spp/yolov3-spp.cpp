@@ -22,7 +22,6 @@
         }\
     } while (0)
 
-
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
@@ -31,58 +30,46 @@
 using namespace nvinfer1;
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = Yolo::INPUT_H;
-static const int INPUT_W = Yolo::INPUT_W;
-static const int OUTPUT_SIZE = 1000 * 7 + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
+static const int MAX_INPUT_SIZE = 608;
+static const int MIN_INPUT_SIZE = 128;
+static const int OPT_INPUT_W = 608;
+static const int OPT_INPUT_H = 608;
+static const int DET_LEN = sizeof(Yolo::Detection) / sizeof(float);
+static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * DET_LEN + 1;  // we limit the yololayer to output no more than MAX_OUTPUT_BBOX_COUNT bboxes
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
 
-cv::Mat preprocess_img(cv::Mat& img) {
-    int w, h, x, y;
-    float r_w = INPUT_W / (img.cols*1.0);
-    float r_h = INPUT_H / (img.rows*1.0);
-    if (r_h > r_w) {
-        w = INPUT_W;
-        h = r_w * img.rows;
-        x = 0;
-        y = (INPUT_H - h) / 2;
-    } else {
-        w = r_h* img.cols;
-        h = INPUT_H;
-        x = (INPUT_W - w) / 2;
-        y = 0;
-    }
-    cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_CUBIC);
-    cv::Mat out(INPUT_H, INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
-    re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
+cv::Mat letterbox(cv::Mat& img) {
+    float r = std::min(MAX_INPUT_SIZE / (img.cols*1.0), MAX_INPUT_SIZE / (img.rows*1.0));
+    r = std::min(r, 1.0f);
+    int unpad_w = r * img.cols;
+    int unpad_h = r * img.rows;
+    int dw = (MAX_INPUT_SIZE - unpad_w) % 32;
+    int dh = (MAX_INPUT_SIZE - unpad_h) % 32;
+    cv::Mat re(unpad_h, unpad_w, CV_8UC3);
+    cv::resize(img, re, re.size());
+    cv::Mat out(unpad_h + dh, unpad_w + dw, CV_8UC3, cv::Scalar(128, 128, 128));
+    re.copyTo(out(cv::Rect(dw / 2, dh / 2, re.cols, re.rows)));
     return out;
 }
 
-cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
-    int l, r, t, b;
-    float r_w = INPUT_W / (img.cols * 1.0);
-    float r_h = INPUT_H / (img.rows * 1.0);
-    if (r_h > r_w) {
-        l = bbox[0] - bbox[2]/2.f;
-        r = bbox[0] + bbox[2]/2.f;
-        t = bbox[1] - bbox[3]/2.f - (INPUT_H - r_w * img.rows) / 2;
-        b = bbox[1] + bbox[3]/2.f - (INPUT_H - r_w * img.rows) / 2;
-        l = l / r_w;
-        r = r / r_w;
-        t = t / r_w;
-        b = b / r_w;
-    } else {
-        l = bbox[0] - bbox[2]/2.f - (INPUT_W - r_h * img.cols) / 2;
-        r = bbox[0] + bbox[2]/2.f - (INPUT_W - r_h * img.cols) / 2;
-        t = bbox[1] - bbox[3]/2.f;
-        b = bbox[1] + bbox[3]/2.f;
-        l = l / r_h;
-        r = r / r_h;
-        t = t / r_h;
-        b = b / r_h;
-    }
+cv::Rect get_rect(cv::Size src_shape, cv::Size pre_shape, float bbox[4]) {
+    float ra = std::min(MAX_INPUT_SIZE / (src_shape.width * 1.0), MAX_INPUT_SIZE / (src_shape.height * 1.0));
+    ra = std::min(ra, 1.0f);
+    int unpad_w = ra * src_shape.width;
+    int unpad_h = ra * src_shape.height;
+    int dw = (MAX_INPUT_SIZE - unpad_w) % 32;
+    int dh = (MAX_INPUT_SIZE - unpad_h) % 32;
+
+    int l = bbox[0] - bbox[2]/2.f - dw / 2;
+    int r = bbox[0] + bbox[2]/2.f - dw / 2;
+    int t = bbox[1] - bbox[3]/2.f - dh / 2;
+    int b = bbox[1] + bbox[3]/2.f - dh / 2;
+    l /= ra;
+    r /= ra;
+    t /= ra;
+    b /= ra;
     return cv::Rect(l, t, r-l, b-t);
 }
 
@@ -107,10 +94,10 @@ bool cmp(const Yolo::Detection& a, const Yolo::Detection& b) {
 
 void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = NMS_THRESH) {
     std::map<float, std::vector<Yolo::Detection>> m;
-    for (int i = 0; i < output[0] && i < 1000; i++) {
-        if (output[1 + 7 * i + 4] <= BBOX_CONF_THRESH) continue;
+    for (int i = 0; i < output[0] && i < Yolo::MAX_OUTPUT_BBOX_COUNT; i++) {
+        if (output[1 + DET_LEN * i + 4] <= BBOX_CONF_THRESH) continue;
         Yolo::Detection det;
-        memcpy(&det, &output[1 + 7 * i], 7 * sizeof(float));
+        memcpy(&det, &output[1 + DET_LEN * i], DET_LEN * sizeof(float));
         if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Yolo::Detection>());
         m[det.class_id].push_back(det);
     }
@@ -221,10 +208,10 @@ ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>&
 
 // Creat the engine using only the API and not any parser.
 ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
-    INetworkDefinition* network = builder->createNetworkV2(0U);
+    const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto network = builder->createNetworkV2(explicitBatch);
 
-    // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{1, 3, -1, -1});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../yolov3-spp_ultralytics68.wts");
@@ -309,7 +296,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto lr75 = convBnLeaky(network, weightMap, *ew74->getOutput(0), 512, 1, 1, 0, 75);
     auto lr76 = convBnLeaky(network, weightMap, *lr75->getOutput(0), 1024, 3, 1, 1, 76);
     auto lr77 = convBnLeaky(network, weightMap, *lr76->getOutput(0), 512, 1, 1, 0, 77);
-    
+
     auto pool78 = network->addPoolingNd(*lr77->getOutput(0), PoolingType::kMAX, DimsHW{5,5});
     pool78->setPaddingNd(DimsHW{2, 2});
     pool78->setStrideNd(DimsHW{1, 1});
@@ -341,7 +328,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     deconv92->setStrideNd(DimsHW{2, 2});
     deconv92->setNbGroups(256);
     weightMap["deconv92"] = deconvwts92;
-    
+
     ITensor* inputTensors[] = {deconv92->getOutput(0), ew61->getOutput(0)};
     auto cat93 = network->addConcatenation(inputTensors, 2);
     auto lr94 = convBnLeaky(network, weightMap, *cat93->getOutput(0), 256, 1, 1, 0, 94);
@@ -375,11 +362,22 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* inputTensors_yolo[] = {conv88->getOutput(0), conv100->getOutput(0), conv112->getOutput(0)};
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
 
+    auto dim = yolo->getOutput(0)->getDimensions();
+    std::cout << "yololayer output shape: ";
+    for (int i = 0; i < dim.nbDims; i++) {
+        std::cout << dim.d[i] << " ";
+    }
+    std::cout << std::endl;
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
 
+    IOptimizationProfile* profile = builder->createOptimizationProfile();
+    profile->setDimensions(INPUT_BLOB_NAME, OptProfileSelector::kMIN, Dims4(1, 3, MIN_INPUT_SIZE, MIN_INPUT_SIZE));
+    profile->setDimensions(INPUT_BLOB_NAME, OptProfileSelector::kOPT, Dims4(1, 3, OPT_INPUT_H, OPT_INPUT_W));
+    profile->setDimensions(INPUT_BLOB_NAME, OptProfileSelector::kMAX, Dims4(1, 3, MAX_INPUT_SIZE, MAX_INPUT_SIZE));
+    config->addOptimizationProfile(profile);
+
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #ifdef USE_FP16
     config->setFlag(BuilderFlag::kFP16);
@@ -417,7 +415,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
+void doInference(IExecutionContext& context, float* input, float* output, cv::Size input_shape) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
@@ -429,19 +427,20 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine.getBindingIndex(INPUT_BLOB_NAME);
     const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
+    context.setBindingDimensions(inputIndex, Dims4(1, 3, input_shape.height, input_shape.width));
 
     // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
+    CHECK(cudaMalloc(&buffers[inputIndex], 3 * input_shape.height * input_shape.width * sizeof(float)));
+    CHECK(cudaMalloc(&buffers[outputIndex], OUTPUT_SIZE * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
 
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
-    context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, 3 * input_shape.height * input_shape.width * sizeof(float), cudaMemcpyHostToDevice, stream));
+    context.enqueueV2(buffers, stream, nullptr);
+    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers
@@ -514,10 +513,6 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // prepare input data ---------------------------
-    static float data[3 * INPUT_H * INPUT_W];
-    //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-    //    data[i] = 1.0;
     static float prob[OUTPUT_SIZE];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -526,6 +521,7 @@ int main(int argc, char** argv) {
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
     delete[] trtModelStream;
+    context->setOptimizationProfile(0);
 
     int fcount = 0;
     for (auto f: file_names) {
@@ -533,31 +529,21 @@ int main(int argc, char** argv) {
         std::cout << fcount << "  " << f << std::endl;
         cv::Mat img = cv::imread(std::string(argv[2]) + "/" + f);
         if (img.empty()) continue;
-        cv::Mat pr_img = preprocess_img(img);
-        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-            data[i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
-            data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
-            data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
-        }
+        cv::Mat pr_img = letterbox(img);
+        std::cout << "letterbox shape: " << pr_img.cols << ", " << pr_img.rows << std::endl;
+        if (pr_img.cols < MIN_INPUT_SIZE || pr_img.rows < MIN_INPUT_SIZE) continue;
+        cv::Mat blob = cv::dnn::blobFromImage(pr_img, 1.0 / 255.0, pr_img.size(), cv::Scalar(0, 0, 0), true, false);
 
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, 1);
+        doInference(*context, blob.ptr<float>(0), prob, pr_img.size());
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<Yolo::Detection> res;
         nms(res, prob);
-        for (int i=0; i<20; i++) {
-            std::cout << prob[i] << ",";
-        }
-        std::cout << res.size() << std::endl;
+        std::cout << "num of bbox: " << res.size() << std::endl;
         for (size_t j = 0; j < res.size(); j++) {
-            float *p = (float*)&res[j];
-            for (size_t k = 0; k < 7; k++) {
-                std::cout << p[k] << ", ";
-            }
-            std::cout << std::endl;
-            cv::Rect r = get_rect(img, res[j].bbox);
+            cv::Rect r = get_rect(img.size(), pr_img.size(), res[j].bbox);
             cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
             cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
         }
