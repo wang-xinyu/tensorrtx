@@ -5,6 +5,7 @@
 #include <vector>
 #include <chrono>
 #include <opencv2/opencv.hpp>
+#include <opencv2/dnn/dnn.hpp>
 #include <dirent.h>
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
