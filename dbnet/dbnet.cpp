@@ -87,8 +87,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IActivationLayer* relu9 = basicBlock(network, weightMap, *relu8->getOutput(0), 512, 512, 1, "backbone.layer4.1."); //x5
 
     /* ------- FPN  neck ------- */
-    ILayer* p5 = convBnLeaky(network, weightMap, *relu9->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c5"); // k=1 s = 1  p = k/2=1/2=0
-    ILayer* c4_1 = convBnLeaky(network, weightMap, *relu7->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c4");
+    ILayer* p5 = convBnLeaky(network, weightMap, *relu9->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c5.conv", ".bn"); // k=1 s = 1  p = k/2=1/2=0
+    ILayer* c4_1 = convBnLeaky(network, weightMap, *relu7->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c4.conv", ".bn");
 
     float *deval = reinterpret_cast<float*>(malloc(sizeof(float) * 64 * 2 * 2));
     for (int i = 0; i < 64 * 2 * 2; i++) {
@@ -101,8 +101,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     weightMap["deconv1"] = deconvwts1;
 
     IElementWiseLayer* p4_add = network->addElementWise(*p4_1->getOutput(0), *c4_1->getOutput(0), ElementWiseOperation::kSUM);
-    ILayer* p4 = convBnLeaky(network, weightMap, *p4_add->getOutput(0), 64, 3, 1, 1, "neck.smooth_p4");  // smooth
-    ILayer* c3_1 = convBnLeaky(network, weightMap, *relu5->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c3");
+    ILayer* p4 = convBnLeaky(network, weightMap, *p4_add->getOutput(0), 64, 3, 1, 1, "neck.smooth_p4.conv", ".bn");  // smooth
+    ILayer* c3_1 = convBnLeaky(network, weightMap, *relu5->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c3.conv", ".bn");
 
     Weights deconvwts2{ DataType::kFLOAT, deval, 64 * 2 * 2 };
     IDeconvolutionLayer* p3_1 = network->addDeconvolutionNd(*p4->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts2, emptywts);
@@ -110,8 +110,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     p3_1->setNbGroups(64);
 
     IElementWiseLayer* p3_add = network->addElementWise(*p3_1->getOutput(0), *c3_1->getOutput(0), ElementWiseOperation::kSUM);
-    ILayer* p3 = convBnLeaky(network, weightMap, *p3_add->getOutput(0), 64, 3, 1, 1, "neck.smooth_p3");  // smooth
-    ILayer* c2_1 = convBnLeaky(network, weightMap, *relu3->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c2");
+    ILayer* p3 = convBnLeaky(network, weightMap, *p3_add->getOutput(0), 64, 3, 1, 1, "neck.smooth_p3.conv", ".bn");  // smooth
+    ILayer* c2_1 = convBnLeaky(network, weightMap, *relu3->getOutput(0), 64, 1, 1, 1, "neck.reduce_conv_c2.conv", ".bn");
 
     Weights deconvwts3{ DataType::kFLOAT, deval, 64 * 2 * 2 };
     IDeconvolutionLayer* p2_1 = network->addDeconvolutionNd(*p3->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts3, emptywts);
@@ -119,7 +119,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     p2_1->setNbGroups(64);
 
     IElementWiseLayer* p2_add = network->addElementWise(*p2_1->getOutput(0), *c2_1->getOutput(0), ElementWiseOperation::kSUM);
-    ILayer* p2 = convBnLeaky(network, weightMap, *p2_add->getOutput(0), 64, 3, 1, 1, "neck.smooth_p2");  // smooth
+    ILayer* p2 = convBnLeaky(network, weightMap, *p2_add->getOutput(0), 64, 3, 1, 1, "neck.smooth_p2.conv", ".bn");  // smooth
 
     Weights deconvwts4{ DataType::kFLOAT, deval, 64 * 2 * 2 };
     IDeconvolutionLayer* p3_up_p2 = network->addDeconvolutionNd(*p3->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts4, emptywts);
@@ -146,9 +146,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* inputTensors[] = { p2->getOutput(0), p3_up_p2->getOutput(0), p4_up_p2->getOutput(0), p5_up_p2->getOutput(0) };
     IConcatenationLayer* neck_cat = network->addConcatenation(inputTensors, 4);
 
-    ILayer* neck_out = convBnLeaky2(network, weightMap, *neck_cat->getOutput(0), 256, 3, 1, 1, "neck.conv");  // smooth
+    ILayer* neck_out = convBnLeaky(network, weightMap, *neck_cat->getOutput(0), 256, 3, 1, 1, "neck.conv.0", ".1");  // smooth
     assert(neck_out);
-    ILayer* binarize1 = convBnLeaky2(network, weightMap, *neck_out->getOutput(0), 64, 3, 1, 1, "head.binarize");  //  
+    ILayer* binarize1 = convBnLeaky(network, weightMap, *neck_out->getOutput(0), 64, 3, 1, 1, "head.binarize.0", ".1");  //  
     Weights deconvwts7{ DataType::kFLOAT, deval, 64 * 2 * 2 };
     IDeconvolutionLayer* binarizeup = network->addDeconvolutionNd(*binarize1->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts7, emptywts);
     binarizeup->setStrideNd(DimsHW{ 2, 2 });
@@ -170,7 +170,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(binarize4);
 
     //threshold_maps = self.thresh(x)
-    ILayer* thresh1 = convBnLeaky2(network, weightMap, *neck_out->getOutput(0), 64, 3, 1, 1, "head.thresh", false);  //  
+    ILayer* thresh1 = convBnLeaky(network, weightMap, *neck_out->getOutput(0), 64, 3, 1, 1, "head.thresh.0", ".1", false);  //  
     Weights deconvwts9{ DataType::kFLOAT, deval, 64 * 2 * 2 };
     IDeconvolutionLayer* threshup = network->addDeconvolutionNd(*thresh1->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts9, emptywts);
     threshup->setStrideNd(DimsHW{ 2, 2 });

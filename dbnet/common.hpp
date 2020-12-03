@@ -97,85 +97,63 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    int p = ksize / 2;
-    IConvolutionLayer* conv1 = nullptr;
-    if (bias)
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".conv.weight"], weightMap[lname + ".conv.bias"]);
-    }
-    else
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".conv.weight"], emptywts);
-    }
+ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, std::string bnname, bool bias = true) {
+	Weights emptywts{DataType::kFLOAT, nullptr, 0};
+	int p = ksize / 2;
+	IConvolutionLayer* conv1 = nullptr;
+	if (bias)
+	{
+		conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".weight"], weightMap[lname + ".bias"]);
+	}
+	else
+	{
+		conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".weight"], emptywts);
+	}
     assert(conv1);
     conv1->setStrideNd(DimsHW{s, s});
     conv1->setPaddingNd(DimsHW{p, p});
     conv1->setNbGroups(g);
-    //IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-4);
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
+	//IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-4);
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname.substr(0, lname.find_last_of(".")) + bnname, 1e-3);
     auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
     lr->setAlpha(0.1);
     return lr;
 }
 
-ILayer* convBnLeaky2(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    int p = ksize / 2;
-    IConvolutionLayer* conv1 = nullptr;
-    if (bias)
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".0.weight"], weightMap[lname + ".0.bias"]);
-    }
-    else
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".0.weight"], emptywts);
-    }
-    assert(conv1);
-    conv1->setStrideNd(DimsHW{ s, s });
-    conv1->setPaddingNd(DimsHW{ p, p });
-    conv1->setNbGroups(g);
-    //IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-4);
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".1", 1e-3);
-    auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
-    lr->setAlpha(0.1);
-    return lr;
-}
 
 IActivationLayer* basicBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int stride, std::string lname) {
-    Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
+	Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{ 3, 3 }, weightMap[lname + "conv1.weight"], emptywts);
-    assert(conv1);
-    conv1->setStride(DimsHW{ stride, stride });
-    conv1->setPadding(DimsHW{ 1, 1 });
+	IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{ 3, 3 }, weightMap[lname + "conv1.weight"], emptywts);
+	assert(conv1);
+	conv1->setStride(DimsHW{ stride, stride });
+	conv1->setPadding(DimsHW{ 1, 1 });
 
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "bn1", 1e-5);
+	IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "bn1", 1e-5);
 
-    IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
-    assert(relu1);
+	IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
+	assert(relu1);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), outch, DimsHW{ 3, 3 }, weightMap[lname + "conv2.weight"], emptywts);
-    assert(conv2);
-    conv2->setPadding(DimsHW{ 1, 1 });
+	IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), outch, DimsHW{ 3, 3 }, weightMap[lname + "conv2.weight"], emptywts);
+	assert(conv2);
+	conv2->setPadding(DimsHW{ 1, 1 });
 
-    IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "bn2", 1e-5);
+	IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "bn2", 1e-5);
 
-    IElementWiseLayer* ew1;
-    if (inch != outch) {
-        IConvolutionLayer* conv3 = network->addConvolution(input, outch, DimsHW{ 1, 1 }, weightMap[lname + "downsample.0.weight"], emptywts);
-        assert(conv3);
-        conv3->setStride(DimsHW{ stride, stride });
-        IScaleLayer* bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "downsample.1", 1e-5);
-        ew1 = network->addElementWise(*bn3->getOutput(0), *bn2->getOutput(0), ElementWiseOperation::kSUM);
-    }
-    else {
-        ew1 = network->addElementWise(input, *bn2->getOutput(0), ElementWiseOperation::kSUM);
-    }
-    IActivationLayer* relu2 = network->addActivation(*ew1->getOutput(0), ActivationType::kRELU);
-    assert(relu2);
-    return relu2;
+	IElementWiseLayer* ew1;
+	if (inch != outch) {
+		IConvolutionLayer* conv3 = network->addConvolution(input, outch, DimsHW{ 1, 1 }, weightMap[lname + "downsample.0.weight"], emptywts);
+		assert(conv3);
+		conv3->setStride(DimsHW{ stride, stride });
+		IScaleLayer* bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "downsample.1", 1e-5);
+		ew1 = network->addElementWise(*bn3->getOutput(0), *bn2->getOutput(0), ElementWiseOperation::kSUM);
+	}
+	else {
+		ew1 = network->addElementWise(input, *bn2->getOutput(0), ElementWiseOperation::kSUM);
+	}
+	IActivationLayer* relu2 = network->addActivation(*ew1->getOutput(0), ActivationType::kRELU);
+	assert(relu2);
+	return relu2;
 }
 
 int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {

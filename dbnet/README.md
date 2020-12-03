@@ -35,7 +35,7 @@ https://github.com/BaofengZan/DBNet-TensorRT
 
 ## Todo
 
-* 1. In common.hpp, the following two functions can be merged.
+* 1. ~~In common.hpp, the following two functions can be merged.~~
 
 ```c++
 ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) 
