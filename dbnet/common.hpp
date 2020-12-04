@@ -39,9 +39,8 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
     input >> count;
     assert(count > 0 && "Invalid weight map file.");
 
-    while (count--)
-    {
-        Weights wt{DataType::kFLOAT, nullptr, 0};
+    while (count--) {
+        Weights wt{ DataType::kFLOAT, nullptr, 0 };
         uint32_t size;
 
         // Read name and type of blob
@@ -51,12 +50,11 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
 
         // Load blob
         uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
+        for (uint32_t x = 0, y = size; x < y; ++x) {
             input >> std::hex >> val[x];
         }
         wt.values = val;
-        
+
         wt.count = size;
         weightMap[name] = wt;
     }
@@ -75,19 +73,19 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     for (int i = 0; i < len; i++) {
         scval[i] = gamma[i] / sqrt(var[i] + eps);
     }
-    Weights scale{DataType::kFLOAT, scval, len};
-    
+    Weights scale{ DataType::kFLOAT, scval, len };
+
     float *shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
     }
-    Weights shift{DataType::kFLOAT, shval, len};
+    Weights shift{ DataType::kFLOAT, shval, len };
 
     float *pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         pval[i] = 1.0;
     }
-    Weights power{DataType::kFLOAT, pval, len};
+    Weights power{ DataType::kFLOAT, pval, len };
 
     weightMap[lname + ".scale"] = scale;
     weightMap[lname + ".shift"] = shift;
@@ -97,51 +95,27 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, std::string bnname, bool bias = true) {
+    Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
     int p = ksize / 2;
     IConvolutionLayer* conv1 = nullptr;
-    if (bias)
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".conv.weight"], weightMap[lname + ".conv.bias"]);
+    if (bias) {
+        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".weight"], weightMap[lname + ".bias"]);
     }
-    else
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".conv.weight"], emptywts);
-    }
-    assert(conv1);
-    conv1->setStrideNd(DimsHW{s, s});
-    conv1->setPaddingNd(DimsHW{p, p});
-    conv1->setNbGroups(g);
-    //IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-4);
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
-    auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
-    lr->setAlpha(0.1);
-    return lr;
-}
-
-ILayer* convBnLeaky2(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    int p = ksize / 2;
-    IConvolutionLayer* conv1 = nullptr;
-    if (bias)
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".0.weight"], weightMap[lname + ".0.bias"]);
-    }
-    else
-    {
-        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".0.weight"], emptywts);
+    else {
+        conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".weight"], emptywts);
     }
     assert(conv1);
     conv1->setStrideNd(DimsHW{ s, s });
     conv1->setPaddingNd(DimsHW{ p, p });
     conv1->setNbGroups(g);
     //IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-4);
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".1", 1e-3);
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname.substr(0, lname.find_last_of(".")) + bnname, 1e-3);
     auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
     lr->setAlpha(0.1);
     return lr;
 }
+
 
 IActivationLayer* basicBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int stride, std::string lname) {
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
@@ -187,7 +161,7 @@ int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_nam
     struct dirent* p_file = nullptr;
     while ((p_file = readdir(p_dir)) != nullptr) {
         if (strcmp(p_file->d_name, ".") != 0 &&
-                strcmp(p_file->d_name, "..") != 0) {
+            strcmp(p_file->d_name, "..") != 0) {
             //std::string cur_file_name(p_dir_name);
             //cur_file_name += "/";
             //cur_file_name += p_file->d_name;
