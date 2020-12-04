@@ -3,8 +3,9 @@
 The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorch).
 
 <p align="center">
-<img src="https://user-images.githubusercontent.com/20653176/89722330-00c36900-da1b-11ea-97f4-c61f9cd196fa.png">
+<img src="https://user-images.githubusercontent.com/20653176/100968101-b044be00-356b-11eb-808c-9597cbe1f8de.jpg">
 </p>
+
 
 ## How to Run
 
@@ -34,7 +35,7 @@ https://github.com/BaofengZan/DBNet-TensorRT
 
 ## Todo
 
-* 1. In common.hpp, the following two functions can be merged.
+* 1. ~~In common.hpp, the following two functions can be merged.~~
 
 ```c++
 ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) 
@@ -46,4 +47,5 @@ ILayer* convBnLeaky2(INetworkDefinition *network, std::map<std::string, Weights>
 
 * 2. The postprocess method here should be optimized, which is a little different from pytorch side.
 
-* 3. The input image here is resized to 640x640 directly, while the pytorch side is using `letterbox` method.
+* 3. ~~The input image here is resized to 640x640 directly, while the pytorch side is using `letterbox` method.~~
+
