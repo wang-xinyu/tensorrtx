@@ -20,63 +20,63 @@ cv::Mat renderSegment(cv::Mat image, const cv::Mat &mask);
 // <============== Operator =============>
 struct InferDeleter
 {
-	template <typename T>
-	void operator()(T *obj) const
-	{
-		if (obj)
-		{
-			obj->destroy();
-		}
-	}
+    template <typename T>
+    void operator()(T *obj) const
+    {
+        if (obj)
+        {
+            obj->destroy();
+        }
+    }
 };
 
 #define CHECK(status)                             \
-	do                                            \
-	{                                             \
-		auto ret = (status);                      \
-		if (ret != 0)                             \
-		{                                         \
-			std::cout << "Cuda failure: " << ret; \
-			abort();                              \
-		}                                         \
-	} while (0)
+    do                                            \
+    {                                             \
+        auto ret = (status);                      \
+        if (ret != 0)                             \
+        {                                         \
+            std::cout << "Cuda failure: " << ret; \
+            abort();                              \
+        }                                         \
+    } while (0)
 
 // Logger for TensorRT info/warning/errors
 class Logger : public nvinfer1::ILogger
 {
 public:
-	Logger() : Logger(Severity::kWARNING) {}
+    Logger() : Logger(Severity::kWARNING) {}
 
-	Logger(Severity severity) : reportableSeverity(severity) {}
+    Logger(Severity severity) : reportableSeverity(severity) {}
 
-	void log(Severity severity, const char *msg) override
-	{
-		// suppress messages with severity enum value greater than the reportable
-		if (severity > reportableSeverity)
-			return;
+    void log(Severity severity, const char *msg) override
+    {
+        // suppress messages with severity enum value greater than the reportable
+        if (severity > reportableSeverity)
+            return;
 
-		switch (severity)
-		{
-		case Severity::kINTERNAL_ERROR:
-			std::cerr << "INTERNAL_ERROR: ";
-			break;
-		case Severity::kERROR:
-			std::cerr << "ERROR: ";
-			break;
-		case Severity::kWARNING:
-			std::cerr << "WARNING: ";
-			break;
-		case Severity::kINFO:
-			std::cerr << "INFO: ";
-			break;
-		default:
-			std::cerr << "UNKNOWN: ";
-			break;
-		}
-		std::cerr << msg << std::endl;
-	}
+        switch (severity)
+        {
+        case Severity::kINTERNAL_ERROR:
+            std::cerr << "INTERNAL_ERROR: ";
+            break;
+        case Severity::kERROR:
+            std::cerr << "ERROR: ";
+            break;
+        case Severity::kWARNING:
+            std::cerr << "WARNING: ";
+            break;
+        case Severity::kINFO:
+            std::cerr << "INFO: ";
+            break;
+        default:
+            std::cerr << "UNKNOWN: ";
+            break;
+        }
+        std::cerr << msg << std::endl;
+    }
 
-	Severity reportableSeverity{Severity::kWARNING};
+    Severity reportableSeverity{Severity::kWARNING};
 };
 
 #endif
