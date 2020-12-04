@@ -1,4 +1,6 @@
+#include <assert.h>
 #include "yololayer.h"
+#include "utils.h"
 
 using namespace Yolo;
 

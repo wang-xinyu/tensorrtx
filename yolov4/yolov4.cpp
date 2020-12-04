@@ -7,22 +7,11 @@
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 #include "NvInfer.h"
-#include "NvInferPlugin.h"
+#include "utils.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
 #include "yololayer.h"
 #include "mish.h"
-
-#define CHECK(status) \
-    do\
-    {\
-        auto ret = (status);\
-        if (ret != 0)\
-        {\
-            std::cerr << "Cuda failure: " << ret << std::endl;\
-            abort();\
-        }\
-    } while (0)
 
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
@@ -57,7 +46,7 @@ cv::Mat preprocess_img(cv::Mat& img) {
         y = 0;
     }
     cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_CUBIC);
+    cv::resize(img, re, re.size());
     cv::Mat out(INPUT_H, INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
     re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
     return out;
@@ -180,7 +169,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     float *mean = (float*)weightMap[lname + ".running_mean"].values;
     float *var = (float*)weightMap[lname + ".running_var"].values;
     int len = weightMap[lname + ".running_var"].count;
-    std::cout << "len " << len << std::endl;
 
     float *scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
@@ -209,7 +197,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 }
 
 ILayer* convBnMish(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int p, int linx) {
-    std::cout << linx << std::endl;
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap["module_list." + std::to_string(linx) + ".Conv2d.weight"], emptywts);
     assert(conv1);
@@ -227,7 +214,6 @@ ILayer* convBnMish(INetworkDefinition *network, std::map<std::string, Weights>& 
 }
 
 ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int p, int linx) {
-    std::cout << linx << std::endl;
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap["module_list." + std::to_string(linx) + ".Conv2d.weight"], emptywts);
     assert(conv1);
@@ -489,7 +475,6 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto yolo = network->addPluginV2(inputTensors_yolo, 3, *pluginObj);
 
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
-    std::cout << "set name out" << std::endl;
     network->markOutput(*yolo->getOutput(0));
 
     // Build engine
@@ -498,8 +483,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 #ifdef USE_FP16
     config->setFlag(BuilderFlag::kFP16);
 #endif
+    std::cout << "Building tensorrt engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
-    std::cout << "build out" << std::endl;
+    std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
     network->destroy();
@@ -528,6 +514,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Close everything down
     engine->destroy();
     builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
@@ -544,23 +531,23 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
 
     // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
-    CHECK(cudaStreamCreate(&stream));
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
-    CHECK(cudaFree(buffers[inputIndex]));
-    CHECK(cudaFree(buffers[outputIndex]));
+    CUDA_CHECK(cudaFree(buffers[inputIndex]));
+    CUDA_CHECK(cudaFree(buffers[outputIndex]));
 }
 
 int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
