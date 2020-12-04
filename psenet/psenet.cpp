@@ -207,7 +207,7 @@ void PSENet::serializeEngine()
 	std::ofstream p("./psenet.engine", std::ios::binary | std::ios::out);
 	if (!p)
 	{
-		std::cerr << "could not open plan output file" << std::endl;
+		std::cerr << "Could not open plan output file" << std::endl;
 		return;
 	}
 	p.write(reinterpret_cast<const char *>(modelStream->data()), modelStream->size());
@@ -305,9 +305,9 @@ void PSENet::detect(std::string image_path)
 
 	cv::Mat mask;
 	postProcess(output, mask, resize_h, resize_w);
-	auto end = std::chrono::system_clock::now();
 
 	drawRects(image, mask, ratio_h, ratio_w, stride_, 1.4);
+	auto end = std::chrono::system_clock::now();
 
 	cv::imwrite("result_" + image_path, image);
 
@@ -316,10 +316,11 @@ void PSENet::detect(std::string image_path)
 
 float *PSENet::preProcess(cv::Mat image, int &resize_h, int &resize_w, float &ratio_h, float &ratio_w)
 {
-	cv::cvtColor(image, image, CV_BGR2RGB);
+	cv::Mat imageRGB;
+	cv::cvtColor(image, imageRGB, CV_BGR2RGB);
 	cv::Mat imageProcessed;
-	int h = image.size().height;
-	int w = image.size().width;
+	int h = imageRGB.size().height;
+	int w = imageRGB.size().width;
 	resize_w = w;
 	resize_h = h;
 
@@ -350,13 +351,13 @@ float *PSENet::preProcess(cv::Mat image, int &resize_h, int &resize_w, float &ra
 	ratio_h = resize_h / float(h);
 	ratio_w = resize_w / float(w);
 
-	cv::resize(image, imageProcessed, cv::Size(resize_w, resize_h));
+	cv::resize(imageRGB, imageProcessed, cv::Size(resize_w, resize_h));
 	float *input = new float[3 * resize_h * resize_w];
 	cv::Mat imgFloat;
 	imageProcessed.convertTo(imgFloat, CV_32FC3);
 	cv::subtract(imgFloat, cv::Scalar(123.68, 116.78, 103.94), imgFloat, cv::noArray(), -1);
 	std::vector<cv::Mat> chw;
-	for (size_t i = 0; i < 3; ++i)
+	for (auto i = 0; i < 3; ++i)
 	{
 		chw.emplace_back(cv::Mat(cv::Size(resize_w, resize_h), CV_32FC1, input + i * resize_w * resize_h));
 	}
@@ -376,7 +377,7 @@ void PSENet::postProcess(float *origin_output, cv::Mat &label_image, int resize_
 	cv::threshold(max_kernel, max_kernel, post_threshold_, 255, cv::THRESH_BINARY);
 	max_kernel.convertTo(max_kernel, CV_8U);
 	assert(max_kernel.rows == height && max_kernel.cols == width);
-	for (int i = 0; i < num_kernels_ - 1; ++i)
+	for (auto i = 0; i < num_kernels_ - 1; ++i)
 	{
 		cv::Mat kernel = cv::Mat(height, width, CV_32F, (void *)(origin_output + i * length), 0);
 		cv::threshold(kernel, kernel, post_threshold_, 255, cv::THRESH_BINARY);
@@ -386,13 +387,6 @@ void PSENet::postProcess(float *origin_output, cv::Mat &label_image, int resize_
 		kernels[i] = kernel;
 	}
 	kernels[num_kernels_ - 1] = max_kernel;
-
-	//cv::imwrite("./mask0.jpg", kernels[0]);
-	//cv::imwrite("./mask1.jpg", kernels[1]);
-	//cv::imwrite("./mask2.jpg", kernels[2]);
-	//cv::imwrite("./mask3.jpg", kernels[3]);
-	//cv::imwrite("./mask4.jpg", kernels[4]);
-	//cv::imwrite("./mask5.jpg", kernels[5]);
 
 	cv::Mat stats, centroids;
 	int num_labels = cv::connectedComponentsWithStats(kernels[0], label_image, stats, centroids, 4);
@@ -404,9 +398,9 @@ void PSENet::postProcess(float *origin_output, cv::Mat &label_image, int resize_
 	// PSE algorithm
 	std::queue<std::tuple<int, int, int>> q;
 	std::queue<std::tuple<int, int, int>> q_next;
-	for (int h = 0; h < height; ++h)
+	for (auto h = 0; h < height; ++h)
 	{
-		for (int w = 0; w < width; ++w)
+		for (auto w = 0; w < width; ++w)
 		{
 			auto label = *label_image.ptr(h, w);
 			if (label > 0)
@@ -418,7 +412,7 @@ void PSENet::postProcess(float *origin_output, cv::Mat &label_image, int resize_
 	}
 	int dx[4] = {-1, 1, 0, 0};
 	int dy[4] = {0, 0, -1, 1};
-	for (int idx = 1; idx < num_kernels_; ++idx)
+	for (auto idx = 1; idx < num_kernels_; ++idx)
 	{
 		auto *ptr_kernel = kernels[idx].data;
 		while (!q.empty())
@@ -429,7 +423,7 @@ void PSENet::postProcess(float *origin_output, cv::Mat &label_image, int resize_
 			int y = std::get<1>(q_n);
 			int l = std::get<2>(q_n);
 			bool is_edge = true;
-			for (int j = 0; j < 4; ++j)
+			for (auto j = 0; j < 4; ++j)
 			{
 				int tmpx = x + dx[j];
 				int tmpy = y + dy[j];

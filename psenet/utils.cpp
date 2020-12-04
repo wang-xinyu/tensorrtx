@@ -6,6 +6,7 @@
 std::map<std::string, Weights> loadWeights(const std::string file)
 {
 	std::cout << "Loading weights: " << file << std::endl;
+	std::cout << "Model weight is large, it will take some time." << std::endl;
 	std::map<std::string, Weights> weightMap;
 
 	// Open weights file
@@ -59,26 +60,14 @@ void drawRects(cv::Mat &image, cv::Mat mask, float ratio_h, float ratio_w, int s
 	std::vector<cv::Rect> boundRect(contours.size());
 	std::vector<cv::RotatedRect> box(contours.size());
 	cv::Point2f rect[4];
-	for (int i = 0; i < contours.size(); i++)
+	for (auto i = 0; i < contours.size(); i++)
 	{
 		box[i] = cv::minAreaRect(cv::Mat(contours[i]));
 		cv::RotatedRect expandbox = expandBox(box[i], expand_ratio);
 		expandbox.points(rect);
-		for (int j = 0; j < 4; j++)
+		for (auto j = 0; j < 4; j++)
 		{
 			cv::line(image, cv::Point{int(rect[j].x / ratio_w * stride), int(rect[j].y / ratio_h * stride)}, cv::Point{int(rect[(j + 1) % 4].x / ratio_w * stride), int(rect[(j + 1) % 4].y / ratio_h * stride)}, cv::Scalar(0, 0, 255), 2, 8);
 		}
 	}
-}
-
-cv::Mat renderSegment(cv::Mat image, const cv::Mat &mask)
-{
-	double min_val, max_val;
-	int min_idx[2] = {};
-	int max_idx[2] = {};
-	cv::minMaxIdx(mask, &min_val, &max_val, min_idx, max_idx);
-	cv::Mat color;
-	cv::merge(std::vector<cv::Mat>{mask * (rand() % 255), mask * (rand() % (int)(255 / max_val)), mask * (rand() % (int)(255 / max_val))}, color);
-	cv::addWeighted(image, 1, color, 1, 0, image);
-	return image;
 }

@@ -13,11 +13,15 @@ int main(int argc, char **argv)
     else if (argc == 2 && std::string(argv[1]) == "-d")
     {
         psenet.init();
-        vector<string> files = {"test.jpg", "test.jpg", "test.jpg"};
-        for (int i = 0; i < files.size(); i++)
+        std::vector<std::string> files;
+        for (int i = 0; i < 10; i++)
         {
-            std::cout << "Detect " << files[i] << std::endl;
-            psenet.detect(files[i]);
+            files.emplace_back("test.jpg");
+        }
+        for (auto file : files)
+        {
+            std::cout << "Detect " << file << std::endl;
+            psenet.detect(file);
         }
 
         return 0;

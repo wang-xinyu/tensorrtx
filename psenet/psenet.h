@@ -1,15 +1,11 @@
 #ifndef TENSORRTX_PSENET_H
 #define TENSORRTX_PSENET_H
+#include <memory>
 #include <vector>
+#include <chrono>
 #include <opencv2/opencv.hpp>
-#include <math.h>
-#include <thread>
-#include <future>
-#include <mutex>
-#include <map>
 #include "utils.h"
 #include "layers.h"
-#include "common.h"
 
 class PSENet
 {
