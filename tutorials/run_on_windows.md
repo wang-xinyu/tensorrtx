@@ -39,7 +39,7 @@ message(STATUS "    include path: ${CUDA_INCLUDE_DIRS}")
 
 include_directories(${CUDA_INCLUDE_DIRS})
 
-set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11; -g; -G;-gencode; arch=compute_75;code=sm_75)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-std=c++11; -g; -G;-gencode; arch=compute_75;code=sm_75)
 ####
 enable_language(CUDA)  # add this line, then no need to setup cuda path in vs
 ####
@@ -70,10 +70,9 @@ message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${TRT_DIR}\\lib)
 
-add_executable(yolov5 ${PROJECT_SOURCE_DIR}/yolov5.cpp ${PROJECT_SOURCE_DIR}/yololayer.cu ${PROJECT_SOURCE_DIR}/yololayer.h 
-                ${PROJECT_SOURCE_DIR}/hardswish.cu ${PROJECT_SOURCE_DIR}/hardswish.h)   #4
+add_executable(yolov5 ${PROJECT_SOURCE_DIR}/yolov5.cpp ${PROJECT_SOURCE_DIR}/yololayer.cu ${PROJECT_SOURCE_DIR}/yololayer.h)   #4
 
-target_link_libraries(yolov5  "nvinfer" "nvinfer_plugin")   #5
+target_link_libraries(yolov5 "nvinfer" "nvinfer_plugin")   #5
 target_link_libraries(yolov5 ${OpenCV_LIBS})          #6
 target_link_libraries(yolov5 ${CUDA_LIBRARIES})   #7
 target_link_libraries(yolov5 Threads::Threads)       #8

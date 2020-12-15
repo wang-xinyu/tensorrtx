@@ -10,7 +10,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 find_package(CUDA REQUIRED)
 
-set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11;-g;-G;-gencode;arch=compute_30;code=sm_30)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-std=c++11;-g;-G;-gencode arch=compute_30,code=sm_30)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
