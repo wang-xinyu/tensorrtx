@@ -136,8 +136,6 @@ Help wanted, if you got speed results, please add an issue or PR.
 
 ## Acknowledgments & Contact
 
-Currently, This repo is funded by Alleyes-THU AI Lab([aboutus in Chinese](http://www.alleyes.com.cn/aboutus.html)). We are based in Tsinghua University, Beijing, and seeking for talented interns for CV R&D. Contact me if you are interested.
-
 Any contributions, questions and discussions are welcomed, contact me by following info.
 
 E-mail: wangxinyu_es@163.com
