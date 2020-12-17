@@ -39,6 +39,7 @@ python gen_wts.py
 // put yolov5s.wts into tensorrtx/yolov5
 // go to tensorrtx/yolov5
 // ensure the macro NET in yolov5.cpp is s
+// update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
 cmake ..
