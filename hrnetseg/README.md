@@ -26,7 +26,7 @@ The Pytorch implementation is [HRNet-Semantic-Segmentation](https://github.com/H
 
 TRT Result:
 
-![trtcity](https://user-images.githubusercontent.com/20653176/103131619-6cf9ed00-46dc-11eb-9369-4374abb65744.png)
+![trtcity](https://user-images.githubusercontent.com/20653176/103136469-a68e2080-46fb-11eb-9f05-06bad81c74b9.png)
 
 pytorch result:
 
