@@ -18,8 +18,8 @@ The Pytorch implementation is [HRNet-Semantic-Segmentation](https://github.com/H
   cd build
   cmake ..
   make
-  sudo ./hrnet -s             // serialize model to plan file i.e. 'hrnetseg.engine'
-  sudo ./hrnet -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
+  sudo ./hrnetseg -s             // serialize model to plan file i.e. 'hrnetseg.engine'
+  sudo ./hrnetseg -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
   ```
 
 ## Result
@@ -38,6 +38,7 @@ pytorch result:
 
   All "upsample" op  in source code are changed to `mode='bilinear', align_corners=True`
 
-* Image preprocessing operation is put into Trt Engine.
+* Image preprocessing operation and postprocessing operation  are put into Trt Engine.
+
 * Zero-copy technology (CPU/GPU memory copy) is used.
 
