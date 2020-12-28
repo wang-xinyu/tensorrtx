@@ -7,7 +7,7 @@ The Pytorch implementation is [HRNet-Semantic-Segmentation](https://github.com/H
 
 * 1. generate .wts
 
-  Download code and model from [ HRNet-Semantic-Segmentation](https://github.com/HRNet/HRNet-Image-Classification) and config your environments.
+  Download code and model from [HRNet-Semantic-Segmentation](https://github.com/HRNet/HRNet-Semantic-Segmentation) and config your environments.
 
   Put `demo.py`  in the `YOUR_ROOT_DIR\HRNet-Semantic-Segmentation\tools `  folder, set `savewts in  main()` as `True`, and run, the .wts will be generated.
 
