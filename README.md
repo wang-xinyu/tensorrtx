@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `27 Dec 2020`. HRNet-Semantic-Segmentation added by [BaofengZan](https://github.com/BaofengZan).
 - `4 Dec 2020`. DBNet dynamic input shape support by [BaofengZan](https://github.com/BaofengZan), YOLOv3 int8, PSENet(tensorflow) text detection by [upczww](https://github.com/upczww).
 - `19 Nov 2020`. YOLOv3-SPP supports dynamic input shape, including a dynamic plugin.
 - `17 Nov 2020`. [AlfengYuan](https://github.com/AlfengYuan) added a Dockerfile.
@@ -76,7 +77,7 @@ Following models are implemented.
 |[dbnet](./dbnet)| Scene Text Detection, weights from [BaofengZan/DBNet.pytorch](https://github.com/BaofengZan/DBNet.pytorch) |
 |[crnn](./crnn)| pytorch implementation from [meijieru/crnn.pytorch](https://github.com/meijieru/crnn.pytorch) |
 |[ufld](./ufld)| pytorch implementation from [Ultra-Fast-Lane-Detection](https://github.com/cfzd/Ultra-Fast-Lane-Detection), ECCV2020 |
-|[hrnet](./hrnet)| hrnet-image-classification, pytorch implementation from [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification) |
+|[hrnet](./hrnet)| hrnet-image-classification and hrnet-semantic-segmentation, pytorch implementation from [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification) and [HRNet-Semantic-Segmentation](https://github.com/HRNet/HRNet-Semantic-Segmentation) |
 |[psenet](./psenet)| PSENet Text Detection, tensorflow implementation from [liuheng92/tensorflow_PSENet](https://github.com/liuheng92/tensorflow_PSENet) |
 
 ## Model Zoo
@@ -135,8 +136,6 @@ Some tricky operations encountered in these models, already solved, but might ha
 Help wanted, if you got speed results, please add an issue or PR.
 
 ## Acknowledgments & Contact
-
-Currently, This repo is funded by Alleyes-THU AI Lab([aboutus in Chinese](http://www.alleyes.com.cn/aboutus.html)). We are based in Tsinghua University, Beijing, and seeking for talented interns for CV R&D. Contact me if you are interested.
 
 Any contributions, questions and discussions are welcomed, contact me by following info.
 

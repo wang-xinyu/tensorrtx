@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
-project(yolov3)
+project(hrnetseg)
 
 add_definitions(-std=c++11)
 
@@ -19,20 +19,15 @@ link_directories(/usr/local/cuda/lib64)
 include_directories(/usr/include/x86_64-linux-gnu/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
+
 find_package(OpenCV)
 include_directories(OpenCV_INCLUDE_DIRS)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
-
-#cuda_add_library(leaky ${PROJECT_SOURCE_DIR}/leaky.cu)
-cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
-target_link_libraries(yololayer nvinfer cudart ${OpenCV_LIBS})
-
-add_executable(yolov3 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/yolov3.cpp)
-target_link_libraries(yolov3 nvinfer)
-target_link_libraries(yolov3 cudart)
-target_link_libraries(yolov3 yololayer)
-target_link_libraries(yolov3 ${OpenCV_LIBS})
+add_executable(hrnetseg ${PROJECT_SOURCE_DIR}/hrnetseg.cpp)
+target_link_libraries(hrnetseg nvinfer)
+target_link_libraries(hrnetseg cudart)
+target_link_libraries(hrnetseg ${OpenCV_LIBS})
 
 add_definitions(-O2 -pthread)
 

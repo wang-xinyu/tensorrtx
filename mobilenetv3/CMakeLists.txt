@@ -10,8 +10,6 @@ set(CMAKE_BUILD_TYPE Debug)
 
 find_package(CUDA REQUIRED)
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-std=c++11;-g;-G;-gencode arch=compute_30,code=sm_30;)
-
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # include and link dirs of cuda and tensorrt, you need adapt them if yours are different
 # cuda

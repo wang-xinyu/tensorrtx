@@ -39,7 +39,6 @@ message(STATUS "    include path: ${CUDA_INCLUDE_DIRS}")
 
 include_directories(${CUDA_INCLUDE_DIRS})
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-std=c++11; -g; -G;-gencode; arch=compute_75;code=sm_75)
 ####
 enable_language(CUDA)  # add this line, then no need to setup cuda path in vs
 ####
