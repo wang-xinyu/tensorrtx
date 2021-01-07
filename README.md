@@ -82,7 +82,7 @@ Following models are implemented.
 
 ## Model Zoo
 
-The .wts files can be downloaded from model zoo for quick evaluation. But it is recommanded to convert .wts from pytorch/mxnet/tensorflow model, so that you can retrain your own model.
+The .wts files can be downloaded from model zoo for quick evaluation. But it is recommended to convert .wts from pytorch/mxnet/tensorflow model, so that you can retrain your own model.
 
 [BaiduPan](https://pan.baidu.com/s/19s6hO8esU7-TtZEXN7G3OA) pwd: uvv2
 
