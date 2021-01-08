@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `8 Jan 2021`. YOLOv5 s/m/l/x updated to v4.0.
 - `27 Dec 2020`. HRNet-Semantic-Segmentation added by [BaofengZan](https://github.com/BaofengZan).
 - `4 Dec 2020`. DBNet dynamic input shape support by [BaofengZan](https://github.com/BaofengZan), YOLOv3 int8, PSENet(tensorflow) text detection by [upczww](https://github.com/upczww).
 - `19 Nov 2020`. YOLOv3-SPP supports dynamic input shape, including a dynamic plugin.
@@ -121,12 +122,16 @@ Some tricky operations encountered in these models, already solved, but might ha
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 35.7 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 40.9 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 41.3 | 
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 142 |
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 173 |
-| YOLOv5-s | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 190 |
-| YOLOv5-m | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 71 |
-| YOLOv5-l | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 43 |
-| YOLOv5-x | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 29 |
+| YOLOv5-s v3.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 142 |
+| YOLOv5-s v3.0 | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 173 |
+| YOLOv5-s v3.0 | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 190 |
+| YOLOv5-m v3.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 71 |
+| YOLOv5-l v3.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 43 |
+| YOLOv5-x v3.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 29 |
+| YOLOv5-s v4.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 142 |
+| YOLOv5-m v4.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 71 |
+| YOLOv5-l v4.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 40 |
+| YOLOv5-x v4.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 27 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 90 |
 | RetinaFace(resnet50) | Xeon E5-2620/GTX1080 | 1 | INT8 | 480x640 | 204 |
 | RetinaFace(mobilenet0.25) | Xeon E5-2620/GTX1080 | 1 | FP32 | 480x640 | 417 |
