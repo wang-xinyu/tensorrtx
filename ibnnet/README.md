@@ -2,6 +2,8 @@
 
 An implementation of IBN-Net, proposed in ["Two at Once: Enhancing Learning and Generalization Capacities via IBN-Net"](https://arxiv.org/abs/1807.09441), ECCV2018 by Xingang Pan, Ping Luo, Jianping Shi, Xiaoou Tang. 
 
+For the Pytorch implementation, you can refer to [IBN-Net](https://github.com/XingangPan/IBN-Net)
+
 ## Features
 - InstanceNorm2d
 - bottleneck_ibn
