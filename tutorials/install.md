@@ -51,7 +51,7 @@ dpkg -l | grep opencv
 
 ### 5. Run tensorrtx
 
-It is recommanded to go through the [getting started guide, lenet5 as a demo.](https://github.com/wang-xinyu/tensorrtx/blob/master/tutorials/getting_started.md) first.
+It is recommended to go through the [getting started guide, lenet5 as a demo.](https://github.com/wang-xinyu/tensorrtx/blob/master/tutorials/getting_started.md) first.
 
 But if you are proficient in tensorrt, please check the readme of the model you want directly.
 

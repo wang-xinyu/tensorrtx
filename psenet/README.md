@@ -9,8 +9,9 @@ The Tensorflow implementation is [tensorflow_PSENet](https://github.com/liuheng9
 - Object-Oriented Programming.
 - Practice with C++ 11.
 
-
 <p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/101176279-3868b780-3681-11eb-9ca3-7425b41fe895.jpg">
+</p>
 
 ## How to Run
 
@@ -50,4 +51,9 @@ The Tensorflow implementation is [tensorflow_PSENet](https://github.com/liuheng9
 ## Todo
 
 * use `ExponentialMovingAverage` weight.
+<<<<<<< HEAD
 * faster preporcess and postprocess.
+=======
+* faster preporcess and postprocess.
+
+>>>>>>> upstream/master

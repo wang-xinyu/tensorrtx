@@ -200,12 +200,10 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv1->setNbGroups(g);
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
-    // hard_swish = x * hard_sigmoid
-    auto hsig = network->addActivation(*bn1->getOutput(0), ActivationType::kHARD_SIGMOID);
-    assert(hsig);
-    hsig->setAlpha(1.0 / 6.0);
-    hsig->setBeta(0.5);
-    auto ew = network->addElementWise(*bn1->getOutput(0), *hsig->getOutput(0), ElementWiseOperation::kPROD);
+    // silu = x * sigmoid
+    auto sig = network->addActivation(*bn1->getOutput(0), ActivationType::kSIGMOID);
+    assert(sig);
+    auto ew = network->addElementWise(*bn1->getOutput(0), *sig->getOutput(0), ElementWiseOperation::kPROD);
     assert(ew);
     return ew;
 }
@@ -252,6 +250,23 @@ ILayer* bottleneckCSP(INetworkDefinition *network, std::map<std::string, Weights
 
     auto cv4 = convBlock(network, weightMap, *lr->getOutput(0), c2, 1, 1, 1, lname + ".cv4");
     return cv4;
+}
+
+ILayer* C3(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int n, bool shortcut, int g, float e, std::string lname) {
+    int c_ = (int)((float)c2 * e);
+    auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
+    auto cv2 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv2");
+    ITensor *y1 = cv1->getOutput(0);
+    for (int i = 0; i < n; i++) {
+        auto b = bottleneck(network, weightMap, *y1, c_, c_, shortcut, g, 1.0, lname + ".m." + std::to_string(i));
+        y1 = b->getOutput(0);
+    }
+
+    ITensor* inputTensors[] = { y1, cv2->getOutput(0) };
+    auto cat = network->addConcatenation(inputTensors, 2);
+
+    auto cv3 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv3");
+    return cv3;
 }
 
 ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k1, int k2, int k3, std::string lname) {
