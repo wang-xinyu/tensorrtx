@@ -1,7 +1,7 @@
 # PSENet
 
 **preprocessing + inference + postprocessing = 30ms** with fp32 on Tesla P40. 
-The original Tensorflow implementation is [tensorflow_PSENet](https://github.com/liuheng92/tensorflow_PSENet). A TensorRT Python api implement is [TensorRT-Python-PSENet](https://github.com/upczww/TensorRT-Python-PSENet).
+The original Tensorflow implementation is [tensorflow_PSENet](https://github.com/liuheng92/tensorflow_PSENet). A TensorRT Python api implementation is [TensorRT-Python-PSENet](https://github.com/upczww/TensorRT-Python-PSENet).
 
 ## Key Features
 - Generating `.wts` from `Tensorflow`.
