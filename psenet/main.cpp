@@ -1,8 +1,8 @@
 #include "psenet.h"
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
-    PSENet psenet(1600, 0.9, 6, 4);
+    PSENet psenet(1200, 640, 0.90, 6, 4);
 
     if (argc == 2 && std::string(argv[1]) == "-s")
     {
@@ -15,9 +15,7 @@ int main(int argc, char **argv)
         psenet.init();
         std::vector<std::string> files;
         for (int i = 0; i < 10; i++)
-        {
             files.emplace_back("test.jpg");
-        }
         for (auto file : files)
         {
             std::cout << "Detect " << file << std::endl;

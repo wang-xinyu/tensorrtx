@@ -9,9 +9,8 @@ The Tensorflow implementation is [tensorflow_PSENet](https://github.com/liuheng9
 - Object-Oriented Programming.
 - Practice with C++ 11.
 
+
 <p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/101176279-3868b780-3681-11eb-9ca3-7425b41fe895.jpg">
-</p>
 
 ## How to Run
 
@@ -42,18 +41,12 @@ The Tensorflow implementation is [tensorflow_PSENet](https://github.com/liuheng9
   cp ../psenet.wts ./
   cp ../test.jpg ./
   ./psenet -s  // serialize model to plan file
-  ./psenet -d  // deserialize plan file and run inference"
+  ./psenet -d  // deserialize plan file and run inference
   ```
 
 ## Known Issues
-1. The output of network is not completely the same as the tf's due to the difference between tensorrt's `addResize` and `tf.image.resize`, I will figure it out.
+None
 
 ## Todo
 
 * use `ExponentialMovingAverage` weight.
-<<<<<<< HEAD
-* faster preporcess and postprocess.
-=======
-* faster preporcess and postprocess.
-
->>>>>>> upstream/master
