@@ -195,9 +195,16 @@ ICudaEngine* createEngine_m(unsigned int maxBatchSize, IBuilder* builder, IBuild
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
-#ifdef USE_FP16
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2 *calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    config->setInt8Calibrator(calibrator);
 #endif
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
@@ -284,9 +291,16 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
-#ifdef USE_FP16
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2 *calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    config->setInt8Calibrator(calibrator);
 #endif
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
@@ -375,9 +389,16 @@ ICudaEngine* createEngine_x(unsigned int maxBatchSize, IBuilder* builder, IBuild
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
-#ifdef USE_FP16
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2 *calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    config->setInt8Calibrator(calibrator);
 #endif
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
