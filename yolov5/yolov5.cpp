@@ -3,8 +3,10 @@
 #include "cuda_runtime_api.h"
 #include "logging.h"
 #include "common.hpp"
+#include "utils.h"
+#include "calibrator.h"
 
-#define USE_FP16  // comment out this if want to use FP32
+#define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
@@ -95,9 +97,16 @@ ICudaEngine* createEngine_s(unsigned int maxBatchSize, IBuilder* builder, IBuild
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
-#ifdef USE_FP16
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2 *calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    config->setInt8Calibrator(calibrator);
 #endif
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
@@ -405,9 +414,9 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
 
 void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* input, float* output, int batchSize) {
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 }
 
@@ -475,11 +484,11 @@ int main(int argc, char** argv) {
     assert(inputIndex == 0);
     assert(outputIndex == 1);
     // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
     // Create stream
     cudaStream_t stream;
-    CHECK(cudaStreamCreate(&stream));
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     int fcount = 0;
     for (int f = 0; f < (int)file_names.size(); f++) {
@@ -488,7 +497,7 @@ int main(int argc, char** argv) {
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
-            cv::Mat pr_img = preprocess_img(img); // letterbox BGR to RGB
+            cv::Mat pr_img = preprocess_img(img, INPUT_W, INPUT_H); // letterbox BGR to RGB
             int i = 0;
             for (int row = 0; row < INPUT_H; ++row) {
                 uchar* uc_pixel = pr_img.data + row * pr_img.step;
@@ -528,8 +537,8 @@ int main(int argc, char** argv) {
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
-    CHECK(cudaFree(buffers[inputIndex]));
-    CHECK(cudaFree(buffers[outputIndex]));
+    CUDA_CHECK(cudaFree(buffers[inputIndex]));
+    CUDA_CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
     context->destroy();
     engine->destroy();

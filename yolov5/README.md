@@ -22,9 +22,9 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1 and v4.0.
 
 ## How to Run, yolov5s as example
 
-```
 1. generate yolov5s.wts from pytorch with yolov5s.pt, or download .wts from model zoo
 
+```
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov5.git
 // download its weights 'yolov5s.pt'
@@ -33,9 +33,11 @@ git clone https://github.com/ultralytics/yolov5.git
 // go to ultralytics/yolov5
 python gen_wts.py
 // a file 'yolov5s.wts' will be generated.
+```
 
 2. build tensorrtx/yolov5 and run
 
+```
 // put yolov5s.wts into tensorrtx/yolov5
 // go to tensorrtx/yolov5
 // ensure the macro NET in yolov5.cpp is s
@@ -46,15 +48,27 @@ cmake ..
 make
 sudo ./yolov5 -s             // serialize model to plan file i.e. 'yolov5s.engine'
 sudo ./yolov5 -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
+```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 
 4. optional, load and run the tensorrt model in python
 
+```
 // install python-tensorrt, pycuda, etc.
 // ensure the yolov5s.engine and libmyplugins.so have been built
 python yolov5_trt.py
 ```
+
+# INT8 Quantization
+
+1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
+
+2. unzip it in yolov5/build
+
+3. set the macro `USE_INT8` in yolov3.cpp and make
+
+4. serialize the model and test
 
 <p align="center">
 <img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg">
