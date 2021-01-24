@@ -66,7 +66,7 @@ python yolov5_trt.py
 
 2. unzip it in yolov5/build
 
-3. set the macro `USE_INT8` in yolov3.cpp and make
+3. set the macro `USE_INT8` in yolov5.cpp and make
 
 4. serialize the model and test
 

@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `24 Jan 2021`. IBN-Net added by [TCHeish](https://github.com/TCHeish), PSENet optimized, YOLOv5 v4.0 INT8, etc.
 - `8 Jan 2021`. YOLOv5 s/m/l/x updated to v4.0.
 - `27 Dec 2020`. HRNet-Semantic-Segmentation added by [BaofengZan](https://github.com/BaofengZan).
 - `4 Dec 2020`. DBNet dynamic input shape support by [BaofengZan](https://github.com/BaofengZan), YOLOv3 int8, PSENet(tensorflow) text detection by [upczww](https://github.com/upczww).
@@ -18,13 +19,10 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `7 Nov 2020`. All models migrated to trt7 API, and clean up the master branch.
 - `29 Oct 2020`. First INT8 quantization implementation! Please check retinaface.
 - `23 Oct 2020`. Add a .wts model zoo for quick evaluation.
-- `21 Sep 2020`. [BaofengZan](https://github.com/BaofengZan) added hrnet classification and step by step tutorial(Chinese).
 - `16 Sep 2020`. [hwh-hit](https://github.com/hwh-hit) added ufld(Ultra-Fast-Lane-Detection, ECCV2020).
 - `13 Sep 2020`. Add crnn, and got 1000fps on GTX1080.
 - `28 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) added a tutorial for compiling and running tensorrtx on windows.
 - `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
-- `14 Aug 2020`. Update yolov5 to v3.0 release.
-- `3 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) implemented yolov5 s/m/l/x (yolov5 v2.0 release).
 - `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
 - `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
 
