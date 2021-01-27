@@ -29,7 +29,7 @@ cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
 target_link_libraries(yololayer nvinfer cudart)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(yolov3-tiny ${PROJECT_SOURCE_DIR}/yolov3-tiny.cpp)
 target_link_libraries(yolov3-tiny nvinfer)

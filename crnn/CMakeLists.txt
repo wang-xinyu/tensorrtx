@@ -22,7 +22,7 @@ else()
 endif()
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(crnn ${PROJECT_SOURCE_DIR}/crnn.cpp)
 target_link_libraries(crnn nvinfer)
