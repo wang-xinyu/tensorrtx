@@ -22,7 +22,7 @@ link_directories(/usr/lib/x86_64-linux-gnu/)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 file(GLOB SOURCE_FILES "*.h" "*.cpp")
 

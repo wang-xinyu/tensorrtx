@@ -25,7 +25,7 @@ cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
 target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(yolov5 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/yolov5.cpp)
 target_link_libraries(yolov5 nvinfer)

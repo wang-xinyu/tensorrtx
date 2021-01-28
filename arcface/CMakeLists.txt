@@ -27,7 +27,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -
 cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/prelu.cu)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(arcface-r50 ${PROJECT_SOURCE_DIR}/arcface-r50.cpp)
 target_link_libraries(arcface-r50 nvinfer)
