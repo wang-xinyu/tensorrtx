@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `29 Jan 2021`. U-Net added by [YuzhouPeng](https://github.com/YuzhouPeng).
 - `24 Jan 2021`. IBN-Net added by [TCHeish](https://github.com/TCHeish), PSENet optimized, YOLOv5 v4.0 INT8, etc.
 - `8 Jan 2021`. YOLOv5 s/m/l/x updated to v4.0.
 - `27 Dec 2020`. HRNet-Semantic-Segmentation added by [BaofengZan](https://github.com/BaofengZan).
@@ -24,7 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `28 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) added a tutorial for compiling and running tensorrtx on windows.
 - `16 Aug 2020`. [upczww](https://github.com/upczww) added a python wrapper for yolov5.
 - `28 May 2020`. arcface LResNet50E-IR model from [deepinsight/insightface](https://github.com/deepinsight/insightface) implemented. We got 333fps on GTX1080.
-- `22 May 2020`. A new branch [trt4](https://github.com/wang-xinyu/tensorrtx/tree/trt4) created, which is using TensorRT 4 API. Now the master branch is using TensorRT 7 API. But only `yolov4` has been migrated to TensorRT 7 API for now. The rest will be migrated soon. And a tutorial for `migarating from TensorRT 4 to 7` provided.
 
 ## Tutorials
 
@@ -79,6 +79,7 @@ Following models are implemented.
 |[hrnet](./hrnet)| hrnet-image-classification and hrnet-semantic-segmentation, pytorch implementation from [HRNet-Image-Classification](https://github.com/HRNet/HRNet-Image-Classification) and [HRNet-Semantic-Segmentation](https://github.com/HRNet/HRNet-Semantic-Segmentation) |
 |[psenet](./psenet)| PSENet Text Detection, tensorflow implementation from [liuheng92/tensorflow_PSENet](https://github.com/liuheng92/tensorflow_PSENet) |
 |[ibnnet](./ibnnet)| IBN-Net, pytorch implementation from [XingangPan/IBN-Net](https://github.com/XingangPan/IBN-Net), ECCV2018 |
+|[unet](./unet)| U-Net, pytorch implementation from [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet) |
 
 ## Model Zoo
 

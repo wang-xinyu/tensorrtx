@@ -30,5 +30,5 @@ add_definitions(-O2 -pthread)
 
 # opencv library
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 target_link_libraries(unet ${OpenCV_LIBS})

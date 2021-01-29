@@ -13,7 +13,7 @@ include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(hrnet ${PROJECT_SOURCE_DIR}/hrnet.cpp)
 target_link_libraries(hrnet nvinfer)
