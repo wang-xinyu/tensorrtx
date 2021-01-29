@@ -1,6 +1,25 @@
 #include <assert.h>
+#include <vector>
+#include <iostream>
 #include "yololayer.h"
-#include "utils.h"
+#include "cuda_utils.h"
+
+namespace Tn
+{
+    template<typename T> 
+    void write(char*& buffer, const T& val)
+    {
+        *reinterpret_cast<T*>(buffer) = val;
+        buffer += sizeof(T);
+    }
+
+    template<typename T> 
+    void read(const char*& buffer, T& val)
+    {
+        val = *reinterpret_cast<const T*>(buffer);
+        buffer += sizeof(T);
+    }
+}
 
 using namespace Yolo;
 
@@ -269,10 +288,10 @@ namespace nvinfer1
 
     IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
     {
-        int class_count = 80;
-        int input_w = 416;
-        int input_h = 416;
-        int max_output_object_count = 1000;
+        int class_count = -1;
+        int input_w = -1;
+        int input_h = -1;
+        int max_output_object_count = -1;
         std::vector<Yolo::YoloKernel> yolo_kernels(3);
 
         const PluginField* fields = fc->fields;
@@ -296,6 +315,7 @@ namespace nvinfer1
                 yolo_kernels[2 - (fields[i].name[8] - '1')] = kernel;
             }
         }
+        assert(class_count && input_w && input_h && max_output_object_count);
         YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, yolo_kernels);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
@@ -310,3 +330,4 @@ namespace nvinfer1
         return obj;
     }
 }
+

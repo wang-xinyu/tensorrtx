@@ -11,6 +11,8 @@ The original Tensorflow implementation is [tensorflow_PSENet](https://github.com
 
 
 <p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/105487078-821d6800-5cea-11eb-87dc-e3317a941763.jpeg">
+</p>
 
 ## How to Run
 

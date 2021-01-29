@@ -26,7 +26,7 @@ cuda_add_library(decodeplugin SHARED ${PROJECT_SOURCE_DIR}/decode.cu)
 target_link_libraries(decodeplugin nvinfer cudart)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(retina_r50 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/retina_r50.cpp)
 target_link_libraries(retina_r50 nvinfer)
