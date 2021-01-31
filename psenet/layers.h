@@ -13,6 +13,6 @@ IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 
 IActivationLayer *bottleneck(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input, int ch, int stride, std::string lname, int branch_type);
 
-IActivationLayer *ConvRelu(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input, int outch, int kernel, int stride, std::string lname);
+IActivationLayer *addConvRelu(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input, int outch, int kernel, int stride, std::string lname);
 
 #endif
