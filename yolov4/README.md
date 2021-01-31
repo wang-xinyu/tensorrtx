@@ -18,7 +18,7 @@ The Pytorch implementation is from [ultralytics/yolov3](https://github.com/ultra
 
 ```
 git clone https://github.com/wang-xinyu/tensorrtx.git
-git clone https://github.com/ultralytics/yolov3.git
+git clone -b archive https://github.com/ultralytics/yolov3.git
 // download yolov4.weights from https://github.com/AlexeyAB/darknet#pre-trained-models
 cp {tensorrtx}/yolov4/gen_wts.py {ultralytics/yolov3/}
 cd {ultralytics/yolov3/}

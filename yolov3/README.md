@@ -19,7 +19,7 @@ This branch is using tensorrt7 API, there is also a yolov3 implementation using 
 
 ```
 git clone https://github.com/wang-xinyu/tensorrtx.git
-git clone https://github.com/ultralytics/yolov3.git
+git clone -b archive https://github.com/ultralytics/yolov3.git
 // download its weights 'yolov3.pt' or 'yolov3.weights'
 cp {tensorrtx}/yolov3/gen_wts.py {ultralytics/yolov3/}
 cd {ultralytics/yolov3/}
