@@ -28,7 +28,7 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1 and v4.0.
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/ultralytics/yolov5.git
 // download its weights 'yolov5s.pt'
-// copy tensorrtx/yolov5/gen_wts.py into ultralytics/yolov5
+// copy tensorrtx/yolov5/gen_wts.py into ultralytics/yolov5/weights
 // ensure the file name is yolov5s.pt and yolov5s.wts in gen_wts.py
 // go to ultralytics/yolov5
 python gen_wts.py
