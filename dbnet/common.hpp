@@ -110,8 +110,8 @@ ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>&
     conv1->setPaddingNd(DimsHW{ p, p });
     conv1->setNbGroups(g);
     //IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-4);
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname.substr(0, lname.find_last_of(".")) + bnname, 1e-3);
-    auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kLEAKY_RELU);
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname.substr(0, lname.find_last_of(".")) + bnname, 1e-5);
+    auto lr = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     lr->setAlpha(0.1);
     return lr;
 }
