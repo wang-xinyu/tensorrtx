@@ -46,7 +46,11 @@ mkdir build
 cd build
 cmake ..
 make
-sudo ./yolov5 -s             // serialize model to plan file i.e. 'yolov5s.engine'
+sudo ./yolov5 -s 0.33 0.50   // serialize yolov5s model to plan file i.e. 'yolov5.engine'
+sudo ./yolov5 -s 0.67 0.75   // serialize yolov5m model to plan file i.e. 'yolov5.engine'
+sudo ./yolov5 -s 1.0 1.0   // serialize yolov5l model to plan file i.e. 'yolov5.engine'
+sudo ./yolov5 -s 1.33 1.25   // serialize yolov5x model to plan file i.e. 'yolov5.engine'
+sudo ./yolov5 -s 0.17 0.25   // serialize your own yolov5 model with depth_multiple and width_multiple which you set in '.yaml' file when training the model. i.e. depth = 0.17, width = 0.25
 sudo ./yolov5 -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
 ```
 
