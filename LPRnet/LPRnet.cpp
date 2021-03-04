@@ -31,7 +31,6 @@ static const int OUTPUT_SIZE = 18 * 68;
 const char *INPUT_BLOB_NAME = "data";
 const char *OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
-//const std::string alphabet = "京沪津渝冀晋蒙辽吉黑苏浙皖闽赣鲁豫鄂湘粤桂琼川贵云藏陕甘青宁新0123456789ABCDEFGHJKLMNPQRSTUVWXYZIO-";
 using namespace nvinfer1;
 const std::string alphabet[] = {"京", "沪", "津", "渝", "冀", "晋", "蒙", "辽", "吉", "黑",
                                 "苏", "浙", "皖", "闽", "赣", "鲁", "豫", "鄂", "湘", "粤",
@@ -46,9 +45,9 @@ const std::string alphabet[] = {"京", "沪", "津", "渝", "冀", "晋", "蒙",
 
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file) {
+std::map <std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
-    std::map<std::string, Weights> weightMap;
+    std::map <std::string, Weights> weightMap;
 
     // Open weights file
     std::ifstream input(file);
@@ -82,7 +81,7 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
     return weightMap;
 }
 
-IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input,
+IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map <std::string, Weights> &weightMap, ITensor &input,
                             std::string lname, float eps) {
     float *gamma = (float *) weightMap[lname + ".weight"].values;
     float *beta = (float *) weightMap[lname + ".bias"].values;
@@ -117,7 +116,7 @@ IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
 }
 
 IConvolutionLayer *
-small_basic_block(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input,
+small_basic_block(INetworkDefinition *network, std::map <std::string, Weights> &weightMap, ITensor &input,
                   int nbOutputMaps, std::string lname) {
     IConvolutionLayer *conv = network->addConvolutionNd(input, nbOutputMaps / 4, DimsHW{1, 1},
                                                         weightMap[lname + ".block.0.weight"],
@@ -142,17 +141,6 @@ small_basic_block(INetworkDefinition *network, std::map<std::string, Weights> &w
     return conv4;
 }
 
-ITensor *trt_constant(INetworkDefinition *network, Dims dims, std::vector<float> wgt) {
-    int len = wgt.size();
-    Weights weights{DataType::kFLOAT, nullptr, len};
-    float *var = new float[len];
-    for (int i = 0; i < len; i++) {
-        var[i] = wgt.at(i);
-    }
-    weights.values = var;
-    IConstantLayer *cons = network->addConstant(dims, weights);
-    return cons->getOutput(0);
-}
 
 ICudaEngine *createEngine(unsigned int maxBatchSize, IBuilder *builder, IBuilderConfig *config, DataType dt) {
     INetworkDefinition *network = builder->createNetworkV2(0U);
@@ -160,9 +148,10 @@ ICudaEngine *createEngine(unsigned int maxBatchSize, IBuilder *builder, IBuilder
     // Create input tensor of shape {C, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor *data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{1, 3, INPUT_H, INPUT_W});
     assert(data);
-    std::map<std::string, Weights> weightMap = loadWeights("../LPRNet.wts");
+    std::map <std::string, Weights> weightMap = loadWeights("../LPRNet.wts");
     //LPRnet
-    IConvolutionLayer *conv = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["backbone.0.weight"],weightMap["backbone.0.bias"]);
+    IConvolutionLayer *conv = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["backbone.0.weight"],
+                                                        weightMap["backbone.0.bias"]);
     assert(conv);
     ILayer *tmp = addBatchNorm2d(network, weightMap, *conv->getOutput(0), "backbone.1", 1e-5);
     auto relu = network->addActivation(*tmp->getOutput(0), ActivationType::kRELU);
@@ -331,27 +320,6 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory **modelStream) {
     builder->destroy();
 }
 
-static inline cv::Mat preprocess_img(cv::Mat &img, int input_w, int input_h) {
-    int w, h, x, y;
-    float r_w = input_w / (img.cols * 1.0);
-    float r_h = input_h / (img.rows * 1.0);
-    if (r_h > r_w) {
-        w = input_w;
-        h = r_w * img.rows;
-        x = 0;
-        y = (input_h - h) / 2;
-    } else {
-        w = r_h * img.cols;
-        h = input_h;
-        x = (input_w - w) / 2;
-        y = 0;
-    }
-    cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_CUBIC);
-    cv::Mat out(input_h, input_w, CV_8UC3, cv::Scalar(128, 128, 128));
-    re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
-    return out;
-}
 
 void doInference(IExecutionContext &context, float *input, float *output, int batchSize) {
     const ICudaEngine &engine = context.getEngine();
@@ -418,49 +386,27 @@ int main(int argc, char **argv) {
         }
     } else {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./crnn -s  // serialize model to plan file" << std::endl;
-        std::cerr << "./crnn -d ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./LPRnet -s  // serialize model to plan file" << std::endl;
+        std::cerr << "./LPRnet -d ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
     // prepare input data ---------------------------
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
-    //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-    //    data[i] = 1.0;
 
     cv::Mat img = cv::imread("../1.jpg");
     cv::Mat pr_img;
-//    cv::Mat pr_img = preprocess_img(img, INPUT_W, INPUT_H);
-    //cv::imwrite("preprocessed.jpg", pr_img);
     cv::resize(img, pr_img, cv::Size(INPUT_W, INPUT_H), 0, 0, cv::INTER_CUBIC);
     // For multi-batch, I feed the same image multiple times.
     // If you want to process different images in a batch, you need adapt it.
-   cv::Mat blob = cv::dnn::blobFromImage(pr_img, 0.0078125, pr_img.size(), cv::Scalar(127.5, 127.5, 127.5), true,
-                                          false);
-//    for (int b = 0; b < BATCH_SIZE; b++) {
-//        float *p_data = &data[b * 3 * INPUT_H * INPUT_W];
-//        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-//            p_data[i] = (pr_img.at<cv::Vec3b>(i)[0] - 127.5) * 0.0078125;
-//            p_data[i + INPUT_H * INPUT_W] = (pr_img.at<cv::Vec3b>(i)[1] - 127.5) * 0.0078125;
-//            p_data[i + 2 * INPUT_H * INPUT_W] = (pr_img.at<cv::Vec3b>(i)[2] - 127.5) * 0.0078125;
-//        }
-//    }
-//    for (int b = 0; b < BATCH_SIZE; b++) {
-//        float *p_data = &data[b * 3 * INPUT_H * INPUT_W];
-//        for (int i = 0; i < INPUT_H * INPUT_W; i++) {
-//            p_data[i] = pr_img.at<cv::Vec3b>(i)[0] ;
-//            p_data[i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] ;
-//            p_data[i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[2] ;
-//        }
-//    }
-    IRuntime *runtime = createInferRuntime(gLogger);
+    cv::Mat blob = cv::dnn::blobFromImage(pr_img, 0.0078125, pr_img.size(), cv::Scalar(127.5, 127.5, 127.5), true,
+                                          IRuntime * runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine *engine = runtime->deserializeCudaEngine(trtModelStream, size);
     //ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
     assert(engine != nullptr);
     IExecutionContext *context = engine->createExecutionContext();
     assert(context != nullptr);
-
     // Run inference
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
     auto start = std::chrono::system_clock::now();
@@ -490,12 +436,10 @@ int main(int argc, char **argv) {
     for (auto v: no_repeat_blank_label) {
         str += alphabet[v];
     }
-    std::cout<<"result:"<<str<<std::endl;
+    std::cout << "result:" << str << std::endl;
     // Destroy the engine
     context->destroy();
     engine->destroy();
     runtime->destroy();
-
-
     return 0;
 }

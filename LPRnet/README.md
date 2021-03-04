@@ -10,7 +10,7 @@ The Pytorch implementation is [xuexingyu24/License_Plate_Detection_Pytorch](http
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone https://github.com/xuexingyu24/License_Plate_Detection_Pytorch.git
 
-genwts.py into License_Plate_Detection_Pytorch/
+// copy tensorrtx/LRPnet/gen_wts.py  License_Plate_Detection_Pytorch
 // go to License_Plate_Detection_Pytorch/
 python genwts.py
 // a file 'LPRnet.wts' will be generated.
@@ -24,5 +24,5 @@ cd build
 cmake ..
 make
 sudo ./LPRnet -s  // serialize model to plan file i.e. 'LPRnet.engine'
-// copy crnn.pytorch/data/demo.png here
+do inference
 sudo ./LPRnet -d  // deserialize plan file and run inference
