@@ -45,9 +45,9 @@ const std::string alphabet[] = {"京", "沪", "津", "渝", "冀", "晋", "蒙",
 
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
-std::map <std::string, Weights> loadWeights(const std::string file) {
+std::map<std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
-    std::map <std::string, Weights> weightMap;
+    std::map<std::string, Weights> weightMap;
 
     // Open weights file
     std::ifstream input(file);
@@ -81,7 +81,7 @@ std::map <std::string, Weights> loadWeights(const std::string file) {
     return weightMap;
 }
 
-IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map <std::string, Weights> &weightMap, ITensor &input,
+IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input,
                             std::string lname, float eps) {
     float *gamma = (float *) weightMap[lname + ".weight"].values;
     float *beta = (float *) weightMap[lname + ".bias"].values;
@@ -116,7 +116,7 @@ IScaleLayer *addBatchNorm2d(INetworkDefinition *network, std::map <std::string, 
 }
 
 IConvolutionLayer *
-small_basic_block(INetworkDefinition *network, std::map <std::string, Weights> &weightMap, ITensor &input,
+small_basic_block(INetworkDefinition *network, std::map<std::string, Weights> &weightMap, ITensor &input,
                   int nbOutputMaps, std::string lname) {
     IConvolutionLayer *conv = network->addConvolutionNd(input, nbOutputMaps / 4, DimsHW{1, 1},
                                                         weightMap[lname + ".block.0.weight"],
@@ -142,16 +142,16 @@ small_basic_block(INetworkDefinition *network, std::map <std::string, Weights> &
 }
 
 
+
 ICudaEngine *createEngine(unsigned int maxBatchSize, IBuilder *builder, IBuilderConfig *config, DataType dt) {
     INetworkDefinition *network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {C, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor *data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{1, 3, INPUT_H, INPUT_W});
     assert(data);
-    std::map <std::string, Weights> weightMap = loadWeights("../LPRNet.wts");
+    std::map<std::string, Weights> weightMap = loadWeights("../LPRNet.wts");
     //LPRnet
-    IConvolutionLayer *conv = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["backbone.0.weight"],
-                                                        weightMap["backbone.0.bias"]);
+    IConvolutionLayer *conv = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["backbone.0.weight"],weightMap["backbone.0.bias"]);
     assert(conv);
     ILayer *tmp = addBatchNorm2d(network, weightMap, *conv->getOutput(0), "backbone.1", 1e-5);
     auto relu = network->addActivation(*tmp->getOutput(0), ActivationType::kRELU);
@@ -399,14 +399,17 @@ int main(int argc, char **argv) {
     cv::resize(img, pr_img, cv::Size(INPUT_W, INPUT_H), 0, 0, cv::INTER_CUBIC);
     // For multi-batch, I feed the same image multiple times.
     // If you want to process different images in a batch, you need adapt it.
-    cv::Mat blob = cv::dnn::blobFromImage(pr_img, 0.0078125, pr_img.size(), cv::Scalar(127.5, 127.5, 127.5), true,
-                                          IRuntime * runtime = createInferRuntime(gLogger);
+   cv::Mat blob = cv::dnn::blobFromImage(pr_img, 0.0078125, pr_img.size(), cv::Scalar(127.5, 127.5, 127.5), true,
+                                          false);
+
+    IRuntime *runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine *engine = runtime->deserializeCudaEngine(trtModelStream, size);
     //ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
     assert(engine != nullptr);
     IExecutionContext *context = engine->createExecutionContext();
     assert(context != nullptr);
+
     // Run inference
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
     auto start = std::chrono::system_clock::now();
@@ -436,10 +439,12 @@ int main(int argc, char **argv) {
     for (auto v: no_repeat_blank_label) {
         str += alphabet[v];
     }
-    std::cout << "result:" << str << std::endl;
+    std::cout<<"result:"<<str<<std::endl;
     // Destroy the engine
     context->destroy();
     engine->destroy();
     runtime->destroy();
+
+
     return 0;
 }
