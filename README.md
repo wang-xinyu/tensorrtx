@@ -87,7 +87,7 @@ Following models are implemented.
 
 The .wts files can be downloaded from model zoo for quick evaluation. But it is recommended to convert .wts from pytorch/mxnet/tensorflow model, so that you can retrain your own model.
 
-[BaiduPan](https://pan.baidu.com/s/19s6hO8esU7-TtZEXN7G3OA) pwd: uvv2
+[GoogleDrive](https://drive.google.com/drive/folders/1Ri0IDa5OChtcA3zjqRTW57uG6TnfN4Do?usp=sharing) | [BaiduPan](https://pan.baidu.com/s/19s6hO8esU7-TtZEXN7G3OA) pwd: uvv2
 
 ## Tricky Operations
 
