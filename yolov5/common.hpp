@@ -6,44 +6,10 @@
 #include <sstream>
 #include <vector>
 #include <opencv2/opencv.hpp>
-#include <dirent.h>
 #include "NvInfer.h"
 #include "yololayer.h"
 
-#define CHECK(status) \
-    do\
-    {\
-        auto ret = (status);\
-        if (ret != 0)\
-        {\
-            std::cerr << "Cuda failure: " << ret << std::endl;\
-            abort();\
-        }\
-    } while (0)
-
 using namespace nvinfer1;
-
-cv::Mat preprocess_img(cv::Mat& img) {
-    int w, h, x, y;
-    float r_w = Yolo::INPUT_W / (img.cols*1.0);
-    float r_h = Yolo::INPUT_H / (img.rows*1.0);
-    if (r_h > r_w) {
-        w = Yolo::INPUT_W;
-        h = r_w * img.rows;
-        x = 0;
-        y = (Yolo::INPUT_H - h) / 2;
-    } else {
-        w = r_h * img.cols;
-        h = Yolo::INPUT_H;
-        x = (Yolo::INPUT_W - w) / 2;
-        y = 0;
-    }
-    cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
-    cv::Mat out(Yolo::INPUT_H, Yolo::INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
-    re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
-    return out;
-}
 
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     int l, r, t, b;
@@ -200,12 +166,10 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv1->setNbGroups(g);
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
-    // hard_swish = x * hard_sigmoid
-    auto hsig = network->addActivation(*bn1->getOutput(0), ActivationType::kHARD_SIGMOID);
-    assert(hsig);
-    hsig->setAlpha(1.0 / 6.0);
-    hsig->setBeta(0.5);
-    auto ew = network->addElementWise(*bn1->getOutput(0), *hsig->getOutput(0), ElementWiseOperation::kPROD);
+    // silu = x * sigmoid
+    auto sig = network->addActivation(*bn1->getOutput(0), ActivationType::kSIGMOID);
+    assert(sig);
+    auto ew = network->addElementWise(*bn1->getOutput(0), *sig->getOutput(0), ElementWiseOperation::kPROD);
     assert(ew);
     return ew;
 }
@@ -254,6 +218,23 @@ ILayer* bottleneckCSP(INetworkDefinition *network, std::map<std::string, Weights
     return cv4;
 }
 
+ILayer* C3(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int n, bool shortcut, int g, float e, std::string lname) {
+    int c_ = (int)((float)c2 * e);
+    auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
+    auto cv2 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv2");
+    ITensor *y1 = cv1->getOutput(0);
+    for (int i = 0; i < n; i++) {
+        auto b = bottleneck(network, weightMap, *y1, c_, c_, shortcut, g, 1.0, lname + ".m." + std::to_string(i));
+        y1 = b->getOutput(0);
+    }
+
+    ITensor* inputTensors[] = { y1, cv2->getOutput(0) };
+    auto cat = network->addConcatenation(inputTensors, 2);
+
+    auto cv3 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv3");
+    return cv3;
+}
+
 ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k1, int k2, int k3, std::string lname) {
     int c_ = c1 / 2;
     auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
@@ -273,28 +254,6 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
 
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
-}
-
-int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
-    DIR *p_dir = opendir(p_dir_name);
-    if (p_dir == nullptr) {
-        return -1;
-    }
-
-    struct dirent* p_file = nullptr;
-    while ((p_file = readdir(p_dir)) != nullptr) {
-        if (strcmp(p_file->d_name, ".") != 0 &&
-            strcmp(p_file->d_name, "..") != 0) {
-            //std::string cur_file_name(p_dir_name);
-            //cur_file_name += "/";
-            //cur_file_name += p_file->d_name;
-            std::string cur_file_name(p_file->d_name);
-            file_names.push_back(cur_file_name);
-        }
-    }
-
-    closedir(p_dir);
-    return 0;
 }
 
 std::vector<float> getAnchors(std::map<std::string, Weights>& weightMap)

@@ -7,7 +7,7 @@ The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytic
 ```
 1. generate yolov3-tiny.wts from pytorch implementation with yolov3-tiny.cfg and yolov3-tiny.weights, or download .wts from model zoo
 
-git clone https://github.com/ultralytics/yolov3.git
+git clone -b archive https://github.com/ultralytics/yolov3.git
 // download its weights 'yolov3-tiny.pt' or 'yolov3-tiny.weights'
 // put tensorrtx/yolov3-tiny/gen_wts.py into ultralytics/yolov3 and run
 python gen_wts.py yolov3-tiny.weights

@@ -20,7 +20,7 @@ The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytic
 
 ```
 git clone https://github.com/wang-xinyu/tensorrtx.git
-git clone https://github.com/ultralytics/yolov3.git
+git clone -b archive https://github.com/ultralytics/yolov3.git
 // download its weights 'yolov3-spp-ultralytics.pt'
 // copy gen_wts.py from tensorrtx/yolov3-spp/ to ultralytics/yolov3/
 // go to ultralytics/yolov3/

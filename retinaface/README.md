@@ -46,7 +46,7 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 
 # INT8 Quantization
 
-1. Prepare calibration images, you can randomly select 1000s images from your train set. For widerface, you can also download my calibration images `widerface_calib` from [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
+1. Prepare calibration images, you can randomly select 1000s images from your train set. For widerface, you can also download my calibration images `widerface_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
 
 2. unzip it in retinaface/build
 

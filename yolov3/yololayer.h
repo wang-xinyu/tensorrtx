@@ -1,13 +1,9 @@
 #ifndef _YOLO_LAYER_H
 #define _YOLO_LAYER_H
 
-#include <assert.h>
-#include <cmath>
-#include <string.h>
-#include <cublas_v2.h>
-#include "NvInfer.h"
-#include "Utils.h"
 #include <iostream>
+#include <vector>
+#include "NvInfer.h"
 
 namespace Yolo
 {
@@ -50,7 +46,6 @@ namespace Yolo
         float class_confidence;
     };
 }
-
 
 namespace nvinfer1
 {

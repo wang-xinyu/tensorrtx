@@ -10,8 +10,6 @@ set(CMAKE_BUILD_TYPE Debug)
 
 find_package(CUDA REQUIRED)
 
-set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11;-g;-G;-gencode;arch=compute_30;code=sm_30)
-
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     message("embed_platform on")
     include_directories(/usr/local/cuda/targets/aarch64-linux/include)
@@ -28,7 +26,7 @@ cuda_add_library(decodeplugin SHARED ${PROJECT_SOURCE_DIR}/decode.cu)
 target_link_libraries(decodeplugin nvinfer cudart)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(retina_r50 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/retina_r50.cpp)
 target_link_libraries(retina_r50 nvinfer)

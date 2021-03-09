@@ -10,8 +10,6 @@ set(CMAKE_BUILD_TYPE Debug)
 
 find_package(CUDA REQUIRED)
 
-set(CUDA_NVCC_PLAGS ${CUDA_NVCC_PLAGS};-std=c++11;-g;-G;-gencode;arch=compute_30;code=sm_30)
-
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # include and link dirs of cuda and tensorrt, you need adapt them if yours are different
 # cuda
@@ -27,7 +25,7 @@ cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
 target_link_libraries(yololayer nvinfer cudart)
 
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(yolov3-spp ${PROJECT_SOURCE_DIR}/yolov3-spp.cpp)
 target_link_libraries(yolov3-spp nvinfer)
