@@ -26,22 +26,3 @@ for k, v in net.state_dict().items():
     f.write('\n')
 
 print("success generate wts!")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

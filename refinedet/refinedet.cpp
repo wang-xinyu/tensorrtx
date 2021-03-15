@@ -18,7 +18,7 @@
 using namespace nvinfer1;
 static Logger gLogger;
 
-//对矩形区域进行修正，防止图片越界
+//Correct the rectangle area to prevent the image from crossing the boundary
 void RoiCorrect(const cv::Mat &m, cv::Rect &r)
 {
     if (r.x < 0) r.x = 0;
@@ -265,8 +265,8 @@ ILayer* cat_4_tensor(INetworkDefinition *network, ILayer*tensor_0, ILayer*tensor
 
 
 ILayer* reshapeSoftmax(INetworkDefinition *network, ITensor& input, int ch) {
-    //输入进来是一维的[12750]
-    //先变成[XX,ch]
+    //The input is one-dimensional[12750]
+    //reshape[XX,ch]
     auto re1 = network->addShuffle(input);
     assert(re1);
     re1->setReshapeDimensions(Dims3(1, -1, ch)); //[1,6375,2];
@@ -280,7 +280,7 @@ ILayer* reshapeSoftmax(INetworkDefinition *network, ITensor& input, int ch) {
     auto sm = network->addSoftMax(*re1->getOutput(0));
     sm->setAxes(1<<2);
     assert(sm);
-    //再变成一维的,保持和传进来的形状一样
+    //And then reshape one-dimensional again, and it's the same shape as it came in
     Dims dim_;
     dim_.nbDims=1;
     dim_.d[0]=-1;
@@ -786,7 +786,7 @@ void doInference(IExecutionContext& context, void* buffers[], cudaStream_t &stre
             result_out = result_.clone();
         }else
         {
-            result_out = torch::cat({result_out,result_},0);//按行拼接
+            result_out = torch::cat({result_out,result_},0);//Splicing by line
         }
     }
     if(0 == result_out.numel()) { std::cout<<"libtorch refinedet obj_small: nothing detect!"<<std::endl; return ;}
@@ -827,7 +827,7 @@ void base_transform(const cv::Mat &m_src,float *data)
 
     for(int i=0;i<INPUT_H;i++)
     {
-        uchar* img_data = image.ptr<uchar>(i); //得到行指针首地址
+        uchar* img_data = image.ptr<uchar>(i); //Get the first address of the row pointer
         for(int j=0;j<INPUT_W;j++)
         {
             int offset = i * INPUT_H + j;
@@ -900,21 +900,21 @@ int main(int argc, char** argv) {
     const int outputIndex_odm_loc=2;
     const int outputIndex_odm_conf=4;
 
-    //初始化cuda显存 输入和4个输出显存
+    //Initialize cuda  memory:  input and 4 output memory
     void* buffers[5];
     // Create GPU buffers on device
     CUDA_CHECK(cudaMalloc(&buffers[0], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
 
-    const int OUTPUT_SIZE_arm_loc = 25500; //这里需要根据自己的大小来
+    const int OUTPUT_SIZE_arm_loc = 25500; //40*40*12 + 20*20*12 + 10*10*12 + 5*5*12 = 25500   (Fixed value)
     CUDA_CHECK(cudaMalloc(&buffers[outputIndex_arm_loc], batchSize * OUTPUT_SIZE_arm_loc * sizeof(float)));
 
-    const int OUTPUT_SIZE_arm_conf = 12750; //这里需要根据自己的大小来
+    const int OUTPUT_SIZE_arm_conf = 12750; //40*40*6 + 20*20*6 + 10*10*6 + 5*5*6 = 12750 (Fixed value)
     CUDA_CHECK(cudaMalloc(&buffers[outputIndex_arm_conf], batchSize * OUTPUT_SIZE_arm_conf * sizeof(float)));
 
-    const int OUTPUT_SIZE_odm_loc = 25500; //这里需要根据自己的大小来
+    const int OUTPUT_SIZE_odm_loc = 25500; //40*40*12 + 20*20*12 + 10*10*12 + 5*5*12 = 25500   (Fixed value)
     CUDA_CHECK(cudaMalloc(&buffers[outputIndex_odm_loc], batchSize * OUTPUT_SIZE_odm_loc * sizeof(float)));
 
-    const int OUTPUT_SIZE_odm_conf = 159375; //这里需要根据自己的大小来
+    const int OUTPUT_SIZE_odm_conf = 159375; //40*40*(num_class*3) + 20*20**(num_class*3) + 10*10**(num_class*3) + 5*5**(num_class*3) //here num_class=25// =159375
     CUDA_CHECK(cudaMalloc(&buffers[outputIndex_odm_conf], batchSize * OUTPUT_SIZE_odm_conf * sizeof(float)));
 
     // Create stream
