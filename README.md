@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `17 Mar 2021`. [wuzuowuyou](https://github.com/wuzuowuyou) added refinedet, which utilized libtorch to do postprocessing.
 - `5 Mar 2021`. [chgit0214](https://github.com/chgit0214) added the LPRNet.
 - `31 Jan 2021`. RepVGG added by [upczww](https://github.com/upczww).
 - `29 Jan 2021`. U-Net added by [YuzhouPeng](https://github.com/YuzhouPeng).
@@ -23,8 +24,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `29 Oct 2020`. First INT8 quantization implementation! Please check retinaface.
 - `23 Oct 2020`. Add a .wts model zoo for quick evaluation.
 - `16 Sep 2020`. [hwh-hit](https://github.com/hwh-hit) added ufld(Ultra-Fast-Lane-Detection, ECCV2020).
-- `13 Sep 2020`. Add crnn, and got 1000fps on GTX1080.
-- `28 Aug 2020`. [BaofengZan](https://github.com/BaofengZan) added a tutorial for compiling and running tensorrtx on windows.
 
 ## Tutorials
 
@@ -82,6 +81,7 @@ Following models are implemented.
 |[unet](./unet)| U-Net, pytorch implementation from [milesial/Pytorch-UNet](https://github.com/milesial/Pytorch-UNet) |
 |[repvgg](./repvgg)| RepVGG, pytorch implementation from [DingXiaoH/RepVGG](https://github.com/DingXiaoH/RepVGG) |
 |[lprnet](./lprnet)| LPRNet, pytorch implementation from [xuexingyu24/License_Plate_Detection_Pytorch](https://github.com/xuexingyu24/License_Plate_Detection_Pytorch) |
+|[refinedet](./refinedet)| RefineDet, pytorch implementation from [luuuyi/RefineDet.PyTorch](https://github.com/luuuyi/RefineDet.PyTorch) |
 
 ## Model Zoo
 
