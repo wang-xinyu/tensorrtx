@@ -244,7 +244,7 @@ int main(int argc, char** argv) {
     }
 
     // prepare input data ---------------------------
-    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
+    static float* data = new float[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
@@ -323,7 +323,7 @@ int main(int argc, char** argv) {
     context->destroy();
     engine->destroy();
     runtime->destroy();
-
+    delete[] data; 
     // Print histogram of the output distribution
     //std::cout << "\nOutput:\n\n";
     //for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
