@@ -249,7 +249,7 @@ class Retinaface_trt(object):
         num = int(output[0])
         # Reshape to a two dimentional ndarray
         pred = np.reshape(output[1:], (-1, 15))[:num, :]
-        # to a torch Tensor
+        # to  torch Tensor
         pred = torch.Tensor(pred).cuda()
         # Get the boxes
         boxes = pred[:, :4]
