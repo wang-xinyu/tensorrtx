@@ -30,3 +30,9 @@ sudo ./densenet -s  // serialize model to file i.e. 'LPRnet.engine'
 sudo ./densenet -d  // deserialize model and run inference
 ```
 
+3. Verify output from [torch impl](https://github.com/makaveli10/torchtrtz/blob/main/densenet/README.md)
+TensorRT output[:5]:
+```
+    [-0.587389, -0.329202, -1.83404, -1.89935, -0.928404]
+```
+
