@@ -44,15 +44,13 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 
 3. check the images generated, as follows. 0_result.jpg
 
-4. we  also provide a tensorrt model in python
+4. we also provide a python wrapper
 
-   ```
-   // install python-tensorrt, pycuda, etc.
-   // ensure the retina_r50.engine and libdecodeplugin.so have been built
-   python retinaface_trt.py
-   ```
-
-   
+```
+// install python-tensorrt, pycuda, etc.
+// ensure the retina_r50.engine and libdecodeplugin.so have been built
+python retinaface_trt.py
+```
 
 # INT8 Quantization
 
@@ -70,4 +68,5 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 
 ## More Information
 
-See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
+Check the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
+

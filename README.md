@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `2 Apr 2021`. [mingyu6yang](https://github.com/mingyu6yang) added a python wrapper for retinaface, [makaveli10](https://github.com/makaveli10) added DenseNet-121.
 - `17 Mar 2021`. [wuzuowuyou](https://github.com/wuzuowuyou) added refinedet, which utilized libtorch to do postprocessing.
 - `5 Mar 2021`. [chgit0214](https://github.com/chgit0214) added the LPRNet.
 - `31 Jan 2021`. RepVGG added by [upczww](https://github.com/upczww).
@@ -82,6 +83,7 @@ Following models are implemented.
 |[repvgg](./repvgg)| RepVGG, pytorch implementation from [DingXiaoH/RepVGG](https://github.com/DingXiaoH/RepVGG) |
 |[lprnet](./lprnet)| LPRNet, pytorch implementation from [xuexingyu24/License_Plate_Detection_Pytorch](https://github.com/xuexingyu24/License_Plate_Detection_Pytorch) |
 |[refinedet](./refinedet)| RefineDet, pytorch implementation from [luuuyi/RefineDet.PyTorch](https://github.com/luuuyi/RefineDet.PyTorch) |
+|[densenet](./densenet)| DenseNet-121, from torchvision.models |
 
 ## Model Zoo
 
