@@ -62,20 +62,20 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto bottleneck_csp9 = C3(network, weightMap, *spp8->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.9");
     auto conv10 = convBlock(network, weightMap, *bottleneck_csp9->getOutput(0), get_width(512, gw), 1, 1, 1, "model.10");
 
-    auto upsample11 = network->addResize(*conv10);
+    auto upsample11 = network->addResize(*conv10->getOutput(0));
     assert(upsample11);
     upsample11->setResizeMode(ResizeMode::kNEAREST);
-    upsample11->setOutputDimensions(bottleneck_csp6->getDimensions());
+    upsample11->setOutputDimensions(bottleneck_csp6->getOutput(0)->getDimensions());
 
     ITensor* inputTensors12[] = { upsample11->getOutput(0), bottleneck_csp6->getOutput(0) };
     auto cat12 = network->addConcatenation(inputTensors12, 2);
     auto bottleneck_csp13 = C3(network, weightMap, *cat12->getOutput(0), get_width(1024, gw), get_width(512, gw), get_depth(3, gd), false, 1, 0.5, "model.13");
     auto conv14 = convBlock(network, weightMap, *bottleneck_csp13->getOutput(0), get_width(256, gw), 1, 1, 1, "model.14");
 
-    auto upsample15 = network->addResize(*conv14);
+    auto upsample15 = network->addResize(*conv14->getOutput(0));
     assert(upsample15);
     upsample15->setResizeMode(ResizeMode::kNEAREST);
-    upsample15->setOutputDimensions(bottleneck_csp4->getDimensions());
+    upsample15->setOutputDimensions(bottleneck_csp4->getOutput(0)->getDimensions());
 	
     ITensor* inputTensors16[] = { upsample15->getOutput(0), bottleneck_csp4->getOutput(0) };
     auto cat16 = network->addConcatenation(inputTensors16, 2);
