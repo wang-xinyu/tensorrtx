@@ -1,7 +1,7 @@
-#ifndef YOLOV5_COMMON_H_
-#define YOLOV5_COMMON_H_
+#ifndef DBNET_COMMON_H_
+#define DBNET_COMMON_H_
 
-#include <iostream>s
+#include <iostream>
 #include <fstream>
 #include <map>
 #include <sstream>
