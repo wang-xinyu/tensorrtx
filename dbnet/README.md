@@ -9,11 +9,11 @@ The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorc
 
 ## How to Run
 
-* 1. generate .wts
+* 1. generate `.wts`
 
   Download code and model from [DBNet](https://github.com/BaofengZan/DBNet.pytorch) and config your environments.
 
-  In tools/predict.py, set `save_wts` as `True`, and run, the .wts will be generated.
+  In tools/predict.py, set `save_wts` as `True`, and run, the `.wts` will be generated.
 
   onnx can also be exported, just need to set `onnx` as `True`.
 
@@ -29,23 +29,26 @@ The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorc
   ```
 
 
+
 ## For windows
 
 https://github.com/BaofengZan/DBNet-TensorRT
 
+
+
 ## Todo
 
-* 1. ~~In common.hpp, the following two functions can be merged.~~
+- [x] 1. In common.hpp, the following two functions can be merged.
 
-```c++
-ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) 
-```
+     ```c++
+     ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true) 
+     ```
 
-```c++
-ILayer* convBnLeaky2(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true)
-```
+     ```c++
+     ILayer* convBnLeaky2(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname, bool bias = true)
+     ```
 
-* 2. The postprocess method here should be optimized, which is a little different from pytorch side.
+- [x] 2. The postprocess method here should be optimized, which is a little different from pytorch side.
 
-* 3. ~~The input image here is resized to 640x640 directly, while the pytorch side is using `letterbox` method.~~
+- [x] 3. The input image here is resized to 640x640 directly, while the pytorch side is using `letterbox` method.
 
