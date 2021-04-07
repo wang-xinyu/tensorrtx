@@ -7,7 +7,10 @@
 
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
-#define EXPANDRATIO 1.4
+#define BOX_MINI_SIZE 5
+#define SCORE_THRESHOLD 0.3
+#define BOX_THRESHOLD 0.7
+
 static const int SHORT_INPUT = 640;
 static const int MAX_INPUT_SIZE = 1440; // 32x
 static const int MIN_INPUT_SIZE = 608;
@@ -17,12 +20,6 @@ const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "out";
 static Logger gLogger;
 
-cv::RotatedRect expandBox(const cv::RotatedRect& inBox, float ratio = 1.0) {
-    cv::Size size = inBox.size;
-    int neww = size.width * ratio;
-    int newh = size.height *ratio;
-    return cv::RotatedRect(inBox.center, cv::Size(neww, newh), inBox.angle);
-}
 float paddimg(cv::Mat& In_Out_img, int shortsize = 960) {
     int w = In_Out_img.cols;
     int h = In_Out_img.rows;
@@ -48,6 +45,7 @@ float paddimg(cv::Mat& In_Out_img, int shortsize = 960) {
     cv::resize(In_Out_img, In_Out_img, cv::Size(w, h));
     return scale;
 }
+
 // Creat the engine using only the API and not any parser.
 ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
@@ -281,6 +279,91 @@ void doInference(IExecutionContext& context, float* input, float* output, int h_
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
+bool get_mini_boxes(cv::RotatedRect& rotated_rect, cv::Point2f rect[],
+                    int min_size)
+{
+
+    cv::Point2f temp_rect[4];
+    rotated_rect.points(temp_rect);
+    for (int i = 0; i < 4; i++) {
+        for (int j = i + 1; j < 4; j++) {
+            if (temp_rect[i].x > temp_rect[j].x) {
+                cv::Point2f temp;
+                temp = temp_rect[i];
+                temp_rect[i] = temp_rect[j];
+                temp_rect[j] = temp;
+            }
+        }
+    }
+    int index0 = 0;
+    int index1 = 1;
+    int index2 = 2;
+    int index3 = 3;
+    if (temp_rect[1].y > temp_rect[0].y) {
+        index0 = 0;
+        index3 = 1;
+    } else {
+        index0 = 1;
+        index3 = 0;
+    }
+    if (temp_rect[3].y > temp_rect[2].y) {
+        index1 = 2;
+        index2 = 3;
+    } else {
+        index1 = 3;
+        index2 = 2;
+    }   
+
+    rect[0] = temp_rect[index0];  // Left top coordinate
+    rect[1] = temp_rect[index1];  // Left bottom coordinate
+    rect[2] = temp_rect[index2];  // Right bottom coordinate
+    rect[3] = temp_rect[index3];  // Right top coordinate
+
+    if (rotated_rect.size.width < min_size ||
+        rotated_rect.size.height < min_size) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+float get_box_score(float* map, cv::Point2f rect[], int width, int height,
+                    float threshold)
+{
+
+    int xmin = width - 1;
+    int ymin = height - 1;
+    int xmax = 0;
+    int ymax = 0;
+
+    for (int j = 0; j < 4; j++) {
+        if (rect[j].x < xmin) {
+            xmin = rect[j].x;
+        }
+        if (rect[j].y < ymin) {
+            ymin = rect[j].y;
+        }
+        if (rect[j].x > xmax) {
+            xmax = rect[j].x;
+        }
+        if (rect[j].y > ymax) {
+            ymax = rect[j].y;
+        }
+    }
+    float sum = 0;
+    int num = 0;
+    for (int i = ymin; i <= ymax; i++) {
+        for (int j = xmin; j <= xmax; j++) {
+            if (map[i * width + j] > threshold) {
+                sum = sum + map[i * width + j];
+                num++;
+            }
+        }
+    }
+
+    return sum / num;
+}
+
 int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
@@ -334,9 +417,12 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    // icdar2015.yaml Hyperparameter
     std::vector<float> mean_value{ 0.406, 0.456, 0.485 };  // BGR
     std::vector<float> std_value{ 0.225, 0.224, 0.229 };
+
     int fcount = 0;
+
     for (auto f : file_names) {
         fcount++;
         std::cout << fcount << "  " << f << std::endl;
@@ -347,6 +433,8 @@ int main(int argc, char** argv) {
         std::cout << "letterbox shape: " << pr_img.cols << ", " << pr_img.rows << std::endl;
         if (pr_img.cols < MIN_INPUT_SIZE || pr_img.rows < MIN_INPUT_SIZE) continue;
         float* data = new float[3 * pr_img.rows * pr_img.cols];
+
+        auto start = std::chrono::system_clock::now();
         int i = 0;
         for (int row = 0; row < pr_img.rows; ++row) {
             uchar* uc_pixel = pr_img.data + row * pr_img.step;
@@ -358,15 +446,17 @@ int main(int argc, char** argv) {
                 ++i;
             }
         }
+        auto end = std::chrono::system_clock::now();
+        std::cout << "pre time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
         float* prob = new float[pr_img.rows *pr_img.cols * 2];
         // Run inference
-        auto start = std::chrono::system_clock::now();
+        start = std::chrono::system_clock::now();
         doInference(*context, data, prob, pr_img.rows, pr_img.cols);
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        end = std::chrono::system_clock::now();
+        std::cout << "detect time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-        // prob 为 2* 640*640  拿出第一个
+        // prob 为 2*640*640 
         cv::Mat map = cv::Mat::zeros(cv::Size(pr_img.cols, pr_img.rows), CV_8UC1);
         for (int h = 0; h < pr_img.rows; ++h) {
             uchar *ptr = map.ptr(h);
@@ -374,7 +464,7 @@ int main(int argc, char** argv) {
                 ptr[w] = (prob[h * pr_img.cols + w] > 0.3) ? 255 : 0;
             }
         }
-        // 提取最小外接矩形
+
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarcy;
         cv::findContours(map, contours, hierarcy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
@@ -382,24 +472,38 @@ int main(int argc, char** argv) {
         std::vector<cv::Rect> boundRect(contours.size());
         std::vector<cv::RotatedRect> box(contours.size());
         cv::Point2f rect[4];
+        cv::Point2f order_rect[4];
+
         for (int i = 0; i < contours.size(); i++) {
-            box[i] = cv::minAreaRect(cv::Mat(contours[i]));
-            //boundRect[i] = cv::boundingRect(cv::Mat(contours[i]));
-            //绘制外接矩形和    最小外接矩形（for循环）
-            //cv::rectangle(img, cv::Point(boundRect[i].x, boundRect[i].y), cv::Point(boundRect[i].x + boundRect[i].width, boundRect[i].y + boundRect[i].height), cv::Scalar(0, 255, 0), 2, 8);
-            cv::RotatedRect expandbox = expandBox(box[i], EXPANDRATIO);
-            expandbox.points(rect);//把最小外接矩形四个端点复制给rect数组
-            for (int j = 0; j < 4; j++) {
-                cv::Point2f p1, p2;
-                p1.x = round(rect[j].x / pr_img.cols * src_img.cols);
-                p1.y = round(rect[j].y / pr_img.rows * src_img.rows);
-                p2.x = round(rect[(j + 1) % 4].x / pr_img.cols * src_img.cols);
-                p2.y = round(rect[(j + 1) % 4].y / pr_img.rows * src_img.rows);
-                cv::line(src_img, p1, p2, cv::Scalar(0, 0, 255), 2, 8);
+            cv::RotatedRect rotated_rect = cv::minAreaRect(cv::Mat(contours[i]));
+            // drop mini boxes
+            if (!get_mini_boxes(rotated_rect, rect, BOX_MINI_SIZE)) {
+                std::cout << "box too small" <<  std::endl;
+                continue;
             }
+
+            // drop low score boxes
+            float score = get_box_score(prob, rect, pr_img.cols, pr_img.rows,
+                                        SCORE_THRESHOLD);
+            if (score < BOX_THRESHOLD) {
+                std::cout << "score too low =  " << score << ", threshold = " << BOX_THRESHOLD <<  std::endl;
+                continue;
+            }
+
+            // Restore the coordinates to the original image
+            for (int k = 0; k < 4; k++) {
+                order_rect[k] = rect[k];
+                order_rect[k].x = int(order_rect[k].x / pr_img.cols * src_img.cols);
+                order_rect[k].y = int(order_rect[k].y / pr_img.rows * src_img.rows);
+            }
+
+            // draw rectangle into original image
+            cv::rectangle(src_img, cv::Point(order_rect[0].x,order_rect[0].y), cv::Point(order_rect[2].x,order_rect[2].y), cv::Scalar(0, 0, 255), 2, 8);
+            // std::cout << "LT =  " << order_rect[0] << ", RD = " << order_rect[2] <<  std::endl;
         }
 
         cv::imwrite("_" + f, src_img);
+        std::cout << "write image done." << std::endl;
         //cv::waitKey(0);
 
         delete prob;
