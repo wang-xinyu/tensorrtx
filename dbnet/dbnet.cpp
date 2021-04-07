@@ -56,23 +56,23 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{ 1, 3, -1, -1 });
     assert(data);
 
-    std::map<std::string, Weights> weightMap = loadWeights("E:\\LearningCodes\\DBNET\\DBNet.pytorch\\tools\\DBNet.wts");
+    std::map<std::string, Weights> weightMap = loadWeights("./DBNet.wts");
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
     /* ------ Resnet18 backbone------ */
       // Add convolution layer with 6 outputs and a 5x5 filter.
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 64, DimsHW{ 7, 7 }, weightMap["backbone.conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{ 7, 7 }, weightMap["backbone.conv1.weight"], emptywts);   
     assert(conv1);
-    conv1->setStride(DimsHW{ 2, 2 });
-    conv1->setPadding(DimsHW{ 3, 3 });
+    conv1->setStrideNd(DimsHW{ 2, 2 });
+    conv1->setPaddingNd(DimsHW{ 3, 3 });
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "backbone.bn1", 1e-5);
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{ 3, 3 });
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{ 3, 3 });
     assert(pool1);
-    pool1->setStride(DimsHW{ 2, 2 });
-    pool1->setPadding(DimsHW{ 1, 1 });
+    pool1->setStrideNd(DimsHW{ 2, 2 });
+    pool1->setPaddingNd(DimsHW{ 1, 1 });
 
     IActivationLayer* relu2 = basicBlock(network, weightMap, *pool1->getOutput(0), 64, 64, 1, "backbone.layer1.0.");
     IActivationLayer* relu3 = basicBlock(network, weightMap, *relu2->getOutput(0), 64, 64, 1, "backbone.layer1.1."); // x2
@@ -132,7 +132,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     }
     Weights deconvwts5{ DataType::kFLOAT, deval2, 64 * 8 * 8 };
     IDeconvolutionLayer* p4_up_p2 = network->addDeconvolutionNd(*p4->getOutput(0), 64, DimsHW{ 8, 8 }, deconvwts5, emptywts);
-    p4_up_p2->setPadding(DimsHW{ 2, 2 });
+    p4_up_p2->setPaddingNd(DimsHW{ 2, 2 });
     p4_up_p2->setStrideNd(DimsHW{ 4, 4 });
     p4_up_p2->setNbGroups(64);
     weightMap["deconv2"] = deconvwts5;
@@ -162,10 +162,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     binarizeup2->setStrideNd(DimsHW{ 2, 2 });
     binarizeup2->setNbGroups(64);
 
-    IConvolutionLayer* binarize3 = network->addConvolution(*binarizeup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.binarize.7.weight"], weightMap["head.binarize.7.bias"]);
+    IConvolutionLayer* binarize3 = network->addConvolutionNd(*binarizeup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.binarize.7.weight"], weightMap["head.binarize.7.bias"]);
     assert(binarize3);
-    binarize3->setStride(DimsHW{ 1, 1 });
-    binarize3->setPadding(DimsHW{ 1, 1 });
+    binarize3->setStrideNd(DimsHW{ 1, 1 });
+    binarize3->setPaddingNd(DimsHW{ 1, 1 });
     IActivationLayer* binarize4 = network->addActivation(*binarize3->getOutput(0), ActivationType::kSIGMOID);
     assert(binarize4);
 
@@ -175,10 +175,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IDeconvolutionLayer* threshup = network->addDeconvolutionNd(*thresh1->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts9, emptywts);
     threshup->setStrideNd(DimsHW{ 2, 2 });
     threshup->setNbGroups(64);
-    IConvolutionLayer* thresh2 = network->addConvolution(*threshup->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["head.thresh.3.1.weight"], weightMap["head.thresh.3.1.bias"]);
+    IConvolutionLayer* thresh2 = network->addConvolutionNd(*threshup->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["head.thresh.3.1.weight"], weightMap["head.thresh.3.1.bias"]);
     assert(thresh2);
-    thresh2->setStride(DimsHW{ 1, 1 });
-    thresh2->setPadding(DimsHW{ 1, 1 });
+    thresh2->setStrideNd(DimsHW{ 1, 1 });
+    thresh2->setPaddingNd(DimsHW{ 1, 1 });
 
     IScaleLayer* threshbn1 = addBatchNorm2d(network, weightMap, *thresh2->getOutput(0), "head.thresh.4", 1e-5);
     IActivationLayer* threshrelu1 = network->addActivation(*threshbn1->getOutput(0), ActivationType::kRELU);
@@ -188,10 +188,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IDeconvolutionLayer* threshup2 = network->addDeconvolutionNd(*threshrelu1->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts10, emptywts);
     threshup2->setStrideNd(DimsHW{ 2, 2 });
     threshup2->setNbGroups(64);
-    IConvolutionLayer* thresh3 = network->addConvolution(*threshup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.thresh.6.1.weight"], weightMap["head.thresh.6.1.bias"]);
+    IConvolutionLayer* thresh3 = network->addConvolutionNd(*threshup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.thresh.6.1.weight"], weightMap["head.thresh.6.1.bias"]);
     assert(thresh3);
-    thresh3->setStride(DimsHW{ 1, 1 });
-    thresh3->setPadding(DimsHW{ 1, 1 });
+    thresh3->setStrideNd(DimsHW{ 1, 1 });
+    thresh3->setPaddingNd(DimsHW{ 1, 1 });
     IActivationLayer* thresh4 = network->addActivation(*thresh3->getOutput(0), ActivationType::kSIGMOID);
     assert(thresh4);
 
