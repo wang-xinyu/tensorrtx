@@ -13,9 +13,9 @@ The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorc
 
   Download code and model from [DBNet](https://github.com/BaofengZan/DBNet.pytorch) and config your environments.
 
-  In tools/predict.py, set `save_wts` as `True`, and run, the `.wts` will be generated.
+  Go to file`tools/predict.py`, set `--save_wts` as `True`, then run, the `DBNet.wts` will be generated.
 
-  onnx can also be exported, just need to set `onnx` as `True`.
+  Onnx can also be exported, just need to set `--onnx` as `True`.
 
 * 2. cmake and make
 
@@ -24,8 +24,9 @@ The Pytorch implementation is [DBNet](https://github.com/BaofengZan/DBNet.pytorc
   cd build
   cmake ..
   make
+  cp /your_wts_path/DBNet.wts .
   sudo ./dbnet -s             // serialize model to plan file i.e. 'DBNet.engine'
-  sudo ./dbnet -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
+  sudo ./dbnet -d  ../samples // deserialize plan file and run inference, the images in samples  will be processed.
   ```
 
 
