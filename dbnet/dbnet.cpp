@@ -4,9 +4,11 @@
 #include "logging.h"
 #include "common.hpp"
 #include <math.h>
+#include "clipper.hpp"
 
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
+#define EXPANDRATIO 1.5
 #define BOX_MINI_SIZE 5
 #define SCORE_THRESHOLD 0.3
 #define BOX_THRESHOLD 0.7
@@ -19,6 +21,37 @@ static const int OPT_INPUT_H = 640;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "out";
 static Logger gLogger;
+
+cv::RotatedRect expandBox(cv::Point2f temp[], float ratio)
+{
+    ClipperLib::Path path = {
+        {ClipperLib::cInt(temp[0].x), ClipperLib::cInt(temp[0].y)},
+        {ClipperLib::cInt(temp[1].x), ClipperLib::cInt(temp[1].y)},
+        {ClipperLib::cInt(temp[2].x), ClipperLib::cInt(temp[2].y)},
+        {ClipperLib::cInt(temp[3].x), ClipperLib::cInt(temp[3].y)}};
+    double area = ClipperLib::Area(path);
+    double distance;
+    double length = 0.0;
+    for (int i = 0; i < 4; i++) {
+        length = length + sqrtf(powf((temp[i].x - temp[(i + 1) % 4].x), 2) +
+                                powf((temp[i].y - temp[(i + 1) % 4].y), 2));
+    }
+
+    distance = area * ratio / length;
+
+    ClipperLib::ClipperOffset offset;
+    offset.AddPath(path, ClipperLib::JoinType::jtRound,
+                   ClipperLib::EndType::etClosedPolygon);
+    ClipperLib::Paths paths;
+    offset.Execute(paths, distance);
+    
+    std::vector<cv::Point> contour;
+    for (int i = 0; i < paths[0].size(); i++) {
+        contour.emplace_back(paths[0][i].X, paths[0][i].Y);
+    }
+    offset.Clear();
+    return cv::minAreaRect(contour);
+}
 
 float paddimg(cv::Mat& In_Out_img, int shortsize = 960) {
     int w = In_Out_img.cols;
@@ -429,7 +462,7 @@ int main(int argc, char** argv) {
         cv::Mat pr_img = cv::imread(std::string(argv[2]) + "/" + f);
         cv::Mat src_img = pr_img.clone();
         if (pr_img.empty()) continue;
-        float scale = paddimg(pr_img, SHORT_INPUT);
+        float scale = paddimg(pr_img, SHORT_INPUT); // resize the image
         std::cout << "letterbox shape: " << pr_img.cols << ", " << pr_img.rows << std::endl;
         if (pr_img.cols < MIN_INPUT_SIZE || pr_img.rows < MIN_INPUT_SIZE) continue;
         float* data = new float[3 * pr_img.rows * pr_img.cols];
@@ -456,7 +489,7 @@ int main(int argc, char** argv) {
         end = std::chrono::system_clock::now();
         std::cout << "detect time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-        // prob 为 2*640*640 
+        // prob shape is 2*640*640, get the first one
         cv::Mat map = cv::Mat::zeros(cv::Size(pr_img.cols, pr_img.rows), CV_8UC1);
         for (int h = 0; h < pr_img.rows; ++h) {
             uchar *ptr = map.ptr(h);
@@ -465,6 +498,7 @@ int main(int argc, char** argv) {
             }
         }
 
+        // Extracting minimum circumscribed rectangle
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarcy;
         cv::findContours(map, contours, hierarcy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
@@ -476,7 +510,6 @@ int main(int argc, char** argv) {
 
         for (int i = 0; i < contours.size(); i++) {
             cv::RotatedRect rotated_rect = cv::minAreaRect(cv::Mat(contours[i]));
-            // drop mini boxes
             if (!get_mini_boxes(rotated_rect, rect, BOX_MINI_SIZE)) {
                 std::cout << "box too small" <<  std::endl;
                 continue;
@@ -490,16 +523,22 @@ int main(int argc, char** argv) {
                 continue;
             }
 
+            // Scaling the predict boxes depend on EXPANDRATIO
+            cv::RotatedRect expandbox = expandBox(rect, EXPANDRATIO);
+            expandbox.points(rect);
+            if (!get_mini_boxes(expandbox, rect, BOX_MINI_SIZE + 2)) {  
+                continue;
+            }
+
             // Restore the coordinates to the original image
             for (int k = 0; k < 4; k++) {
                 order_rect[k] = rect[k];
                 order_rect[k].x = int(order_rect[k].x / pr_img.cols * src_img.cols);
                 order_rect[k].y = int(order_rect[k].y / pr_img.rows * src_img.rows);
             }
-
-            // draw rectangle into original image
+            
             cv::rectangle(src_img, cv::Point(order_rect[0].x,order_rect[0].y), cv::Point(order_rect[2].x,order_rect[2].y), cv::Scalar(0, 0, 255), 2, 8);
-            // std::cout << "LT =  " << order_rect[0] << ", RD = " << order_rect[2] <<  std::endl;
+            //std::cout << "After LT =  " << order_rect[0] << ", After RD = " << order_rect[2] <<  std::endl;            
         }
 
         cv::imwrite("_" + f, src_img);
