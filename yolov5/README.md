@@ -47,7 +47,10 @@ mkdir build
 cd build
 cmake ..
 make
+// your model in the sample is yolov5s.pt, after putting .wts file on tensorrt/yolov5
+// where [.wts] put ./yolov5s.wts and where [.engine] put a name from your choose yolov5s.engine and where [s/m/l/x or c gd gw] just use s
 sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x or c gd gw]  // serialize model to plan file
+// you should use the instructions in the comments two lines above, here too
 sudo ./yolov5 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov5s
 sudo ./yolov5 -s yolov5s.wts yolov5s.engine s
