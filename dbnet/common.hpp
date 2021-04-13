@@ -1,7 +1,7 @@
-#ifndef YOLOV5_COMMON_H_
-#define YOLOV5_COMMON_H_
+#ifndef DBNET_COMMON_H_
+#define DBNET_COMMON_H_
 
-#include <iostream>s
+#include <iostream>
 #include <fstream>
 #include <map>
 #include <sstream>
@@ -120,27 +120,27 @@ ILayer* convBnLeaky(INetworkDefinition *network, std::map<std::string, Weights>&
 IActivationLayer* basicBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int inch, int outch, int stride, std::string lname) {
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
-    IConvolutionLayer* conv1 = network->addConvolution(input, outch, DimsHW{ 3, 3 }, weightMap[lname + "conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ 3, 3 }, weightMap[lname + "conv1.weight"], emptywts);
     assert(conv1);
-    conv1->setStride(DimsHW{ stride, stride });
-    conv1->setPadding(DimsHW{ 1, 1 });
+    conv1->setStrideNd(DimsHW{ stride, stride });
+    conv1->setPaddingNd(DimsHW{ 1, 1 });
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "bn1", 1e-5);
 
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
-    IConvolutionLayer* conv2 = network->addConvolution(*relu1->getOutput(0), outch, DimsHW{ 3, 3 }, weightMap[lname + "conv2.weight"], emptywts);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*relu1->getOutput(0), outch, DimsHW{ 3, 3 }, weightMap[lname + "conv2.weight"], emptywts);
     assert(conv2);
-    conv2->setPadding(DimsHW{ 1, 1 });
+    conv2->setPaddingNd(DimsHW{ 1, 1 });
 
     IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "bn2", 1e-5);
 
     IElementWiseLayer* ew1;
     if (inch != outch) {
-        IConvolutionLayer* conv3 = network->addConvolution(input, outch, DimsHW{ 1, 1 }, weightMap[lname + "downsample.0.weight"], emptywts);
+        IConvolutionLayer* conv3 = network->addConvolutionNd(input, outch, DimsHW{ 1, 1 }, weightMap[lname + "downsample.0.weight"], emptywts);
         assert(conv3);
-        conv3->setStride(DimsHW{ stride, stride });
+        conv3->setStrideNd(DimsHW{ stride, stride });
         IScaleLayer* bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "downsample.1", 1e-5);
         ew1 = network->addElementWise(*bn3->getOutput(0), *bn2->getOutput(0), ElementWiseOperation::kSUM);
     }
