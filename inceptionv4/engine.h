@@ -13,9 +13,9 @@ static Logger gLogger;
 
 namespace trtx {
     struct InferenceEngineConfig {
-        const char* input_blob_name;
-        const char* output_blob_name; 
-        int max_batch_size;
+        const char* inputBlobName;
+        const char* outputBlobName; 
+        int maxBatchSize;
         int inputHeight;  
         int inputWidth;
         int outputSize;
