@@ -19,38 +19,38 @@ static Logger gLogger;
 using namespace nvinfer1;
 
 void loadWeights(const std::string file, std::map<std::string, Weights>& weightMap) {
-	std::cout << "Loading weights: " << file << std::endl;
+    std::cout << "Loading weights: " << file << std::endl;
 
-	// Open weights file
-	std::ifstream input(file);
-	assert(input.is_open() && "Unable to load weight file. please check if the .wts file path is right!!!!!!");
+    // Open weights file
+    std::ifstream input(file);
+    assert(input.is_open() && "Unable to load weight file. please check if the .wts file path is right!!!!!!");
 
-	// Read number of weight blobs
-	int32_t count;
-	input >> count;
-	assert(count > 0 && "Invalid weight map file.");
+    // Read number of weight blobs
+    int32_t count;
+    input >> count;
+    assert(count > 0 && "Invalid weight map file.");
 
-	while (count--)
-	{
-		Weights wt{ DataType::kFLOAT, nullptr, 0 };
-		uint32_t size;
+    while (count--)
+    {
+        Weights wt{ DataType::kFLOAT, nullptr, 0 };
+        uint32_t size;
 
-		// Read name and type of blob
-		std::string name;
-		input >> name >> std::dec >> size;
-		wt.type = DataType::kFLOAT;
-		
-		// Load blob
-		uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-		for (uint32_t x = 0, y = size; x < y; ++x)
-		{
-			input >> std::hex >> val[x];
-		}
-		wt.values = val;
+        // Read name and type of blob
+        std::string name;
+        input >> name >> std::dec >> size;
+        wt.type = DataType::kFLOAT;
+        
+        // Load blob
+        uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
+        for (uint32_t x = 0, y = size; x < y; ++x)
+        {
+            input >> std::hex >> val[x];
+        }
+        wt.values = val;
 
-		wt.count = size;
-		weightMap[name] = wt;
-	}
+        wt.count = size;
+        weightMap[name] = wt;
+    }
 }
 
 static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
@@ -77,7 +77,7 @@ static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::str
 
 static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h)
 {
-	int w, h, x, y;
+    int w, h, x, y;
     float r_w = input_w / (img.cols*1.0);
     float r_h = input_h / (img.rows*1.0);
     if (r_h > r_w) {
