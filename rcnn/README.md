@@ -68,4 +68,89 @@ sudo ./rcnn -d faster.engine ../samples
 
 2. the using of int8 is same with [tensorrtx/yolov5](../yolov5/README.md), but it has no improvement comparing to fp16.
 
+## Plugins
+
+- RpnDecodePlugin: calculate coordinates of  proposals which is the first n
+
+```
+parameters:
+  top_n: num of proposals to select
+  anchors: coordinates of all anchors
+  stride: stride of current feature map
+  image_height: iamge height after DataPreprocess for clipping the box beyond the boundary
+  image_width: iamge width after DataPreprocess for clipping the box beyond the boundary
+
+Inputs:
+  scores{C,H,W} C is number of anchors, H and W are the size of feature map
+  boxes{C,H,W} C is 4*number of anchors, H and W are the size of feature map
+Outputs:
+  scores{C,1} C is equal to top_n
+  boxes{C,4} C is equal to top_n
+```
+
+- RpnNmsPlugin: apply nms to proposals
+
+```
+parameters:
+  nms_thresh: thresh of nms
+  post_nms_topk: number of proposals to select
+  
+Inputs:
+  scores{C,1} C is equal to top_n
+  boxes{C,4} C is equal to top_n
+Outputs:
+  boxes{C,4} C is equal to post_nms_topk
+```
+
+- RoiAlignPlugin: implement of RoiAlign(align=True). see https://github.com/facebookresearch/detectron2/blob/f50ec07cf220982e2c4861c5a9a17c4864ab5bfd/detectron2/layers/roi_align.py#L7 for detail
+
+```
+parameters:
+  pooler_resolution: output size
+  spatial_scale: scale the input boxes by this number
+  sampling_ratio: number of inputs samples to take for each output
+  num_proposals: number of proposals
+  
+Inputs:
+  boxes{N,4} N is number of boxes
+  features{C,H,W} C is channels of feature map, H and W are sizes of feature map
+Outputs:
+  features{N,C,H,W} N is number of boxes, C is channels of feature map, H and W are equal to pooler_resolution
+```
+
+- PredictorDecodePlugin: calculate coordinates of predicted boxes by applying delta to proposals
+
+```
+parameters:
+  num_boxes: num of proposals
+  image_height: iamge height after DataPreprocess for clipping the box beyond the boundary
+  image_width: iamge width after DataPreprocess for clipping the box beyond the boundary
+  bbox_reg_weights: the weights for dx,dy,dw,dh. see https://github.com/facebookresearch/detectron2/blob/master/detectron2/config/defaults.py#L292 for detail
+
+Inputs:
+  scores{N,C,1,1} N is euqal to num_boxes, C is the num of classes
+  boxes{N,C,1,1} N is euqal to num_boxes, C is the num of classes
+  proposals{N,4} N is equal to num_boxes
+Outputs:
+  scores{N,1} N is equal to num_boxes
+  boxes{N,4} N is equal to num_boxes
+  classes{N,1} N is equal to num_boxes
+```
+
+- BatchedNmsPlugin: apply nms to predicted boxes with different classes. same with https://github.com/facebookresearch/detectron2/blob/master/detectron2/layers/nms.py#L19
+
+```
+parameters:
+  nms_thresh: thresh of nms
+  detections_per_im: number of detections to return per image
+
+Inputs:
+  scores{N,1} N is the number of the boxes
+  boxes{N,4} N is the number of the boxes
+  classes{N,1} N is the number of the boxes
+Outputs:
+  scores{N,1} N is equal to detections_per_im
+  boxes{N,4} N is equal to detections_per_im
+  classes{N,1} N is equal to detections_per_im
+```
 

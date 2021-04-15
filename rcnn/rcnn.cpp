@@ -20,8 +20,8 @@ static constexpr int INPUT_W = 640;
 static int IMAGE_HEIGHT = 800;
 static int IMAGE_WIDTH = 1333;
 // rpn
-static const std::vector<float> ANCHOR_SIZES = { 32,64,128,256,512 };
-static const std::vector<float> ASPECT_RATIOS = { 0.5,1.0,2.0 };
+static const std::vector<float> ANCHOR_SIZES = { 32, 64, 128, 256, 512 };
+static const std::vector<float> ASPECT_RATIOS = { 0.5, 1.0, 2.0 };
 static constexpr int PRE_NMS_TOP_K_TEST = 6000;
 static constexpr float RPN_NMS_THRESH = 0.7;
 static constexpr int POST_NMS_TOPK = 1000;
@@ -38,14 +38,11 @@ static const std::vector<float> BBOX_REG_WEIGHTS = { 10.0, 10.0, 5.0, 5.0 };
 static const char* INPUT_NODE_NAME = "images";
 static const std::vector<std::string> OUTPUT_NAMES = { "scores", "boxes", "labels" };
 
-std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes, const std::vector<float>& aspect_ratios)
-{
+std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes, const std::vector<float>& aspect_ratios) {
     std::vector<float> res;
-    for (auto as : anchor_sizes)
-    {
+    for (auto as : anchor_sizes) {
         float area = as * as;
-        for (auto ar : aspect_ratios)
-        {
+        for (auto ar : aspect_ratios) {
             float w = sqrt(area / ar);
             float h = ar * w;
             res.push_back(-w / 2.0);
@@ -58,8 +55,7 @@ std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes, const
 }
 
 // transpose && resize && normalization && padding
-ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input)
-{
+ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input) {
     // get h and w
     auto input_hw = input.getDimensions();
     int c = input_hw.d[2];
@@ -69,18 +65,14 @@ ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input)
     // resize
     float ratio = (float)MIN_SIZE / (float)std::min(height, width);
     float newh = 0, neww = 0;
-    if (height < width)
-    {
+    if (height < width) {
         newh = MIN_SIZE;
         neww = ratio * width;
-    }
-    else
-    {
+    } else {
         newh = ratio * height;
         neww = MIN_SIZE;
     }
-    if (std::max(newh, neww) > MAX_SIZE)
-    {
+    if (std::max(newh, neww) > MAX_SIZE) {
         ratio = (float)MAX_SIZE / (float)std::max(newh, neww);
         newh = newh * ratio;
         neww = neww * ratio;
@@ -97,8 +89,7 @@ ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input)
     // HWC->CHW
     auto channel_permute = network->addShuffle(*resize_layer->getOutput(0));
     assert(channel_permute);
-    channel_permute->setFirstTranspose(Permutation{ 2,0,1 });
-
+    channel_permute->setFirstTranspose(Permutation{ 2, 0, 1 });
 
     // sub pixel mean
     auto pixel_mean = network->addConstant(Dims3{ 3, 1, 1 }, Weights{ DataType::kFLOAT, PIXEL_MEAN.data(), 3 });
@@ -110,22 +101,17 @@ ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input)
     return sub->getOutput(0);
 }
 
-void calculateRatio()
-{
+void calculateRatio() {
     float ratio = (float)MIN_SIZE / (float)std::min(INPUT_H, INPUT_W);
     float newh = 0, neww = 0;
-    if (INPUT_H < INPUT_W)
-    {
+    if (INPUT_H < INPUT_W) {
         newh = MIN_SIZE;
         neww = ratio * INPUT_W;
-    }
-    else
-    {
+    } else {
         newh = ratio * INPUT_H;
         neww = MIN_SIZE;
     }
-    if (std::max(newh, neww) > MAX_SIZE)
-    {
+    if (std::max(newh, neww) > MAX_SIZE) {
         ratio = (float)MAX_SIZE / (float)std::max(newh, neww);
         newh = newh * ratio;
         neww = neww * ratio;
@@ -135,29 +121,28 @@ void calculateRatio()
 }
 
 ITensor* RPN(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& features,
-    int out_channels = 256)
-{
+    int out_channels = 256) {
     int num_anchors = ANCHOR_SIZES.size() * ASPECT_RATIOS.size();
     int box_dim = 4;
-    
+
     // rpn head conv
-    auto rpn_head_conv = network->addConvolutionNd(features, out_channels, DimsHW{ 3,3 }, weightMap["proposal_generator.rpn_head.conv.weight"], weightMap["proposal_generator.rpn_head.conv.bias"]);
+    auto rpn_head_conv = network->addConvolutionNd(features, out_channels, DimsHW{ 3, 3 }, weightMap["proposal_generator.rpn_head.conv.weight"], weightMap["proposal_generator.rpn_head.conv.bias"]);
     assert(rpn_head_conv);
-    rpn_head_conv->setStrideNd(DimsHW{ 1,1 });
-    rpn_head_conv->setPaddingNd(DimsHW{ 1,1 });
+    rpn_head_conv->setStrideNd(DimsHW{ 1, 1 });
+    rpn_head_conv->setPaddingNd(DimsHW{ 1, 1 });
     auto rpn_head_relu = network->addActivation(*rpn_head_conv->getOutput(0), ActivationType::kRELU);
     assert(rpn_head_relu);
 
     // objectness logits
-    auto rpn_head_logits = network->addConvolutionNd(*rpn_head_relu->getOutput(0), num_anchors, DimsHW{ 1,1 }, weightMap["proposal_generator.rpn_head.objectness_logits.weight"], weightMap["proposal_generator.rpn_head.objectness_logits.bias"]);
+    auto rpn_head_logits = network->addConvolutionNd(*rpn_head_relu->getOutput(0), num_anchors, DimsHW{ 1, 1 }, weightMap["proposal_generator.rpn_head.objectness_logits.weight"], weightMap["proposal_generator.rpn_head.objectness_logits.bias"]);
     assert(rpn_head_logits);
-    rpn_head_logits->setStrideNd(DimsHW{ 1,1 });
+    rpn_head_logits->setStrideNd(DimsHW{ 1, 1 });
 
     // anchor deltas
-    auto rpn_head_deltas = network->addConvolutionNd(*rpn_head_relu->getOutput(0), num_anchors * box_dim, DimsHW{ 1,1 }, weightMap["proposal_generator.rpn_head.anchor_deltas.weight"], weightMap["proposal_generator.rpn_head.anchor_deltas.bias"]);
+    auto rpn_head_deltas = network->addConvolutionNd(*rpn_head_relu->getOutput(0), num_anchors * box_dim, DimsHW{ 1, 1 }, weightMap["proposal_generator.rpn_head.anchor_deltas.weight"], weightMap["proposal_generator.rpn_head.anchor_deltas.bias"]);
     assert(rpn_head_deltas);
     auto rpn_head_deltas_dim = rpn_head_deltas->getOutput(0)->getDimensions();
-    rpn_head_deltas->setStrideNd(DimsHW{ 1,1 });
+    rpn_head_deltas->setStrideNd(DimsHW{ 1, 1 });
 
     auto anchors = GenerateAnchors(ANCHOR_SIZES, ASPECT_RATIOS);
     auto rpnDecodePlugin = RpnDecodePlugin(PRE_NMS_TOP_K_TEST, anchors, STRIDES, IMAGE_HEIGHT, IMAGE_WIDTH);
@@ -173,8 +158,7 @@ ITensor* RPN(INetworkDefinition *network, std::map<std::string, Weights>& weight
 }
 
 std::vector<ITensor*> ROIHeads(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& proposals,
-    ITensor& features)
-{
+    ITensor& features) {
     std::vector<ITensor*> roi_inputs = { &proposals, &features };
     auto roiAlignPlugin = RoiAlignPlugin(POOLER_RESOLUTION, 1 / (float)STRIDES, SAMPLING_RATIO, POST_NMS_TOPK, features.getDimensions().d[0]);
     auto roiAlignLayer = network->addPluginV2(roi_inputs.data(), roi_inputs.size(), roiAlignPlugin);
@@ -186,12 +170,12 @@ std::vector<ITensor*> ROIHeads(INetworkDefinition *network, std::map<std::string
     // score
     auto scores = network->addFullyConnected(*box_features_mean->getOutput(0), NUM_CLASSES + 1, weightMap["roi_heads.box_predictor.cls_score.weight"], weightMap["roi_heads.box_predictor.cls_score.bias"]);
     auto probs = network->addSoftMax(*scores->getOutput(0));
-    
+
     auto probs_dim = probs->getOutput(0)->getDimensions();
-    auto score_slice = network->addSlice(*probs->getOutput(0), Dims4{ 0, 0,0,0 }, Dims4{ probs_dim.d[0], probs_dim.d[1] - 1,1,1 }, Dims4{1,1,1,1 });
-    
+    auto score_slice = network->addSlice(*probs->getOutput(0), Dims4{ 0, 0, 0, 0 }, Dims4{ probs_dim.d[0], probs_dim.d[1] - 1, 1, 1 }, Dims4{ 1, 1, 1, 1 });
+
     auto proposal_deltas = network->addFullyConnected(*box_features_mean->getOutput(0), NUM_CLASSES * 4, weightMap["roi_heads.box_predictor.bbox_pred.weight"], weightMap["roi_heads.box_predictor.bbox_pred.bias"]);
-    
+
     // decode
     std::vector<ITensor*> predictorDecodeInput = { score_slice->getOutput(0), proposal_deltas->getOutput(0), &proposals };
     auto predictorDecodePlugin = PredictorDecodePlugin(probs_dim.d[0], IMAGE_HEIGHT, IMAGE_WIDTH, BBOX_REG_WEIGHTS);
@@ -206,9 +190,8 @@ std::vector<ITensor*> ROIHeads(INetworkDefinition *network, std::map<std::string
 }
 
 ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
-    const std::string& wtsfile, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& modelType, 
-    const std::string& quantizationType, const std::string& calibImgListFile, const std::string& calibFile)
-{
+    const std::string& wtsfile, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& modelType,
+    const std::string& quantizationType, const std::string& calibImgListFile, const std::string& calibFile) {
     /*
     description: after fuse bn
     */
@@ -230,8 +213,7 @@ ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
     auto results = ROIHeads(network, weightMap, *proposals, *features);
 
     // build output
-    for (int i = 0; i < results.size(); i++)
-    {
+    for (int i = 0; i < results.size(); i++) {
         network->markOutput(*results[i]);
         results[i]->setName(OUTPUT_NAMES[i].c_str());
     }
@@ -239,22 +221,16 @@ ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
     // build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(1ULL << 30);
-    if (quantizationType == "fp32")
-        ;
-    else if (quantizationType == "fp16")
-    {
+    if (quantizationType == "fp32") {
+    } else if (quantizationType == "fp16") {
         config->setFlag(BuilderFlag::kFP16);
-    }
-    else if (quantizationType == "int8")
-    {
+    } else if (quantizationType == "int8") {
         std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
         assert(builder->platformHasFastInt8());
         config->setFlag(BuilderFlag::kINT8);
         Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_NODE_NAME);
         config->setInt8Calibrator(calibrator);
-    }
-    else
-    {
+    } else {
         throw("does not support model type");
     }
 
@@ -266,15 +242,14 @@ ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         delete[] mem.second.values;
     }
     return engine;
 }
 
-void BuildRcnnModel(unsigned int maxBatchSize, IHostMemory** modelStream, const std::string& wtsfile, const std::string& modelType="faster",
-    const std::string& quantizationType="fp32", const std::string& calibImgListFile = "./imglist.txt", const std::string& calibFile = "./calib.table") {
+void BuildRcnnModel(unsigned int maxBatchSize, IHostMemory** modelStream, const std::string& wtsfile, const std::string& modelType = "faster",
+    const std::string& quantizationType = "fp32", const std::string& calibImgListFile = "./imglist.txt", const std::string& calibFile = "./calib.table") {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
@@ -296,19 +271,16 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
     if (std::string(argv[1]) == "-s") {
         wtsFile = std::string(argv[2]);
         engineFile = std::string(argv[3]);
-    }
-    else if (std::string(argv[1]) == "-d") {
+    } else if (std::string(argv[1]) == "-d") {
         engineFile = std::string(argv[2]);
         imgDir = std::string(argv[3]);
-    }
-    else {
+    } else {
         return false;
     }
     return true;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
 
     std::string wtsFile = "";
@@ -322,8 +294,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    if (!wtsFile.empty())
-    {
+    if (!wtsFile.empty()) {
         IHostMemory* modelStream{ nullptr };
         BuildRcnnModel(BATCH_SIZE, &modelStream, wtsFile, "faster", "fp32");
         assert(modelStream != nullptr);
@@ -346,7 +317,7 @@ int main(int argc, char** argv)
         std::cerr << "read " << engineFile << " error!" << std::endl;
         return -1;
     }
-    
+
     std::string trtModelStream;
     size_t modelSize{ 0 };
     file.seekg(0, file.end);
@@ -390,8 +361,7 @@ int main(int argc, char** argv)
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)fileList.size()) continue;
 
-        for (int b = 0; b < fcount; b++)
-        {
+        for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
             img = preprocessImg(img, INPUT_W, INPUT_H);
             if (img.empty()) continue;
@@ -422,13 +392,10 @@ int main(int argc, char** argv)
         float h_ratio = (float)INPUT_H / (float)IMAGE_HEIGHT;
         float w_ratio = (float)INPUT_W / (float)IMAGE_WIDTH;
 
-        for (int b = 0; b < fcount; b++)
-        {
+        for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
-            for (int i = 0; i < DETECTIONS_PER_IMAGE; i++)
-            {
-                if (scores_h[b * DETECTIONS_PER_IMAGE + i] > SCORE_THRESH)
-                {
+            for (int i = 0; i < DETECTIONS_PER_IMAGE; i++) {
+                if (scores_h[b * DETECTIONS_PER_IMAGE + i] > SCORE_THRESH) {
                     float x1 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 0] * w_ratio;
                     float y1 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 1] * h_ratio;
                     float x2 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 2] * w_ratio;

@@ -13,15 +13,15 @@
 
 namespace nvinfer1 {
 
-int predictorDecode(int batchSize, const void *const *inputs, void **outputs, unsigned int num_boxes, unsigned int num_classes, 
-    unsigned int image_height, unsigned int image_width, const std::vector<float>& bbox_reg_weights, void *workspace, size_t workspace_size, 
+int predictorDecode(int batchSize, const void *const *inputs, void **outputs, unsigned int num_boxes, unsigned int num_classes,
+    unsigned int image_height, unsigned int image_width, const std::vector<float>& bbox_reg_weights, void *workspace, size_t workspace_size,
     cudaStream_t stream) {
 
     int scores_size = num_boxes * num_classes;
 
     if (!workspace || !workspace_size) {
         // Return required scratch space size cub style
-        workspace_size = get_size_aligned<float>(bbox_reg_weights.size()); // anchors
+        workspace_size = get_size_aligned<float>(bbox_reg_weights.size());  // anchors
         workspace_size += get_size_aligned<int>(scores_size);      // indices
         workspace_size += get_size_aligned<int>(scores_size);      // indices_sorted
         workspace_size += get_size_aligned<float>(scores_size);    // scores_sorted
@@ -33,7 +33,7 @@ int predictorDecode(int batchSize, const void *const *inputs, void **outputs, un
 
         return workspace_size;
     }
-    
+
     auto bbox_reg_weights_d = get_next_ptr<float>(bbox_reg_weights.size(), workspace, workspace_size);
     cudaMemcpyAsync(bbox_reg_weights_d, bbox_reg_weights.data(), bbox_reg_weights.size() * sizeof *bbox_reg_weights_d, cudaMemcpyHostToDevice, stream);
 
@@ -85,12 +85,12 @@ int predictorDecode(int batchSize, const void *const *inputs, void **outputs, un
 
             // filter empty boxes
             if (boxes.z - boxes.x <= 0.0f || boxes.w - boxes.y <= 0.0f) return thrust::make_tuple(0.0f, boxes, cls);
-            else return thrust::make_tuple(in_scores[i], boxes, cls);
-
+            else
+                return thrust::make_tuple(in_scores[i], boxes, cls);
         });
     }
 
     return 0;
 }
 
-} // namespace nvinfer1;
+}  // namespace nvinfer1

@@ -26,14 +26,13 @@ int rpnDecode(int batch_size,
 
     if (!workspace || !workspace_size) {
         // Return required scratch space size cub style
-        workspace_size = get_size_aligned<float>(anchors.size()); // anchors
+        workspace_size = get_size_aligned<float>(anchors.size());  // anchors
         workspace_size += get_size_aligned<int>(scores_size);      // indices
         workspace_size += get_size_aligned<int>(scores_size);      // indices_sorted
         workspace_size += get_size_aligned<float>(scores_size);    // scores_sorted
 
         size_t temp_size_sort = 0;
-        if (scores_size > top_n)
-        {
+        if (scores_size > top_n) {
             thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void *)nullptr, temp_size_sort,
                 (float *)nullptr, (float *)nullptr, (int *)nullptr, (int *)nullptr, scores_size);
             workspace_size += temp_size_sort;
@@ -66,8 +65,7 @@ int rpnDecode(int batch_size,
         // Only keep top n scores
         int num_detections = scores_size;
         auto indices_filtered = indices;
-        if (num_detections > top_n)
-        {
+        if (num_detections > top_n) {
             thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
                 in_scores, scores_sorted, indices, indices_sorted, scores_size, 0, sizeof(*scores_sorted) * 8, stream);
             indices_filtered = indices_sorted;
@@ -106,7 +104,7 @@ int rpnDecode(int batch_size,
                 float pred_w = exp(box.z) * w;
                 float pred_h = exp(box.w) * h;
 
-                //TODO: set image size as parameter
+                // TODO: set image size as parameter
                 box = float4{
                   max(0.0f, pred_ctr_x - 0.5f * pred_w),
                   max(0.0f, pred_ctr_y - 0.5f * pred_h),
@@ -115,8 +113,10 @@ int rpnDecode(int batch_size,
                 };
             }
             // filter empty boxes
-            if (box.z - box.x <= 0.0f || box.w - box.y <= 0.0f) return thrust::make_tuple(-FLT_MAX, box);
-            else return thrust::make_tuple(in_scores[i], box);
+            if (box.z - box.x <= 0.0f || box.w - box.y <= 0.0f)
+                return thrust::make_tuple(-FLT_MAX, box);
+            else
+                return thrust::make_tuple(in_scores[i], box);
         });
 
         // Zero-out unused scores
@@ -128,4 +128,4 @@ int rpnDecode(int batch_size,
 
     return 0;
 }
-} // namespace nvinfer1
+}  // namespace nvinfer1

@@ -64,7 +64,6 @@ int batchedNms(int batch_size,
         // Return required scratch space size cub style
         workspace_size += get_size_aligned<int>(count);   // indices
         workspace_size += get_size_aligned<int>(count);   // indices_sorted
-        //workspace_size += get_size_aligned<float>(count); // scores
         workspace_size += get_size_aligned<float>(count); // scores_sorted
 
         size_t temp_size_sort = 0;
@@ -122,4 +121,4 @@ int batchedNms(int batch_size,
 
     return 0;
 }
-} // namespace nvinfer1;
+}  // namespace nvinfer1

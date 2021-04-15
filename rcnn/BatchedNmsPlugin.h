@@ -16,6 +16,7 @@ int batchedNms(int batchSize,
     const void *const *inputs, void **outputs,
     size_t count, int detections_per_im, float nms_thresh,
     void *workspace, size_t workspace_size, cudaStream_t stream);
+
 /*
     input1: scores{C, 1} C->topk
     input2: boxes{C, 4} C->topk format:XYXY
@@ -123,12 +124,10 @@ public:
     }
 
     void setPluginNamespace(const char *N) override {
-
     }
 
     // IPluginV2Ext Methods
-    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const
-    {
+    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const {
         assert(index < 3);
         return DataType::kFLOAT;
     }
@@ -142,8 +141,7 @@ public:
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
-    {
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) {
         assert(*inputTypes == nvinfer1::DataType::kFLOAT &&
             floatFormat == nvinfer1::PluginFormat::kLINEAR);
         assert(nbInputs == 3);
@@ -194,7 +192,7 @@ public:
 
 REGISTER_TENSORRT_PLUGIN(BatchedNmsPluginCreator);
 
-}
+}  // namespace nvinfer1
 
 #undef PLUGIN_NAME
 #undef PLUGIN_VERSION

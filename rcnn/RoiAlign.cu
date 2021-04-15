@@ -44,16 +44,14 @@ __device__ T bilinear_interpolate(
     if (y_low >= height - 1) {
         y_high = y_low = height - 1;
         y = (T)y_low;
-    }
-    else {
+    } else {
         y_high = y_low + 1;
     }
 
     if (x_low >= width - 1) {
         x_high = x_low = width - 1;
         x = (T)x_low;
-    }
-    else {
+    } else {
         x_high = x_low + 1;
     }
 
@@ -108,24 +106,24 @@ __global__ void RoIAlignForward(
 
         const float* offset_bottom_data =
             bottom_data + static_cast<int>(c * height * width);
-        
+
         // We use roi_bin_grid to sample the grid and mimic integral
         int roi_bin_grid_h = (sampling_ratio > 0)
             ? sampling_ratio
-            : ceil(roi_height / pooled_height); // e.g., = 2
+            : ceil(roi_height / pooled_height);  // e.g., = 2
         int roi_bin_grid_w =
             (sampling_ratio > 0) ? sampling_ratio : ceil(roi_width / pooled_width);
 
         // We do average (integral) pooling inside a bin
-        const float count = roi_bin_grid_h * roi_bin_grid_w; // e.g. = 4
+        const float count = roi_bin_grid_h * roi_bin_grid_w;  // e.g. = 4
 
         float output_val = 0.f;
         bool max_flag = false;
-        for (int iy = 0; iy < roi_bin_grid_h; iy++) // e.g., iy = 0, 1
-        {
+        // e.g., iy = 0, 1
+        for (int iy = 0; iy < roi_bin_grid_h; iy++) {
             const float y = roi_start_h + ph * bin_size_h +
                 static_cast<float>(iy + .5f) * bin_size_h /
-                static_cast<float>(roi_bin_grid_h); // e.g., 0.5, 1.5
+                static_cast<float>(roi_bin_grid_h);  // e.g., 0.5, 1.5
             for (int ix = 0; ix < roi_bin_grid_w; ix++) {
                 const float x = roi_start_w + pw * bin_size_w +
                     static_cast<float>(ix + .5f) * bin_size_w /
@@ -137,7 +135,7 @@ __global__ void RoIAlignForward(
                 output_val += val;
             }
         }
-        
+
         output_val /= count;
 
         top_data[index] = output_val;
@@ -145,8 +143,7 @@ __global__ void RoIAlignForward(
 }
 
 int roiAlign(int batchSize, const void *const *inputs, void **outputs, int pooler_resolution, float spatial_scale,
-    int sampling_ratio, int num_proposals, int out_channels, int feature_h, int feature_w, cudaStream_t stream)
-{
+    int sampling_ratio, int num_proposals, int out_channels, int feature_h, int feature_w, cudaStream_t stream) {
     for (int batch = 0; batch < batchSize; batch++) {
         auto in_boxes = static_cast<const float4 *>(inputs[0]) + batch * num_proposals;
         auto in_features = static_cast<const float *>(inputs[1]) + batch * out_channels * feature_h * feature_w;
@@ -154,7 +151,7 @@ int roiAlign(int batchSize, const void *const *inputs, void **outputs, int poole
         int nthreads = num_proposals * out_channels * pooler_resolution * pooler_resolution;
         auto out_features = static_cast<float *>(outputs[0]) + batch * nthreads;
         const int max_threads = 1024;
-        
+
         int blocksPerGrid = ceil((float)nthreads / max_threads);
         RoIAlignForward<< <blocksPerGrid, max_threads, 0 >> > (
             nthreads,
@@ -173,4 +170,4 @@ int roiAlign(int batchSize, const void *const *inputs, void **outputs, int poole
 
     return 0;
 }
-} // namespace nvinfer1;
+}  // namespace nvinfer1

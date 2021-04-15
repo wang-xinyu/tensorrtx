@@ -4,6 +4,7 @@
 #include <sstream>
 #include <iostream>
 #include <assert.h>
+#include <string>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -30,8 +31,7 @@ void loadWeights(const std::string file, std::map<std::string, Weights>& weightM
     input >> count;
     assert(count > 0 && "Invalid weight map file.");
 
-    while (count--)
-    {
+    while (count--) {
         Weights wt{ DataType::kFLOAT, nullptr, 0 };
         uint32_t size;
 
@@ -39,11 +39,10 @@ void loadWeights(const std::string file, std::map<std::string, Weights>& weightM
         std::string name;
         input >> name >> std::dec >> size;
         wt.type = DataType::kFLOAT;
-        
+
         // Load blob
         uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
+        for (uint32_t x = 0, y = size; x < y; ++x) {
             input >> std::hex >> val[x];
         }
         wt.values = val;
@@ -63,9 +62,9 @@ static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::str
     while ((p_file = readdir(p_dir)) != nullptr) {
         if (strcmp(p_file->d_name, ".") != 0 &&
             strcmp(p_file->d_name, "..") != 0) {
-            //std::string cur_file_name(p_dir_name);
-            //cur_file_name += "/";
-            //cur_file_name += p_file->d_name;
+            // std::string cur_file_name(p_dir_name);
+            // cur_file_name += "/";
+            // cur_file_name += p_file->d_name;
             std::string cur_file_name(p_file->d_name);
             file_names.push_back(cur_file_name);
         }
@@ -75,8 +74,7 @@ static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::str
     return 0;
 }
 
-static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h)
-{
+static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h) {
     int w, h, x, y;
     float r_w = input_w / (img.cols*1.0);
     float r_h = input_h / (img.rows*1.0);

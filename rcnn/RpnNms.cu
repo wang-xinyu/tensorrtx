@@ -18,7 +18,6 @@ namespace nvinfer1 {
     __global__ void rpn_nms_kernel(
         const int num_per_thread, const float threshold, const int num_detections,
         const int *indices, float *scores, const float4 *boxes) {
-
         // Go through detections by descending score
         for (int m = 0; m < num_detections; m++) {
             for (int n = 0; n < num_per_thread; n++) {
@@ -26,7 +25,7 @@ namespace nvinfer1 {
                 if (i < num_detections && m < i && scores[m] > -FLT_MAX) {
                     int idx = indices[i];
                     int max_idx = indices[m];
-                    
+
                     float4 ibox = boxes[idx];
                     float4 mbox = boxes[max_idx];
                     float x1 = max(ibox.x, mbox.x);
@@ -54,13 +53,12 @@ namespace nvinfer1 {
         const void *const *inputs, void **outputs,
         size_t pre_nms_topk, int post_nms_topk, float nms_thresh,
         void *workspace, size_t workspace_size, cudaStream_t stream) {
-
         if (!workspace || !workspace_size) {
             // Return required scratch space size cub style
             workspace_size += get_size_aligned<int>(pre_nms_topk);   // indices
             workspace_size += get_size_aligned<int>(pre_nms_topk);   // indices_sorted
-            workspace_size += get_size_aligned<float>(pre_nms_topk); // scores
-            workspace_size += get_size_aligned<float>(pre_nms_topk); // scores_sorted
+            workspace_size += get_size_aligned<float>(pre_nms_topk);  // scores
+            workspace_size += get_size_aligned<float>(pre_nms_topk);  // scores_sorted
 
             size_t temp_size_sort = 0;
             thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void *)nullptr, temp_size_sort,
@@ -83,7 +81,7 @@ namespace nvinfer1 {
 
         for (int batch = 0; batch < batch_size; batch++) {
             auto in_scores = static_cast<const float *>(inputs[0]) + batch * pre_nms_topk;
-            auto in_boxes = static_cast<const float4 *>(inputs[1]) + batch * pre_nms_topk; // float4
+            auto in_boxes = static_cast<const float4 *>(inputs[1]) + batch * pre_nms_topk;
 
             auto out_boxes = static_cast<float4 *>(outputs[0]) + batch * post_nms_topk;
 
@@ -109,4 +107,4 @@ namespace nvinfer1 {
 
         return 0;
     }
-} // namespace nvinfer1;
+}  // namespace nvinfer1
