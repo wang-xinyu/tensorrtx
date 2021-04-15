@@ -1,12 +1,12 @@
 # resnet
 
-ResNet-18 adn ResNet-50 model from "Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>
+ResNet-18 and ResNet-50 model from "Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>
 
 For the Pytorch implementation, you can refer to [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet)
 
 Following tricks are used in this resnet, nothing special, residual connection and batchnorm are used.
 
-- Batchnorm layer, implemented by scale layer.
+- Batchnorm layer, implemented with scale layer.
 
 ## TensorRT C++ API
 
