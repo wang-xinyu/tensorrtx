@@ -15,7 +15,7 @@ Following tricks are used in this resnet, nothing special, residual connection a
 
 // 2. put resnet18.wts or resnet50.wts into tensorrtx/resnet
 
-// 3. install Python dependencies (tensorrt/pycuda/numpy)
+// 3. build and run
 
 cd tensorrtx/resnet
 
@@ -46,7 +46,7 @@ sudo ./resnet50 -d   // deserialize plan file and run inference
 
 # 2. put resnet50.wts into tensorrtx/resnet
 
-# 3. build and run
+# 3. install Python dependencies (tensorrt/pycuda/numpy)
 
 cd tensorrtx/resnet
 
