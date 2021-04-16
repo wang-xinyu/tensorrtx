@@ -9,19 +9,18 @@
 #include <iostream>
 #include <memory>
 
+#ifndef CUDA_CHECK
+#define CUDA_CHECK(callstr)\
+    {\
+        cudaError_t error_code = callstr;\
+        if (error_code != cudaSuccess) {\
+            std::cerr << "CUDA error " << error_code << " at " << __FILE__ << ":" << __LINE__;\
+            assert(0);\
+        }\
+    }
+#endif  // CUDA_CHECK
+
 using namespace nvinfer1;
-
-#define CHECK(status)                             \
-    do                                            \
-    {                                             \
-        auto ret = (status);                      \
-        if (ret != 0)                             \
-        {                                         \
-            std::cout << "Cuda failure: " << ret; \
-            abort();                              \
-        }                                         \
-    } while (0)
-
 
 std::map<std::string, Weights> loadWeights(const std::string input);
 
