@@ -248,7 +248,7 @@ namespace nvinfer1
                 mThreadCount = numElem;
 
             //printf("Net: %d  %d \n", mYoloV5NetWidth, mYoloV5NetHeight);
-            CalDetection << < (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount >> >
+            CalDetection << < (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream >> >
                 (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float *)mAnchor[i], mClassCount, outputElem);
         }
     }
