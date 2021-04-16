@@ -330,29 +330,6 @@ def do_inference(context, host_in, host_out, batchSize):
     stream.synchronize()
 
 
-def _test_mmaction2(inputs):
-    from mmaction.models import build_model
-    from mmcv import Config
-    from mmcv.runner import load_checkpoint
-    import torch
-    # config = "/ssd01/zhangyiyang/mmaction2_github/configs/recognition/tsn/tsn_r50_320p_1x1x8_100e_kinetics400_rgb.py"  # noqa
-    # ckpt_path = "/ssd01/zhangyiyang/mmaction2_github/checkpoints/tsn_r50_320p_1x1x8_100e_kinetics400_rgb_20200702-ef80e3d7.pth"  # noqa
-    # ckpt_path = "checkpoints/tsm_r50_kinetics400_mmaction2.pth"  # noqa
-    # config = "/ssd01/zhangyiyang/mmaction2_github/configs/recognition/tsm/tsm_r50_1x1x8_50e_kinetics400_rgb.py"  # noqa
-    ckpt = "/ssd01/zhangyiyang/mmaction2_github/checkpoints/tsm_r50_1x1x8_50e_kinetics400_rgb_20200607-af7fb746.pth"  # noqa
-    config = "/ssd01/zhangyiyang/mmaction2_github/configs/recognition/tsm/tsm_r50_1x1x8_50e_kinetics400_rgb.py"  # noqa
-    cfg = Config.fromfile(config)
-    cfg.model.backbone.pretrained = None
-    model = build_model(cfg.model,
-                        train_cfg=None,
-                        test_cfg=cfg.get('test_cfg'))
-    load_checkpoint(model, ckpt, map_location='cpu')
-    model.eval()
-    inputs = torch.tensor(inputs)
-    with torch.no_grad():
-        return model(return_loss=False, imgs=inputs)
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
