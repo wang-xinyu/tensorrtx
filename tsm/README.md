@@ -60,17 +60,11 @@ python tsm_r50.py ./tsm_r50_kinetics400_mmaction2.wts \
     --mmaction2-checkpoint tsm_r50_1x1x8_50e_kinetics400_rgb_20200607-af7fb746.pth
 ```
 
-### Generate wts
-
-### C++ API
-
-### Python API
-
 ## TODO
 
 + [x] Python Shift module.
 + [x] Generate wts of official tsm and mmaction2 tsm.
 + [x] Python API Definition
 + [x] Test with mmaction2 demo
++ [x] Tutorial
 + [ ] C++ API Definition
-+ [ ] Tutorial
