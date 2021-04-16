@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `16 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) implement lenet and resnet50 with Python API, [freedenS](https://github.com/freedenS) implement FasterRCNN with five plugins, cheers!
 - `2 Apr 2021`. [mingyu6yang](https://github.com/mingyu6yang) added a python wrapper for retinaface, [makaveli10](https://github.com/makaveli10) added DenseNet-121.
 - `17 Mar 2021`. [wuzuowuyou](https://github.com/wuzuowuyou) added refinedet, which utilized libtorch to do postprocessing.
 - `5 Mar 2021`. [chgit0214](https://github.com/chgit0214) added the LPRNet.
@@ -24,7 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `7 Nov 2020`. All models migrated to trt7 API, and clean up the master branch.
 - `29 Oct 2020`. First INT8 quantization implementation! Please check retinaface.
 - `23 Oct 2020`. Add a .wts model zoo for quick evaluation.
-- `16 Sep 2020`. [hwh-hit](https://github.com/hwh-hit) added ufld(Ultra-Fast-Lane-Detection, ECCV2020).
 
 ## Tutorials
 
@@ -84,6 +84,7 @@ Following models are implemented.
 |[lprnet](./lprnet)| LPRNet, pytorch implementation from [xuexingyu24/License_Plate_Detection_Pytorch](https://github.com/xuexingyu24/License_Plate_Detection_Pytorch) |
 |[refinedet](./refinedet)| RefineDet, pytorch implementation from [luuuyi/RefineDet.PyTorch](https://github.com/luuuyi/RefineDet.PyTorch) |
 |[densenet](./densenet)| DenseNet-121, from torchvision.models |
+|[rcnn](./rcnn)| FasterRCNN, model from [detectron2](https://github.com/facebookresearch/detectron2) |
 
 ## Model Zoo
 
