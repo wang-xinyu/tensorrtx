@@ -43,13 +43,17 @@ python gen_wts.py tsm_r50_1x1x8_50e_kinetics400_rgb_20200607-af7fb746.pth --out-
 
 # Step 4: Inference
 # 1) Save local engine file to `./tsm_r50_kinetics400_mmaction2.trt`.
-python tsm_r50.py ./tsm_r50_kinetics400_mmaction2.wts \
-    --engine-path ./tsm_r50_kinetics400_mmaction2.trt
+python tsm_r50.py \
+    --tensorrt_weights ./tsm_r50_kinetics400_mmaction2.wts \
+    --save-engine-path ./tsm_r50_kinetics400_mmaction2.trt
 
 # 2) Predict the recognition result using a single video `demo.mp4`.
 #    Should print `Result class id 6`, aka `arm wrestling`
-python tsm_r50.py ./tsm_r50_kinetics400_mmaction2.wts \
-    --engine-path ./tsm_r50_kinetics400_mmaction2.trt \
+# You can input *.wts
+python tsm_r50.py --tensorrt_weights ./tsm_r50_kinetics400_mmaction2.wts \
+    --input-video ./demo.mp4
+# You can also input *.trt
+python tsm_r50.py --load-engine-path ./tsm_r50_kinetics400_mmaction2.trt \
     --input-video ./demo.mp4
 
 # 3) Optional: Compare inference result with MMAction2 TSM-R50 model
