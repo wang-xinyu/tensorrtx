@@ -4,18 +4,18 @@ TSM-R50 from "TSM: Temporal Shift Module for Efficient Video Understanding" <htt
 
 TSM is a widely used Action Recognition model. This TensorRT implementation is tested with TensorRT 5.1 and TensorRT 7.2.
 
-For the PyTorch implementation, you can refere to [open-mmlab/mmaction2](https://github.com/open-mmlab/mmaction2) or [mit-han-lab/temporal-shift-module](https://github.com/mit-han-lab/temporal-shift-module).
+For the PyTorch implementation, you can refer to [open-mmlab/mmaction2](https://github.com/open-mmlab/mmaction2) or [mit-han-lab/temporal-shift-module](https://github.com/mit-han-lab/temporal-shift-module).
 
 More details about the shift module(which is the core of TSM) could to [test_shift.py](./test_shift.py).
 
 ## Tutorial
 
-+ An example of this could refer to [demo.sh](./demo.sh)
++ An example could refer to [demo.sh](./demo.sh)
   + Requirements: Successfully installed `torch>=1.3.0, torchvision`
 
 + Step 1: Train/Download TSM-R50 checkpoints from [offical Github repo](https://github.com/mit-han-lab/temporal-shift-module) or [MMAction2](https://github.com/open-mmlab/mmaction2)
-  + Mutable configs: `num_segments`, `shift_div`, `num_classes`.
-  + Immutable config: `backbone`(ResNet50), `shift_place`(blockres), `temporal_pool`(False).
+  + Supported settings: `num_segments`, `shift_div`, `num_classes`.
+  + Fixed settings: `backbone`(ResNet50), `shift_place`(blockres), `temporal_pool`(False).
 
 + Step 2: Convert PyTorch checkpoints to TensorRT weights.
 
@@ -23,7 +23,7 @@ More details about the shift module(which is the core of TSM) could to [test_shi
 python gen_wts.py /path/to/pytorch.pth --out-filename /path/to/tensorrt.wts
 ```
 
-+ Step 3: Modify mutable configs in `tsm_r50.py`.
++ Step 3: Modify configs in `tsm_r50.py`.
 
 ```python
 BATCH_SIZE = 1
