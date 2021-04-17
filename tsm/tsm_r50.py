@@ -21,19 +21,17 @@ EPS = 1e-5
 INPUT_BLOB_NAME = "data"
 OUTPUT_BLOB_NAME = "prob"
 
-WEIGHT_PATH = "./tsm_r50_mmaction2.wts"
-
 TRT_LOGGER = trt.Logger(trt.Logger.INFO)
 
 
 def load_weights(file):
     print(f"Loading weights: {file}")
 
-    assert os.path.exists(file), 'Unable to load weight file.'
+    assert os.path.exists(file), f'Unable to load weight file {file}'
 
     weight_map = {}
     with open(file, "r") as f:
-        lines = f.readlines()
+        lines = [line.strip() for line in f]
     count = int(lines[0])
     assert count == len(lines) - 1
     for i in range(1, count + 1):
@@ -201,8 +199,8 @@ def bottleneck(network, weight_map, input, in_channels, out_channels, stride,
     return relu3
 
 
-def create_engine(maxBatchSize, builder, config, dt):
-    weight_map = load_weights(WEIGHT_PATH)
+def create_engine(maxBatchSize, builder, dt, weights):
+    weight_map = load_weights(weights)
     network = builder.create_network()
 
     data = network.add_input(INPUT_BLOB_NAME, dt,
@@ -308,7 +306,7 @@ def create_engine(maxBatchSize, builder, config, dt):
     # Build engine
     builder.max_batch_size = maxBatchSize
     builder.max_workspace_size = 1 << 20
-    engine = builder.build_engine(network, config)
+    engine = builder.build_cuda_engine(network)
 
     del network
     del weight_map
@@ -359,9 +357,10 @@ def main(args):
             engine = runtime.deserialize_cuda_engine(f.read())
     else:
         # Create network and engine
+        assert args.tensorrt_weights
         builder = trt.Builder(TRT_LOGGER)
-        config = builder.create_builder_config()
-        engine = create_engine(BATCH_SIZE, builder, config, trt.float32)
+        engine = create_engine(BATCH_SIZE, builder, trt.float32,
+                               args.tensorrt_weights)
     assert engine
     assert engine.num_bindings == 2
 
@@ -399,7 +398,7 @@ def main(args):
         from numpy.testing import assert_array_almost_equal
         assert_array_almost_equal(host_out.reshape(-1),
                                   pytorch_results.reshape(-1),
-                                  decimal=5)
+                                  decimal=4)
         print("TEST PASSED")
 
     if args.input_video:
@@ -432,7 +431,10 @@ def main(args):
         np.copyto(host_in, frames.ravel())
         do_inference(context, host_in, host_out, BATCH_SIZE)
         # For demo.mp4, should be 6, aka arm wrestling
-        print('Result class id', np.argmax(host_out.reshape(-1)))
+        class_id = np.argmax(host_out.reshape(-1))
+        print(
+            f'Result class id {class_id}, socre {round(host_out[class_id]):.2f}'
+        )
 
 
 if __name__ == '__main__':

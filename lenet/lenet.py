@@ -27,7 +27,7 @@ def load_weights(file):
 
     weight_map = {}
     with open(file, "r") as f:
-        lines = f.readlines()
+        lines = [line.strip() for line in f]
     count = int(lines[0])
     assert count == len(lines) - 1
     for i in range(1, count + 1):
