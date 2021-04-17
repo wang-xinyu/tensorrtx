@@ -70,10 +70,12 @@ python tsm_r50.py \
 
 # 2) Predict the recognition result using a single video `demo.mp4`.
 #    Should print `Result class id 6`, aka `arm wrestling`
-# You can input *.wts
+# Download demo video
+wget https://raw.githubusercontent.com/open-mmlab/mmaction2/master/demo/demo.mp4
+# use *.wts as input
 python tsm_r50.py --tensorrt-weights ./tsm_r50_kinetics400_mmaction2.wts \
     --input-video ./demo.mp4
-# You can also input *.trt
+# use engine file as input
 python tsm_r50.py --load-engine-path ./tsm_r50_kinetics400_mmaction2.trt \
     --input-video ./demo.mp4
 
