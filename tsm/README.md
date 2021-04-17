@@ -2,9 +2,16 @@
 
 TSM-R50 from "TSM: Temporal Shift Module for Efficient Video Understanding" <https://arxiv.org/abs/1811.08383>
 
-## How to run
+TSM is a widely used Action Recognition model. This TensorRT implementation is tested with TensorRT 5.1 and TensorRT 7.2.
 
-### Tutorials
+For the PyTorch implementation, you can refere to [open-mmlab/mmaction2](https://github.com/open-mmlab/mmaction2) or [mit-han-lab/temporal-shift-module](https://github.com/mit-han-lab/temporal-shift-module).
+
+More details about the shift module(which is the core of TSM) could to [test_shift.py](./test_shift.py).
+
+## Tutorial
+
++ An example of this could refer to [demo.sh](./demo.sh)
+  + Requirements: Successfully installed `torch>=1.3.0, torchvision`
 
 + Step 1: Train/Download TSM-R50 checkpoints from [offical Github repo](https://github.com/mit-han-lab/temporal-shift-module) or [MMAction2](https://github.com/open-mmlab/mmaction2)
   + Mutable configs: `num_segments`, `shift_div`, `num_classes`.
@@ -30,8 +37,7 @@ SHIFT_DIV = 8
 + Step 4: Inference with `tsm_r50.py`.
 
 ```shell
-usage: tsm_r50.py [-h] [--tensorrt-weights TENSORRT_WEIGHTS] [--input-video INPUT_VIDEO] [--save-engine-path SAVE_ENGINE_PATH] [--load-engine-path LOAD_ENGINE_PATH] [--test-mmaction2]
-                  [--mmaction2-config MMACTION2_CONFIG] [--mmaction2-checkpoint MMACTION2_CHECKPOINT]
+usage: tsm_r50.py [-h] [--tensorrt-weights TENSORRT_WEIGHTS] [--input-video INPUT_VIDEO] [--save-engine-path SAVE_ENGINE_PATH] [--load-engine-path LOAD_ENGINE_PATH] [--test-mmaction2] [--mmaction2-config MMACTION2_CONFIG] [--mmaction2-checkpoint MMACTION2_CHECKPOINT]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -48,43 +54,6 @@ optional arguments:
                         Path to MMAction2 config file
   --mmaction2-checkpoint MMACTION2_CHECKPOINT
                         Path to MMAction2 checkpoint url or file path
-```
-
-### Script
-
-```shell
-# Step 1: Get checkpoints from mmaction2
-# https://github.com/open-mmlab/mmaction2/tree/master/configs/recognition/tsm
-wget https://download.openmmlab.com/mmaction/recognition/tsm/tsm_r50_1x1x8_50e_kinetics400_rgb/tsm_r50_1x1x8_50e_kinetics400_rgb_20200607-af7fb746.pth
-
-# Step 2: Convert checkpoints
-python gen_wts.py tsm_r50_1x1x8_50e_kinetics400_rgb_20200607-af7fb746.pth --out-filename ./tsm_r50_kinetics400_mmaction2.wts
-
-# Step 3: Skip this step since we use default settings.
-
-# Step 4: Inference
-# 1) Save local engine file to `./tsm_r50_kinetics400_mmaction2.trt`.
-python tsm_r50.py \
-    --tensorrt-weights ./tsm_r50_kinetics400_mmaction2.wts \
-    --save-engine-path ./tsm_r50_kinetics400_mmaction2.trt
-
-# 2) Predict the recognition result using a single video `demo.mp4`.
-#    Should print `Result class id 6`, aka `arm wrestling`
-# Download demo video
-wget https://raw.githubusercontent.com/open-mmlab/mmaction2/master/demo/demo.mp4
-# use *.wts as input
-python tsm_r50.py --tensorrt-weights ./tsm_r50_kinetics400_mmaction2.wts \
-    --input-video ./demo.mp4
-# use engine file as input
-python tsm_r50.py --load-engine-path ./tsm_r50_kinetics400_mmaction2.trt \
-    --input-video ./demo.mp4
-
-# 3) Optional: Compare inference result with MMAction2 TSM-R50 model
-#    Have to install MMAction2 First, please refer to https://github.com/open-mmlab/mmaction2/blob/master/docs/install.md
-python tsm_r50.py ./tsm_r50_kinetics400_mmaction2.wts \
-    --test-mmaction2 \
-    --mmaction2-config mmaction2_tsm_r50_config.py \
-    --mmaction2-checkpoint tsm_r50_1x1x8_50e_kinetics400_rgb_20200607-af7fb746.pth
 ```
 
 ## TODO
