@@ -29,7 +29,7 @@ def load_weights(file):
 
     weight_map = {}
     with open(file, "r") as f:
-        lines = f.readlines()
+        lines = [line.strip() for line in f]
     count = int(lines[0])
     assert count == len(lines) - 1
     for i in range(1, count + 1):
@@ -138,7 +138,7 @@ def bottleneck(network, weight_map, input, in_channels, out_channels, stride,
     return relu3
 
 
-def createLenetEngine(maxBatchSize, builder, config, dt):
+def create_engine(maxBatchSize, builder, config, dt):
     weight_map = load_weights(WEIGHT_PATH)
     network = builder.create_network()
 
@@ -233,7 +233,7 @@ def createLenetEngine(maxBatchSize, builder, config, dt):
 def APIToModel(maxBatchSize):
     builder = trt.Builder(TRT_LOGGER)
     config = builder.create_builder_config()
-    engine = createLenetEngine(maxBatchSize, builder, config, trt.float32)
+    engine = create_engine(maxBatchSize, builder, config, trt.float32)
     assert engine
     with open(ENGINE_PATH, "wb") as f:
         f.write(engine.serialize())
