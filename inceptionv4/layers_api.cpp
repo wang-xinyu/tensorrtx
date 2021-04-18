@@ -42,7 +42,6 @@ namespace trtxlayers {
         return scale_1;
     }
 
-
     IActivationLayer* basicConv2d(
         INetworkDefinition *network,
         std::map<std::string, Weights>& weightMap, 
@@ -66,7 +65,7 @@ namespace trtxlayers {
         IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv -> getOutput(0), lname + [".bn"], 1e-3);
         
         IActivationLayer* relu = network -> addActivation(*bn -> getOutput(0), ActivationType::kRELU);
-        assert(relu);
+        assert(relu); 
         return relu;
     }
 
@@ -92,7 +91,6 @@ namespace trtxlayers {
         return cat;
     }
 
-
     IConcatenationLayer* mixed_4a(
         INetworkDefinition *network,
         std::map<std::string, Weights>& weightMap, 
@@ -117,7 +115,6 @@ namespace trtxlayers {
         return cat;
     }
 
-
     IConcatenationLayer* mixed_5a(
         INetworkDefinition *network,
         std::map<std::string, Weights>& weightMap, 
@@ -139,7 +136,6 @@ namespace trtxlayers {
         assert(cat);
         return cat
     }
-
 
     IConcatenationLayer* inceptionA(
         INetworkDefinition *network,
@@ -172,10 +168,10 @@ namespace trtxlayers {
         ITensor* inputTensors[] = { relu0 -> getOutput(0), relu1 -> getOutput(0), relu2 -> getOutput(0), relu3 -> getOutput(0)};
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 4);
         assert(cat);
+
         return cat
 
     }
-
 
     IConcatenationLayer* reductionA(
         INetworkDefinition *network,
@@ -310,7 +306,6 @@ namespace trtxlayers {
         ITensor* inputTensors[] = { relu0 -> getOutput(0), cat1 -> getOutput(0), cat2 -> getOutput(0), relu3 -> getOutput(0) };
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 4);
         assert(cat);
-
         return cat;
     }
 }
