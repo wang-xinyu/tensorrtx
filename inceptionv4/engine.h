@@ -27,6 +27,9 @@ namespace trtx {
         InceptionInferEngine(const EngineConfig &cfg);
         ~InceptionInferEngine();
 
+        bool doInference(const int inferBatchSize);
+        float* getOutput() { return prob; }
+
     private:
         InceptionInferEngine engineConfig;
         float* data{nullptr};
@@ -42,6 +45,11 @@ namespace trtx {
         int outputIndex;
 
         int inputSize;
+
+        nvinfer1::IRuntime runtime{ nullptr };
+        nvinfer1::ICudaEngine engine{ nullptr };
+        nvinfer1::IExecutionContext context{ nullptr };
+        std::shared_ptr<cudaStream_t> cudaStreamptr;
     };
 }
 
