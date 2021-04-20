@@ -1,9 +1,3 @@
-#include "RpnDecodePlugin.h"
-#include "cuda_utils.h"
-
-#include <algorithm>
-#include <cstdint>
-
 #include <thrust/device_ptr.h>
 #include <thrust/sequence.h>
 #include <thrust/execution_policy.h>
@@ -12,6 +6,12 @@
 #include <thrust/count.h>
 #include <thrust/find.h>
 #include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+
+#include <algorithm>
+#include <cstdint>
+
+#include "RpnDecodePlugin.h"
+#include "./cuda_utils.h"
 
 namespace nvinfer1 {
 
@@ -33,8 +33,12 @@ int rpnDecode(int batch_size,
 
         size_t temp_size_sort = 0;
         if (scores_size > top_n) {
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void *)nullptr, temp_size_sort,
-                (float *)nullptr, (float *)nullptr, (int *)nullptr, (int *)nullptr, scores_size);
+            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+                static_cast<void*>(nullptr), temp_size_sort,
+                static_cast<float*>(nullptr),
+                static_cast<float*>(nullptr),
+                static_cast<int*>(nullptr),
+                static_cast<int*>(nullptr), scores_size);
             workspace_size += temp_size_sort;
         }
 
@@ -108,8 +112,8 @@ int rpnDecode(int batch_size,
                 box = float4{
                   max(0.0f, pred_ctr_x - 0.5f * pred_w),
                   max(0.0f, pred_ctr_y - 0.5f * pred_h),
-                  min(pred_ctr_x + 0.5f * pred_w, (float)image_width),
-                  min(pred_ctr_y + 0.5f * pred_h, (float)image_height)
+                  min(pred_ctr_x + 0.5f * pred_w, static_cast<float>(image_width)),
+                  min(pred_ctr_y + 0.5f * pred_h, static_cast<float>(image_height))
                 };
             }
             // filter empty boxes

@@ -13,11 +13,10 @@ using namespace nvinfer1;
 
 namespace nvinfer1 {
 
-int rpnDecode(int batchSize,
-    const void *const *inputs, void **outputs,
-    size_t height, size_t width, size_t image_height, size_t image_width, float stride,
-    const std::vector<float> &anchors, int top_n,
-    void *workspace, size_t workspace_size, cudaStream_t stream);
+int rpnDecode(int batchSize, const void *const *inputs,
+void **outputs, size_t height, size_t width, size_t image_height,
+size_t image_width, float stride, const std::vector<float> &anchors,
+int top_n, void *workspace, size_t workspace_size, cudaStream_t stream);
 
 /*
     input1: scores{C,H,W} C->anchors
@@ -37,7 +36,7 @@ class RpnDecodePlugin : public IPluginV2Ext {
     size_t _image_width;  // for cliping the boxes by limiting x coordinates to the range [0, width]
     mutable int size = -1;
 
-protected:
+ protected:
     void deserialize(void const* data, size_t length) {
         const char* d = static_cast<const char*>(data);
         read(d, _top_n);
@@ -75,7 +74,7 @@ protected:
         write(d, _image_width);
     }
 
-public:
+ public:
     RpnDecodePlugin(int top_n, std::vector<float> const& anchors, float stride, size_t image_height, size_t image_width)
         :  _top_n(top_n), _anchors(anchors), _stride(stride), _image_height(image_height), _image_width(image_width) {}
 
@@ -174,7 +173,7 @@ public:
         return new RpnDecodePlugin(_top_n, _anchors, _stride, _height, _width, _image_height, _image_width);
     }
 
-private:
+ private:
     template<typename T> void write(char*& buffer, const T& val) const {
         *reinterpret_cast<T*>(buffer) = val;
         buffer += sizeof(T);
@@ -187,7 +186,7 @@ private:
 };
 
 class RpnDecodePluginCreator : public IPluginCreator {
-public:
+ public:
     RpnDecodePluginCreator() {}
 
     const char *getPluginName() const override {

@@ -1,5 +1,7 @@
-#include "RpnNmsPlugin.h"
-#include "cuda_utils.h"
+#include <cuda.h>
+#include <thrust/device_ptr.h>
+#include <thrust/gather.h>
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
 
 #include <algorithm>
 #include <iostream>
@@ -8,10 +10,8 @@
 #include <vector>
 #include <cmath>
 
-#include <cuda.h>
-#include <thrust/device_ptr.h>
-#include <thrust/gather.h>
-#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include "RpnNmsPlugin.h"
+#include "./cuda_utils.h"
 
 namespace nvinfer1 {
 
@@ -61,8 +61,12 @@ namespace nvinfer1 {
             workspace_size += get_size_aligned<float>(pre_nms_topk);  // scores_sorted
 
             size_t temp_size_sort = 0;
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void *)nullptr, temp_size_sort,
-                (float *)nullptr, (float *)nullptr, (int *)nullptr, (int *)nullptr, pre_nms_topk);
+            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+                static_cast<void*>(nullptr), temp_size_sort,
+                static_cast<float*>(nullptr),
+                static_cast<float*>(nullptr),
+                static_cast<int*>(nullptr),
+                static_cast<int*>(nullptr), pre_nms_topk);
             workspace_size += temp_size_sort;
 
             return workspace_size;
@@ -87,12 +91,13 @@ namespace nvinfer1 {
 
             int num_detections = pre_nms_topk;
             thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
-                in_scores, scores_sorted, indices, indices_sorted, num_detections, 0, sizeof(*scores_sorted) * 8, stream);
+                in_scores, scores_sorted, indices, indices_sorted, num_detections, 0,
+                sizeof(*scores_sorted) * 8, stream);
 
             // Launch actual NMS kernel - 1 block with each thread handling n detections
             // TODO: different device has differnet max threads
             const int max_threads = 1024;
-            int num_per_thread = ceil((float)num_detections / max_threads);
+            int num_per_thread = ceil(static_cast<float>(num_detections) / max_threads);
             rpn_nms_kernel << <1, max_threads, 0, stream >> > (num_per_thread, nms_thresh, num_detections,
                 indices_sorted, scores_sorted, in_boxes);
 

@@ -14,8 +14,10 @@ using namespace nvinfer1;
 namespace nvinfer1 {
 
 int predictorDecode(int batchSize,
-    const void *const *inputs, void **outputs, unsigned int num_boxes, unsigned int num_classes, unsigned int image_height,
-    unsigned int image_width, const std::vector<float>& bbox_reg_weights, void *workspace, size_t workspace_size, cudaStream_t stream);
+const void *const *inputs, void **outputs, unsigned int num_boxes,
+unsigned int num_classes, unsigned int image_height,
+unsigned int image_width, const std::vector<float>& bbox_reg_weights,
+void *workspace, size_t workspace_size, cudaStream_t stream);
 
 /*
     input1: scores{N,C,1,1} N->nums C->num of classes
@@ -34,7 +36,7 @@ class PredictorDecodePlugin : public IPluginV2Ext {
     std::vector<float> _bbox_reg_weights;
     mutable int size = -1;
 
-protected:
+ protected:
     void deserialize(void const* data, size_t length) {
         const char* d = static_cast<const char*>(data);
         read(d, _num_boxes);
@@ -51,7 +53,9 @@ protected:
     }
 
     size_t getSerializationSize() const override {
-        return sizeof(_num_boxes) + sizeof(_num_classes) + sizeof(_image_height) + sizeof(_image_width) + sizeof(size_t) + sizeof(float)*_bbox_reg_weights.size();
+        return sizeof(_num_boxes) + sizeof(_num_classes) +
+        sizeof(_image_height) + sizeof(_image_width) + sizeof(size_t) +
+        sizeof(float)*_bbox_reg_weights.size();
     }
 
     void serialize(void *buffer) const override {
@@ -66,14 +70,18 @@ protected:
         }
     }
 
-public:
-    PredictorDecodePlugin(unsigned int num_boxes, unsigned int image_height, unsigned int image_width, std::vector<float> const& bbox_reg_weights)
-        : _num_boxes(num_boxes), _image_height(image_height), _image_width(image_width), _bbox_reg_weights(bbox_reg_weights) {}
+ public:
+    PredictorDecodePlugin(unsigned int num_boxes, unsigned int image_height,
+    unsigned int image_width, std::vector<float> const& bbox_reg_weights)
+        : _num_boxes(num_boxes), _image_height(image_height),
+        _image_width(image_width), _bbox_reg_weights(bbox_reg_weights) {}
 
-    PredictorDecodePlugin(unsigned int num_boxes, unsigned int num_classes, unsigned int image_height, unsigned int image_width,
-        std::vector<float> const& bbox_reg_weights)
-        : _num_boxes(num_boxes), _num_classes(num_classes), _image_height(image_height), _image_width(image_width),
-    _bbox_reg_weights(bbox_reg_weights) {}
+    PredictorDecodePlugin(unsigned int num_boxes, unsigned int num_classes,
+    unsigned int image_height, unsigned int image_width,
+    std::vector<float> const& bbox_reg_weights)
+        : _num_boxes(num_boxes), _num_classes(num_classes),
+        _image_height(image_height), _image_width(image_width),
+        _bbox_reg_weights(bbox_reg_weights) {}
 
     PredictorDecodePlugin(void const* data, size_t length) {
         this->deserialize(data, length);
@@ -108,8 +116,9 @@ public:
 
     size_t getWorkspaceSize(int maxBatchSize) const override {
         if (size < 0) {
-            size = predictorDecode(maxBatchSize, nullptr, nullptr, _num_boxes, _num_classes, _image_height, _image_width, _bbox_reg_weights,
-                nullptr, 0, nullptr);
+            size = predictorDecode(maxBatchSize, nullptr, nullptr,
+            _num_boxes, _num_classes, _image_height, _image_width,
+            _bbox_reg_weights, nullptr, 0, nullptr);
         }
         return size;
     }
@@ -117,8 +126,9 @@ public:
     int enqueue(int batchSize,
         const void *const *inputs, void **outputs,
         void *workspace, cudaStream_t stream) override {
-        return predictorDecode(batchSize, inputs, outputs, _num_boxes, _num_classes, _image_height, _image_width, _bbox_reg_weights,
-            workspace, getWorkspaceSize(batchSize), stream);
+        return predictorDecode(batchSize, inputs, outputs, _num_boxes,
+        _num_classes, _image_height, _image_width, _bbox_reg_weights,
+        workspace, getWorkspaceSize(batchSize), stream);
     }
 
     void destroy() override {
@@ -166,7 +176,7 @@ public:
         return new PredictorDecodePlugin(_num_boxes, _num_classes, _image_height, _image_width, _bbox_reg_weights);
     }
 
-private:
+ private:
     template<typename T> void write(char*& buffer, const T& val) const {
         *reinterpret_cast<T*>(buffer) = val;
         buffer += sizeof(T);
@@ -179,7 +189,7 @@ private:
 };
 
 class PredictorDecodePluginCreator : public IPluginCreator {
-public:
+ public:
     PredictorDecodePluginCreator() {}
 
     const char *getPluginName() const override {
