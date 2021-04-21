@@ -12,8 +12,10 @@ using namespace nvinfer1;
 #define PLUGIN_NAMESPACE ""
 
 namespace nvinfer1 {
-int roiAlign(int batchSize, const void *const *inputs, void **outputs, int pooler_resolution, float spatial_scale,
-    int sampling_ratio, int num_proposals, int out_channels, int feature_h, int feature_w, cudaStream_t stream);
+int roiAlign(int batchSize, const void *const *inputs, void **outputs,
+int pooler_resolution, float spatial_scale, int sampling_ratio,
+int num_proposals, int out_channels, int feature_h, int feature_w,
+cudaStream_t stream);
 
     /*
         input1: boxes{N,4} N->post_nms_topk
@@ -30,7 +32,7 @@ class RoiAlignPlugin : public IPluginV2Ext {
     int _feature_h;
     int _feature_w;
 
-protected:
+ protected:
     void deserialize(void const* data, size_t length) {
         const char* d = static_cast<const char*>(data);
         read(d, _pooler_resolution);
@@ -58,7 +60,7 @@ protected:
         write(d, _feature_w);
     }
 
-public:
+ public:
     RoiAlignPlugin(int pooler_resolution, float spatial_scale, int sampling_ratio, int num_proposals,
         int out_channels)
         : _pooler_resolution(pooler_resolution), _spatial_scale(spatial_scale), _sampling_ratio(sampling_ratio),
@@ -154,7 +156,7 @@ public:
             _out_channels, _feature_h, _feature_w);
     }
 
-private:
+ private:
     template<typename T> void write(char*& buffer, const T& val) const {
         *reinterpret_cast<T*>(buffer) = val;
         buffer += sizeof(T);
@@ -167,7 +169,7 @@ private:
 };
 
 class RoiAlignPluginCreator : public IPluginCreator {
-public:
+ public:
     RoiAlignPluginCreator() {}
 
     const char *getPluginName() const override {

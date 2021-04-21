@@ -1,19 +1,21 @@
 #pragma once
 
+#include <NvInfer.h>
+#include <cuda_runtime_api.h>
+#include <assert.h>
+#include <dirent.h>
+
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include <assert.h>
 #include <string>
 #include <vector>
 #include <map>
 #include <algorithm>
-#include <NvInfer.h>
-#include <dirent.h>
-#include <cuda_runtime_api.h>
-#include "logging.h"
+
 #include <opencv2/opencv.hpp>
-#include "cuda_utils.h"
+#include "./logging.h"
+#include "./cuda_utils.h"
 
 static Logger gLogger;
 

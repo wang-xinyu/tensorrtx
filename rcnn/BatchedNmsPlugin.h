@@ -32,7 +32,7 @@ class BatchedNmsPlugin : public IPluginV2Ext {
 
     size_t _count;
 
-protected:
+ protected:
     void deserialize(void const* data, size_t length) {
         const char* d = static_cast<const char*>(data);
         read(d, _nms_thresh);
@@ -52,7 +52,7 @@ protected:
         write(d, _count);
     }
 
-public:
+ public:
     BatchedNmsPlugin(float nms_thresh, int detections_per_im)
         : _nms_thresh(nms_thresh), _detections_per_im(detections_per_im) {
         assert(nms_thresh > 0);
@@ -154,7 +154,7 @@ public:
         return new BatchedNmsPlugin(_nms_thresh, _detections_per_im, _count);
     }
 
-private:
+ private:
     template<typename T> void write(char*& buffer, const T& val) const {
         *reinterpret_cast<T*>(buffer) = val;
         buffer += sizeof(T);
@@ -167,7 +167,7 @@ private:
 };
 
 class BatchedNmsPluginCreator : public IPluginCreator {
-public:
+ public:
     BatchedNmsPluginCreator() {}
 
     const char *getPluginNamespace() const override {

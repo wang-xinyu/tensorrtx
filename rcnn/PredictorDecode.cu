@@ -1,9 +1,3 @@
-#include "PredictorDecodePlugin.h"
-#include "cuda_utils.h"
-
-#include <algorithm>
-#include <cstdint>
-
 #include <thrust/device_ptr.h>
 #include <thrust/sequence.h>
 #include <thrust/execution_policy.h>
@@ -11,12 +5,19 @@
 #include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
 #include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
 
+#include <algorithm>
+#include <cstdint>
+
+#include "PredictorDecodePlugin.h"
+#include "./cuda_utils.h"
+
 namespace nvinfer1 {
 
-int predictorDecode(int batchSize, const void *const *inputs, void **outputs, unsigned int num_boxes, unsigned int num_classes,
-    unsigned int image_height, unsigned int image_width, const std::vector<float>& bbox_reg_weights, void *workspace, size_t workspace_size,
-    cudaStream_t stream) {
-
+int predictorDecode(int batchSize, const void *const *inputs,
+void **outputs, unsigned int num_boxes, unsigned int num_classes,
+unsigned int image_height, unsigned int image_width,
+const std::vector<float>& bbox_reg_weights, void *workspace,
+size_t workspace_size, cudaStream_t stream) {
     int scores_size = num_boxes * num_classes;
 
     if (!workspace || !workspace_size) {
@@ -27,15 +28,22 @@ int predictorDecode(int batchSize, const void *const *inputs, void **outputs, un
         workspace_size += get_size_aligned<float>(scores_size);    // scores_sorted
 
         size_t temp_size_sort = 0;
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending((void *)nullptr, temp_size_sort,
-            (float *)nullptr, (float *)nullptr, (int *)nullptr, (int *)nullptr, scores_size);
+        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+            static_cast<void*>(nullptr), temp_size_sort,
+            static_cast<float*>(nullptr),
+            static_cast<float*>(nullptr),
+            static_cast<int*>(nullptr),
+            static_cast<int*>(nullptr),
+            scores_size);
         workspace_size += temp_size_sort;
 
         return workspace_size;
     }
 
     auto bbox_reg_weights_d = get_next_ptr<float>(bbox_reg_weights.size(), workspace, workspace_size);
-    cudaMemcpyAsync(bbox_reg_weights_d, bbox_reg_weights.data(), bbox_reg_weights.size() * sizeof *bbox_reg_weights_d, cudaMemcpyHostToDevice, stream);
+    cudaMemcpyAsync(bbox_reg_weights_d, bbox_reg_weights.data(),
+    bbox_reg_weights.size() * sizeof *bbox_reg_weights_d,
+    cudaMemcpyHostToDevice, stream);
 
     auto on_stream = thrust::cuda::par.on(stream);
 
@@ -79,8 +87,8 @@ int predictorDecode(int batchSize, const void *const *inputs, void **outputs, un
             boxes = float4{
               max(0.0f, pred_ctr_x - 0.5f * pred_w),
               max(0.0f, pred_ctr_y - 0.5f * pred_h),
-              min(pred_ctr_x + 0.5f * pred_w, (float)image_width),
-              min(pred_ctr_y + 0.5f * pred_h, (float)image_width)
+              min(pred_ctr_x + 0.5f * pred_w, static_cast<float>(image_width)),
+              min(pred_ctr_y + 0.5f * pred_h, static_cast<float>(image_width))
             };
 
             // filter empty boxes

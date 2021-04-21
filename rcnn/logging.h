@@ -29,7 +29,7 @@
 using Severity = nvinfer1::ILogger::Severity;
 
 class LogStreamConsumerBuffer : public std::stringbuf {
-public:
+ public:
     LogStreamConsumerBuffer(std::ostream& stream, const std::string& prefix, bool shouldLog)
         : mOutput(stream)
         , mPrefix(prefix)
@@ -82,7 +82,7 @@ public:
         mShouldLog = shouldLog;
     }
 
-private:
+ private:
     std::ostream& mOutput;
     std::string mPrefix;
     bool mShouldLog;
@@ -93,11 +93,11 @@ private:
 //! \brief Convenience object used to initialize LogStreamConsumerBuffer before std::ostream in LogStreamConsumer
 //!
 class LogStreamConsumerBase {
-public:
+ public:
     LogStreamConsumerBase(std::ostream& stream, const std::string& prefix, bool shouldLog)
         : mBuffer(stream, prefix, shouldLog) {}
 
-protected:
+ protected:
     LogStreamConsumerBuffer mBuffer;
 };
 
@@ -111,7 +111,7 @@ protected:
 //!  Please do not change the order of the parent classes.
 //!
 class LogStreamConsumer : protected LogStreamConsumerBase, public std::ostream {
-public:
+ public:
     //! \brief Creates a LogStreamConsumer which logs messages with level severity.
     //!  Reportable severity determines if the messages are severe enough to be logged.
     LogStreamConsumer(Severity reportableSeverity, Severity severity)
@@ -131,7 +131,7 @@ public:
         mBuffer.setShouldLog(mShouldLog);
     }
 
-private:
+ private:
     static std::ostream& severityOstream(Severity severity) {
         return severity >= Severity::kINFO ? std::cout : std::cerr;
     }
@@ -176,8 +176,8 @@ private:
 //! object.
 
 class Logger : public nvinfer1::ILogger {
-public:
-    Logger(Severity severity = Severity::kWARNING)
+ public:
+    explicit Logger(Severity severity = Severity::kWARNING)
         : mReportableSeverity(severity) {}
 
     //!
@@ -229,10 +229,10 @@ public:
     //! with Logger::reportTest{Start,End}().
     //!
     class TestAtom {
-    public:
+     public:
         TestAtom(TestAtom&&) = default;
 
-    private:
+     private:
         friend class Logger;
 
         TestAtom(bool started, const std::string& name, const std::string& cmdline)
@@ -325,7 +325,7 @@ public:
         return mReportableSeverity;
     }
 
-private:
+ private:
     //!
     //! \brief returns an appropriate string for prefixing a log message with the given severity
     //!
