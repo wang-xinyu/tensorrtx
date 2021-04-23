@@ -399,7 +399,33 @@ def main(args):
         assert_array_almost_equal(host_out.reshape(-1),
                                   pytorch_results.reshape(-1),
                                   decimal=4)
-        print("TEST PASSED")
+        print("MMAction2 TEST PASSED")
+
+    if args.test_cpp:
+        assert args.cpp_result_path, "Should set --cpp-result-path"
+        assert os.path.exists(args.cpp_result_path),\
+            f"{args.cpp_result} doesn't exist"
+
+        # C++ API fixed inputs
+        inputs = np.ones((BATCH_SIZE, NUM_SEGMENTS, 3, INPUT_H, INPUT_W),
+                         dtype=np.float32)
+
+        # TensorRT inference
+        np.copyto(host_in, inputs.ravel())
+        do_inference(context, host_in, host_out, BATCH_SIZE)
+
+        # Read cpp inference results
+        with open(args.cpp_result_path, "r") as f:
+            data = f.read().strip()
+        cpp_results = np.array([float(d)
+                                for d in data.split(" ")]).astype(np.float32)
+
+        # test
+        from numpy.testing import assert_array_almost_equal
+        assert_array_almost_equal(host_out.reshape(-1),
+                                  cpp_results.reshape(-1),
+                                  decimal=4)
+        print("CPP TEST PASSED")
 
     if args.input_video:
         # Get ONE prediction result from ONE video
@@ -467,5 +493,12 @@ if __name__ == '__main__':
                         type=str,
                         default=None,
                         help="Path to MMAction2 checkpoint url or file path")
+    parser.add_argument("--test-cpp",
+                        action='store_true',
+                        help="Compare Python API results with C++ API results")
+    parser.add_argument("--cpp-result-path",
+                        type=str,
+                        default='./build/result.txt',
+                        help="Path to C++ API results")
 
     main(parser.parse_args())
