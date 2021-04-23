@@ -192,12 +192,11 @@ IActivationLayer* bottleneck(INetworkDefinition *network, std::map<std::string, 
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, DataType dt)
 {
-    // INetworkDefinition* network = builder->createNetwork();
-    INetworkDefinition* network = builder->createNetworkV2(0U);
+    INetworkDefinition* network = builder->createNetwork();
 
-    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
+    // Create input tensor of shape {NUM_SEGMENTS, 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{NUM_SEGMENTS, 3, INPUT_H, INPUT_W});
     assert(data);
     print("input", data);
@@ -269,8 +268,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    ICudaEngine* engine = builder->buildCudaEngine(*network);
 
     // Don't need the network any more
     network->destroy();
@@ -288,10 +286,9 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
-    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -300,7 +297,6 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
     // Close everything down
     engine->destroy();
     builder->destroy();
-    config->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
@@ -341,8 +337,8 @@ int main(int argc, char** argv)
 {
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./resnet -s   // serialize model to plan file" << std::endl;
-        std::cerr << "./resnet -d   // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./tsm_r50 -s   // serialize model to plan file" << std::endl;
+        std::cerr << "./tsm_r50 -d   // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
