@@ -6,6 +6,7 @@
 #include "RoiAlignPlugin.h"
 #include "PredictorDecodePlugin.h"
 #include "BatchedNmsPlugin.h"
+#include "MaskRcnnInferencePlugin.h"
 #include "calibrator.hpp"
 
 #define DEVICE 0
@@ -36,10 +37,11 @@ static constexpr float NMS_THRESH_TEST = 0.5;
 static constexpr int DETECTIONS_PER_IMAGE = 100;
 static constexpr float SCORE_THRESH = 0.6;
 static const std::vector<float> BBOX_REG_WEIGHTS = { 10.0, 10.0, 5.0, 5.0 };
+static bool MASK_ON = false;
 
 static const char* INPUT_NODE_NAME = "images";
 static const std::vector<std::string> OUTPUT_NAMES = { "scores", "boxes",
-"labels" };
+"labels", "masks" };
 
 std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes,
 const std::vector<float>& aspect_ratios) {
@@ -175,16 +177,23 @@ std::map<std::string, Weights>& weightMap, ITensor& features,
     return nmsLayer->getOutput(0);
 }
 
-std::vector<ITensor*> ROIHeads(INetworkDefinition *network, std::map<std::string, Weights>& weightMap,
-ITensor& proposals, ITensor& features) {
-    std::vector<ITensor*> roi_inputs = { &proposals, &features };
-    auto roiAlignPlugin = RoiAlignPlugin(POOLER_RESOLUTION, 1 / static_cast<float>(STRIDES), SAMPLING_RATIO,
-    POST_NMS_TOPK, features.getDimensions().d[0]);
+ITensor* SharedRoiTransform(INetworkDefinition *network, std::map<std::string, Weights>& weightMap,
+ITensor* proposals, ITensor* features, int num_proposals) {
+    std::vector<ITensor*> roi_inputs = { proposals, features };
+    auto roiAlignPlugin = RoiAlignPlugin(POOLER_RESOLUTION, 1 / static_cast<float>(STRIDES),
+    SAMPLING_RATIO, num_proposals, features->getDimensions().d[0]);
     auto roiAlignLayer = network->addPluginV2(roi_inputs.data(), roi_inputs.size(), roiAlignPlugin);
 
     // res5
-    auto box_features = MakeStage(network, weightMap, "roi_heads.res5", *roiAlignLayer->getOutput(0),
-    num_blocks_per_stage.at(BACKBONE_RESNETTYPE)[3], 1024, 512, 2048, 2);
+    auto box_features = MakeStage(network, weightMap, "roi_heads.res5",
+    *roiAlignLayer->getOutput(0), 3, 1024, 512, 2048, 2);
+    return box_features;
+}
+
+void BoxHead(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor* proposals,
+    ITensor* features, std::vector<ITensor*>& instances) {
+
+    auto box_features = SharedRoiTransform(network, weightMap, proposals, features, POST_NMS_TOPK);
     auto box_features_mean = network->addReduce(*box_features, ReduceOperation::kAVG, 12, true);
 
     // score
@@ -203,24 +212,72 @@ ITensor& proposals, ITensor& features) {
 
     // decode
     std::vector<ITensor*> predictorDecodeInput = { score_slice->getOutput(0),
-    proposal_deltas->getOutput(0), &proposals };
+    proposal_deltas->getOutput(0), proposals };
     auto predictorDecodePlugin = PredictorDecodePlugin(probs_dim.d[0], IMAGE_HEIGHT, IMAGE_WIDTH, BBOX_REG_WEIGHTS);
-    auto predictorDecodeLayer = network->addPluginV2(predictorDecodeInput.data(), predictorDecodeInput.size(),
-    predictorDecodePlugin);
+    auto predictorDecodeLayer = network->addPluginV2(predictorDecodeInput.data(),
+    predictorDecodeInput.size(), predictorDecodePlugin);
 
     // nms
-    std::vector<ITensor*> nmsInput = { predictorDecodeLayer->getOutput(0), predictorDecodeLayer->getOutput(1),
-    predictorDecodeLayer->getOutput(2) };
+    std::vector<ITensor*> nmsInput = { predictorDecodeLayer->getOutput(0),
+    predictorDecodeLayer->getOutput(1), predictorDecodeLayer->getOutput(2) };
     auto batchedNmsPlugin = BatchedNmsPlugin(NMS_THRESH_TEST, DETECTIONS_PER_IMAGE);
     auto batchedNmsLayer = network->addPluginV2(nmsInput.data(), nmsInput.size(), batchedNmsPlugin);
-    std::vector<ITensor*> result = { batchedNmsLayer->getOutput(0), batchedNmsLayer->getOutput(1),
-    batchedNmsLayer->getOutput(2) };
-    return result;
+
+    // instances
+    instances.push_back(batchedNmsLayer->getOutput(0));
+    instances.push_back(batchedNmsLayer->getOutput(1));
+    instances.push_back(batchedNmsLayer->getOutput(2));
+}
+
+void MaskHead(INetworkDefinition *network, std::map<std::string, Weights>& weightMap,
+    ITensor* features, std::vector<ITensor*>& instances, int out_channels = 256) {
+
+    auto mask_features = SharedRoiTransform(network, weightMap, instances[1], features, DETECTIONS_PER_IMAGE);
+
+    // mask_fcn
+    auto mask_deconv = network->addDeconvolutionNd(*mask_features, out_channels, DimsHW{ 2, 2 },
+    weightMap["roi_heads.mask_head.deconv.weight"],
+    weightMap["roi_heads.mask_head.deconv.bias"]);
+    mask_deconv->setStrideNd(DimsHW{ 2, 2 });
+    auto deconv_relu = network->addActivation(*mask_deconv->getOutput(0), ActivationType::kRELU);
+    assert(deconv_relu);
+    auto predictor = network->addConvolutionNd(*deconv_relu->getOutput(0), NUM_CLASSES, DimsHW{ 1, 1 },
+    weightMap["roi_heads.mask_head.predictor.weight"],
+    weightMap["roi_heads.mask_head.predictor.bias"]);
+    predictor->setStrideNd(DimsHW{ 1, 1 });
+
+    ITensor* masks;
+    if (NUM_CLASSES == 1) {
+        auto mask_probs_pred = network->addActivation(*predictor->getOutput(0), ActivationType::kSIGMOID);
+        masks = mask_probs_pred->getOutput(0);
+    } else {
+        std::vector<ITensor*> mask_rcnn_inference_inputs = { instances[2], predictor->getOutput(0) };
+        auto maskRcnnInferencePlugin = MaskRcnnInferencePlugin(DETECTIONS_PER_IMAGE, POOLER_RESOLUTION);
+        auto maskRcnnInferenceLayer = network->addPluginV2(mask_rcnn_inference_inputs.data(),
+        mask_rcnn_inference_inputs.size(), maskRcnnInferencePlugin);
+        masks = maskRcnnInferenceLayer->getOutput(0);
+    }
+    instances.push_back(masks);
+}
+
+std::vector<ITensor*> ROIHeads(INetworkDefinition *network, std::map<std::string, Weights>& weightMap,
+ITensor* proposals, ITensor* features) {
+    std::vector<ITensor*> instances;
+
+    // box head
+    BoxHead(network, weightMap, proposals, features, instances);
+
+    if (MASK_ON) {
+        // mask head
+        MaskHead(network, weightMap, features, instances);
+    }
+
+    return instances;
 }
 
 ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
-    const std::string& wtsfile, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& modelType,
-    const std::string& quantizationType, const std::string& calibImgListFile, const std::string& calibFile) {
+    const std::string& wtsfile, IBuilder* builder, IBuilderConfig* config, DataType dt,
+    const std::string& quantizationType) {
     /*
     description: after fuse bn
     */
@@ -239,7 +296,7 @@ ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
     ITensor* features = BuildResNet(network, weightMap, *data, BACKBONE_RESNETTYPE, 64, 64, 256);
 
     auto proposals = RPN(network, weightMap, *features, 1024);
-    auto results = ROIHeads(network, weightMap, *proposals, *features);
+    auto results = ROIHeads(network, weightMap, proposals, features);
 
     // build output
     for (int i = 0; i < results.size(); i++) {
@@ -279,16 +336,13 @@ ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
 }
 
 void BuildRcnnModel(unsigned int maxBatchSize, IHostMemory** modelStream, const std::string& wtsfile,
-const std::string& modelType = "faster",
-const std::string& quantizationType = "fp32",
-const std::string& calibImgListFile = "./imglist.txt",
-const std::string& calibFile = "./calib.table") {
+const std::string& quantizationType = "fp32") {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
 
     ICudaEngine* engine = createEngine_rcnn(maxBatchSize,
-        wtsfile, builder, config, DataType::kFLOAT, modelType, quantizationType, calibImgListFile, calibFile);
+        wtsfile, builder, config, DataType::kFLOAT, quantizationType);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -297,6 +351,27 @@ const std::string& calibFile = "./calib.table") {
     // Close everything down
     engine->destroy();
     builder->destroy();
+}
+
+void doInference(IExecutionContext& context, cudaStream_t& stream, std::vector<void*>& buffers,
+std::vector<float>& input, std::vector<float*>& output) {
+    CUDA_CHECK(cudaMemcpyAsync(buffers[0], input.data(), BATCH_SIZE * INPUT_H * INPUT_W * 3 * sizeof(float),
+    cudaMemcpyHostToDevice, stream));
+
+    context.enqueue(BATCH_SIZE, buffers.data(), stream, nullptr);
+
+    CUDA_CHECK(cudaMemcpyAsync(output[0], buffers[1], BATCH_SIZE * DETECTIONS_PER_IMAGE * sizeof(float),
+    cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output[1], buffers[2], BATCH_SIZE * DETECTIONS_PER_IMAGE * 4 * sizeof(float),
+    cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output[2], buffers[3], BATCH_SIZE * DETECTIONS_PER_IMAGE * sizeof(float),
+    cudaMemcpyDeviceToHost, stream));
+    if (MASK_ON)
+        CUDA_CHECK(cudaMemcpyAsync(output[3], buffers[4],
+        BATCH_SIZE * DETECTIONS_PER_IMAGE * POOLER_RESOLUTION * POOLER_RESOLUTION * sizeof(float),
+        cudaMemcpyDeviceToHost, stream));
+
+    cudaStreamSynchronize(stream);
 }
 
 bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engineFile, std::string& imgDir) {
@@ -310,6 +385,7 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
     } else {
         return false;
     }
+    if (argc >= 5 && std::string(argv[4]) == "m") MASK_ON = true;
     return true;
 }
 
@@ -322,14 +398,14 @@ int main(int argc, char** argv) {
     std::string imgDir;
     if (!parse_args(argc, argv, wtsFile, engineFile, imgDir)) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./rcnn -s [.wts] [.engine] // serialize model to plan file" << std::endl;
-        std::cerr << "./rcnn -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./rcnn -s [.wts] [.engine] [m] // serialize model to plan file" << std::endl;
+        std::cerr << "./rcnn -d [.engine] ../samples [m]  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
     if (!wtsFile.empty()) {
         IHostMemory* modelStream{ nullptr };
-        BuildRcnnModel(BATCH_SIZE, &modelStream, wtsFile, "faster", "fp32");
+        BuildRcnnModel(BATCH_SIZE, &modelStream, wtsFile, "fp32");
         assert(modelStream != nullptr);
         std::ofstream p(engineFile, std::ios::binary);
         if (!p) {
@@ -383,15 +459,27 @@ int main(int argc, char** argv) {
 
     // prepare input data
     std::vector<float> data(BATCH_SIZE * INPUT_H * INPUT_W * 3, 0);
-    void *data_d, *scores_d, *boxes_d, *classes_d;
+    void *data_d, *scores_d, *boxes_d, *classes_d, *masks_d;
     CUDA_CHECK(cudaMalloc(&data_d, BATCH_SIZE * INPUT_H * INPUT_W * 3 * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&scores_d, BATCH_SIZE * DETECTIONS_PER_IMAGE * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&boxes_d, BATCH_SIZE * DETECTIONS_PER_IMAGE * 4 * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&classes_d, BATCH_SIZE * DETECTIONS_PER_IMAGE * sizeof(float)));
 
-    std::unique_ptr<float[]> scores_h(new float[BATCH_SIZE * DETECTIONS_PER_IMAGE]);
-    std::unique_ptr<float[]> boxes_h(new float[BATCH_SIZE * DETECTIONS_PER_IMAGE * 4]);
-    std::unique_ptr<float[]> classes_h(new float[BATCH_SIZE * DETECTIONS_PER_IMAGE]);
+    std::vector<float> scores_h(BATCH_SIZE * DETECTIONS_PER_IMAGE);
+    std::vector<float> boxes_h(BATCH_SIZE * DETECTIONS_PER_IMAGE * 4);
+    std::vector<float> classes_h(BATCH_SIZE * DETECTIONS_PER_IMAGE);
+    std::vector<float> masks_h;
+
+    std::vector<void*> buffers = { data_d, scores_d, boxes_d, classes_d };
+    std::vector<float*> outputs = {scores_h.data(), boxes_h.data(), classes_h.data()};
+
+    if (MASK_ON) {
+        CUDA_CHECK(cudaMalloc(&masks_d,
+        BATCH_SIZE * DETECTIONS_PER_IMAGE * POOLER_RESOLUTION * POOLER_RESOLUTION * sizeof(float)));
+        masks_h.resize(BATCH_SIZE * DETECTIONS_PER_IMAGE * POOLER_RESOLUTION * POOLER_RESOLUTION);
+        buffers.push_back(masks_d);
+        outputs.push_back(masks_h.data());
+    }
 
     int fcount = 0;
     int fileLen = fileList.size();
@@ -410,20 +498,7 @@ int main(int argc, char** argv) {
         // Run inference
         auto start = std::chrono::system_clock::now();
 
-        CUDA_CHECK(cudaMemcpyAsync(data_d, data.data(), BATCH_SIZE * INPUT_H * INPUT_W * 3 * sizeof(float),
-        cudaMemcpyHostToDevice, stream));
-        std::vector<void*> buffers = { data_d, scores_d, boxes_d, classes_d };
-
-        context->enqueue(BATCH_SIZE, buffers.data(), stream, nullptr);
-
-        CUDA_CHECK(cudaMemcpyAsync(scores_h.get(), scores_d, BATCH_SIZE * DETECTIONS_PER_IMAGE * sizeof(float),
-        cudaMemcpyDeviceToHost, stream));
-        CUDA_CHECK(cudaMemcpyAsync(boxes_h.get(), boxes_d, BATCH_SIZE * DETECTIONS_PER_IMAGE * 4 * sizeof(float),
-        cudaMemcpyDeviceToHost, stream));
-        CUDA_CHECK(cudaMemcpyAsync(classes_h.get(), classes_d, BATCH_SIZE * DETECTIONS_PER_IMAGE * sizeof(float),
-        cudaMemcpyDeviceToHost, stream));
-
-        cudaStreamSynchronize(stream);
+        doInference(*context, stream, buffers, data, outputs);
 
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
@@ -447,6 +522,27 @@ int main(int argc, char** argv) {
                     cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
                     cv::putText(img, std::to_string(label), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
                     cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+
+                    if (MASK_ON) {
+                        cv::Mat maskPart = cv::Mat::zeros(cv::Size(POOLER_RESOLUTION, POOLER_RESOLUTION), CV_32FC1);
+                        memcpy(maskPart.data,
+                          &masks_h[b * DETECTIONS_PER_IMAGE * POOLER_RESOLUTION * POOLER_RESOLUTION +
+                          i * POOLER_RESOLUTION * POOLER_RESOLUTION],
+                          POOLER_RESOLUTION * POOLER_RESOLUTION * sizeof(float));
+
+                        cv::Rect r(cv::Point(floor(x1) - 1 < 0 ? 0 : floor(x1) - 1,
+                                             floor(y1) - 1 < 0 ? 0 : floor(y1) - 1),
+                                   cv::Point(ceil(x2) + 1 > INPUT_W ? INPUT_W : ceil(x2) + 1,
+                                             ceil(y2) + 1 > INPUT_H ? INPUT_H : ceil(y2) + 1));
+                        cv::resize(maskPart, maskPart, cv::Size(r.width, r.height));
+                        cv::Mat curMask = cv::Mat::zeros(cv::Size(INPUT_W, INPUT_H), CV_8UC1);
+                        cv::threshold(maskPart, maskPart, 0.5, 255, cv::THRESH_BINARY);
+                        curMask(r) += maskPart;
+                        std::vector<std::vector<cv::Point>> contours;
+                        cv::findContours(curMask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+                        for (int c = 0; c < contours.size(); c++)
+                            cv::drawContours(img, contours, c, cv::Scalar(0, 0, 255));
+                    }
                 }
             }
             cv::imwrite("_" + fileList[f - fcount + 1 + b], img);
@@ -459,6 +555,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(scores_d));
     CUDA_CHECK(cudaFree(boxes_d));
     CUDA_CHECK(cudaFree(classes_d));
+    if (MASK_ON) CUDA_CHECK(cudaFree(masks_d));
     context->destroy();
     engine->destroy();
 

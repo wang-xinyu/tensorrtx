@@ -23,7 +23,7 @@ link_directories(/home/jushi/TensorRT-7.2.1.6/lib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
-cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/BatchedNms.cu ${PROJECT_SOURCE_DIR}/PredictorDecode.cu ${PROJECT_SOURCE_DIR}/RoiAlign.cu ${PROJECT_SOURCE_DIR}/RpnDecode.cu ${PROJECT_SOURCE_DIR}/RpnNms.cu)
+cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/BatchedNms.cu ${PROJECT_SOURCE_DIR}/PredictorDecode.cu ${PROJECT_SOURCE_DIR}/RoiAlign.cu ${PROJECT_SOURCE_DIR}/RpnDecode.cu ${PROJECT_SOURCE_DIR}/RpnNms.cu ${PROJECT_SOURCE_DIR}/MaskRcnnInference.cu)
 target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
