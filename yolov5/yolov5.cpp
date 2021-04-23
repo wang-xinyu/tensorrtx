@@ -45,7 +45,6 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
-    Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
     /* ------ yolov5 backbone------ */
     auto focus0 = focus(network, weightMap, *data, 3, get_width(64, gw), 3, "model.0");
