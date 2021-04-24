@@ -44,9 +44,17 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 
 3. check the images generated, as follows. 0_result.jpg
 
+4. we also provide a python wrapper
+
+```
+// install python-tensorrt, pycuda, etc.
+// ensure the retina_r50.engine and libdecodeplugin.so have been built
+python retinaface_trt.py
+```
+
 # INT8 Quantization
 
-1. Prepare calibration images, you can randomly select 1000s images from your train set. For widerface, you can also download my calibration images `widerface_calib` from [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
+1. Prepare calibration images, you can randomly select 1000s images from your train set. For widerface, you can also download my calibration images `widerface_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
 
 2. unzip it in retinaface/build
 
@@ -60,4 +68,5 @@ sudo ./retina_r50 -d  // deserialize model file and run inference.
 
 ## More Information
 
-See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
+Check the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
+

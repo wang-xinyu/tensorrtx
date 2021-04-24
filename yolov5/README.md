@@ -2,19 +2,23 @@
 
 The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
 
-Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1 and v4.0.
+## Different versions of yolov5
 
-- For yolov5 v4.0, please visit [yolov5 release v4.0](https://github.com/ultralytics/yolov5/releases/tag/v4.0), and use the latest commit of this repo.
-- For yolov5 v3.0 and v3.1, please visit [yolov5 release v3.0](https://github.com/ultralytics/yolov5/releases/tag/v3.0) and [yolov5 release v3.1](https://github.com/ultralytics/yolov5/releases/tag/v3.1), and checkout commit ['6d0f5cb'](https://github.com/wang-xinyu/tensorrtx/commit/6d0f5cbf4745bc00b69aad54a905383fb906f103) of this repo.
-- For yolov5 v2.0, please visit [yolov5 release v2.0](https://github.com/ultralytics/yolov5/releases/tag/v2.0), and checkout commit ['5cfa444'](https://github.com/wang-xinyu/tensorrtx/commit/5cfa4445170eabaa54acd5ad7f469ef65a8763f1) of this repo.
-- For yolov5 v1.0, please visit [yolov5 release v1.0](https://github.com/ultralytics/yolov5/releases/tag/v1.0), and checkout commit ['f09aa3b'](https://github.com/wang-xinyu/tensorrtx/commit/f09aa3bbebf4d4d37b6d3b32a1d39e1f2678a07b) of this repo.
+Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1, v4.0 and v5.0.
+
+- For yolov5 v5.0, download .pt from [yolov5 release v5.0](https://github.com/ultralytics/yolov5/releases/tag/v5.0), `git clone -b v5.0 https://github.com/ultralytics/yolov5.git` and `git clone https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in current page.
+- For yolov5 v4.0, download .pt from [yolov5 release v4.0](https://github.com/ultralytics/yolov5/releases/tag/v4.0), `git clone -b v4.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v4.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v4.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v4.0/yolov5).
+- For yolov5 v3.1, download .pt from [yolov5 release v3.1](https://github.com/ultralytics/yolov5/releases/tag/v3.1), `git clone -b v3.1 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v3.1 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v3.1](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v3.1/yolov5).
+- For yolov5 v3.0, download .pt from [yolov5 release v3.0](https://github.com/ultralytics/yolov5/releases/tag/v3.0), `git clone -b v3.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v3.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v3.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v3.0/yolov5).
+- For yolov5 v2.0, download .pt from [yolov5 release v2.0](https://github.com/ultralytics/yolov5/releases/tag/v2.0), `git clone -b v2.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v2.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v2.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v2.0/yolov5).
+- For yolov5 v1.0, download .pt from [yolov5 release v1.0](https://github.com/ultralytics/yolov5/releases/tag/v1.0), `git clone -b v1.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v1.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v1.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v1.0/yolov5).
 
 ## Config
 
 - Choose the model s/m/l/x by `NET` macro in yolov5.cpp
 - Input shape defined in yololayer.h
 - Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
-- FP16/FP32 can be selected by the macro in yolov5.cpp
+- INT8/FP16/FP32 can be selected by the macro in yolov5.cpp, **INT8 need more steps, pls follow `How to Run` first and then go the `INT8 Quantization` below**
 - GPU id can be selected by the macro in yolov5.cpp
 - NMS thresh in yolov5.cpp
 - BBox confidence thresh in yolov5.cpp
@@ -22,32 +26,36 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1 and v4.0.
 
 ## How to Run, yolov5s as example
 
-1. generate yolov5s.wts from pytorch with yolov5s.pt, or download .wts from model zoo
+1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
 ```
+git clone -b v5.0 https://github.com/ultralytics/yolov5.git
 git clone https://github.com/wang-xinyu/tensorrtx.git
-git clone https://github.com/ultralytics/yolov5.git
-// download its weights 'yolov5s.pt'
-// copy tensorrtx/yolov5/gen_wts.py into ultralytics/yolov5
-// ensure the file name is yolov5s.pt and yolov5s.wts in gen_wts.py
-// go to ultralytics/yolov5
-python gen_wts.py
+// download https://github.com/ultralytics/yolov5/releases/download/v5.0/yolov5s.pt
+cp {tensorrtx}/yolov5/gen_wts.py {ultralytics}/yolov5
+cd {ultralytics}/yolov5
+python gen_wts.py yolov5s.pt
 // a file 'yolov5s.wts' will be generated.
 ```
 
 2. build tensorrtx/yolov5 and run
 
 ```
-// put yolov5s.wts into tensorrtx/yolov5
-// go to tensorrtx/yolov5
-// ensure the macro NET in yolov5.cpp is s
+cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/
+cd {tensorrtx}/yolov5/
 // update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
 cmake ..
 make
-sudo ./yolov5 -s             // serialize model to plan file i.e. 'yolov5s.engine'
-sudo ./yolov5 -d  ../samples // deserialize plan file and run inference, the images in samples will be processed.
+sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x or c gd gw]  // serialize model to plan file
+sudo ./yolov5 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
+// For example yolov5s
+sudo ./yolov5 -s yolov5s.wts yolov5s.engine s
+sudo ./yolov5 -d yolov5s.engine ../samples
+// For example Custom model with depth_multiple=0.17, width_multiple=0.25 in yolov5.yaml
+sudo ./yolov5 -s yolov5_custom.wts yolov5.engine c 0.17 0.25
+sudo ./yolov5 -d yolov5.engine ../samples
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
@@ -62,7 +70,7 @@ python yolov5_trt.py
 
 # INT8 Quantization
 
-1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
+1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
 
 2. unzip it in yolov5/build
 

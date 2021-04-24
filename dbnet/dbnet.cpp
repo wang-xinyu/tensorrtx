@@ -4,10 +4,15 @@
 #include "logging.h"
 #include "common.hpp"
 #include <math.h>
+#include "clipper.hpp"
 
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
-#define EXPANDRATIO 1.4
+#define EXPANDRATIO 1.5
+#define BOX_MINI_SIZE 5
+#define SCORE_THRESHOLD 0.3
+#define BOX_THRESHOLD 0.7
+
 static const int SHORT_INPUT = 640;
 static const int MAX_INPUT_SIZE = 1440; // 32x
 static const int MIN_INPUT_SIZE = 608;
@@ -17,12 +22,37 @@ const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "out";
 static Logger gLogger;
 
-cv::RotatedRect expandBox(const cv::RotatedRect& inBox, float ratio = 1.0) {
-    cv::Size size = inBox.size;
-    int neww = size.width * ratio;
-    int newh = size.height *ratio;
-    return cv::RotatedRect(inBox.center, cv::Size(neww, newh), inBox.angle);
+cv::RotatedRect expandBox(cv::Point2f temp[], float ratio)
+{
+    ClipperLib::Path path = {
+        {ClipperLib::cInt(temp[0].x), ClipperLib::cInt(temp[0].y)},
+        {ClipperLib::cInt(temp[1].x), ClipperLib::cInt(temp[1].y)},
+        {ClipperLib::cInt(temp[2].x), ClipperLib::cInt(temp[2].y)},
+        {ClipperLib::cInt(temp[3].x), ClipperLib::cInt(temp[3].y)}};
+    double area = ClipperLib::Area(path);
+    double distance;
+    double length = 0.0;
+    for (int i = 0; i < 4; i++) {
+        length = length + sqrtf(powf((temp[i].x - temp[(i + 1) % 4].x), 2) +
+                                powf((temp[i].y - temp[(i + 1) % 4].y), 2));
+    }
+
+    distance = area * ratio / length;
+
+    ClipperLib::ClipperOffset offset;
+    offset.AddPath(path, ClipperLib::JoinType::jtRound,
+                   ClipperLib::EndType::etClosedPolygon);
+    ClipperLib::Paths paths;
+    offset.Execute(paths, distance);
+    
+    std::vector<cv::Point> contour;
+    for (int i = 0; i < paths[0].size(); i++) {
+        contour.emplace_back(paths[0][i].X, paths[0][i].Y);
+    }
+    offset.Clear();
+    return cv::minAreaRect(contour);
 }
+
 float paddimg(cv::Mat& In_Out_img, int shortsize = 960) {
     int w = In_Out_img.cols;
     int h = In_Out_img.rows;
@@ -48,6 +78,7 @@ float paddimg(cv::Mat& In_Out_img, int shortsize = 960) {
     cv::resize(In_Out_img, In_Out_img, cv::Size(w, h));
     return scale;
 }
+
 // Creat the engine using only the API and not any parser.
 ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
@@ -56,23 +87,23 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{ 1, 3, -1, -1 });
     assert(data);
 
-    std::map<std::string, Weights> weightMap = loadWeights("E:\\LearningCodes\\DBNET\\DBNet.pytorch\\tools\\DBNet.wts");
+    std::map<std::string, Weights> weightMap = loadWeights("./DBNet.wts");
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
     /* ------ Resnet18 backbone------ */
       // Add convolution layer with 6 outputs and a 5x5 filter.
-    IConvolutionLayer* conv1 = network->addConvolution(*data, 64, DimsHW{ 7, 7 }, weightMap["backbone.conv1.weight"], emptywts);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{ 7, 7 }, weightMap["backbone.conv1.weight"], emptywts);   
     assert(conv1);
-    conv1->setStride(DimsHW{ 2, 2 });
-    conv1->setPadding(DimsHW{ 3, 3 });
+    conv1->setStrideNd(DimsHW{ 2, 2 });
+    conv1->setPaddingNd(DimsHW{ 3, 3 });
 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), "backbone.bn1", 1e-5);
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
-    IPoolingLayer* pool1 = network->addPooling(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{ 3, 3 });
+    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{ 3, 3 });
     assert(pool1);
-    pool1->setStride(DimsHW{ 2, 2 });
-    pool1->setPadding(DimsHW{ 1, 1 });
+    pool1->setStrideNd(DimsHW{ 2, 2 });
+    pool1->setPaddingNd(DimsHW{ 1, 1 });
 
     IActivationLayer* relu2 = basicBlock(network, weightMap, *pool1->getOutput(0), 64, 64, 1, "backbone.layer1.0.");
     IActivationLayer* relu3 = basicBlock(network, weightMap, *relu2->getOutput(0), 64, 64, 1, "backbone.layer1.1."); // x2
@@ -132,7 +163,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     }
     Weights deconvwts5{ DataType::kFLOAT, deval2, 64 * 8 * 8 };
     IDeconvolutionLayer* p4_up_p2 = network->addDeconvolutionNd(*p4->getOutput(0), 64, DimsHW{ 8, 8 }, deconvwts5, emptywts);
-    p4_up_p2->setPadding(DimsHW{ 2, 2 });
+    p4_up_p2->setPaddingNd(DimsHW{ 2, 2 });
     p4_up_p2->setStrideNd(DimsHW{ 4, 4 });
     p4_up_p2->setNbGroups(64);
     weightMap["deconv2"] = deconvwts5;
@@ -162,10 +193,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     binarizeup2->setStrideNd(DimsHW{ 2, 2 });
     binarizeup2->setNbGroups(64);
 
-    IConvolutionLayer* binarize3 = network->addConvolution(*binarizeup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.binarize.7.weight"], weightMap["head.binarize.7.bias"]);
+    IConvolutionLayer* binarize3 = network->addConvolutionNd(*binarizeup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.binarize.7.weight"], weightMap["head.binarize.7.bias"]);
     assert(binarize3);
-    binarize3->setStride(DimsHW{ 1, 1 });
-    binarize3->setPadding(DimsHW{ 1, 1 });
+    binarize3->setStrideNd(DimsHW{ 1, 1 });
+    binarize3->setPaddingNd(DimsHW{ 1, 1 });
     IActivationLayer* binarize4 = network->addActivation(*binarize3->getOutput(0), ActivationType::kSIGMOID);
     assert(binarize4);
 
@@ -175,10 +206,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IDeconvolutionLayer* threshup = network->addDeconvolutionNd(*thresh1->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts9, emptywts);
     threshup->setStrideNd(DimsHW{ 2, 2 });
     threshup->setNbGroups(64);
-    IConvolutionLayer* thresh2 = network->addConvolution(*threshup->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["head.thresh.3.1.weight"], weightMap["head.thresh.3.1.bias"]);
+    IConvolutionLayer* thresh2 = network->addConvolutionNd(*threshup->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["head.thresh.3.1.weight"], weightMap["head.thresh.3.1.bias"]);
     assert(thresh2);
-    thresh2->setStride(DimsHW{ 1, 1 });
-    thresh2->setPadding(DimsHW{ 1, 1 });
+    thresh2->setStrideNd(DimsHW{ 1, 1 });
+    thresh2->setPaddingNd(DimsHW{ 1, 1 });
 
     IScaleLayer* threshbn1 = addBatchNorm2d(network, weightMap, *thresh2->getOutput(0), "head.thresh.4", 1e-5);
     IActivationLayer* threshrelu1 = network->addActivation(*threshbn1->getOutput(0), ActivationType::kRELU);
@@ -188,10 +219,10 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IDeconvolutionLayer* threshup2 = network->addDeconvolutionNd(*threshrelu1->getOutput(0), 64, DimsHW{ 2, 2 }, deconvwts10, emptywts);
     threshup2->setStrideNd(DimsHW{ 2, 2 });
     threshup2->setNbGroups(64);
-    IConvolutionLayer* thresh3 = network->addConvolution(*threshup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.thresh.6.1.weight"], weightMap["head.thresh.6.1.bias"]);
+    IConvolutionLayer* thresh3 = network->addConvolutionNd(*threshup2->getOutput(0), 1, DimsHW{ 3, 3 }, weightMap["head.thresh.6.1.weight"], weightMap["head.thresh.6.1.bias"]);
     assert(thresh3);
-    thresh3->setStride(DimsHW{ 1, 1 });
-    thresh3->setPadding(DimsHW{ 1, 1 });
+    thresh3->setStrideNd(DimsHW{ 1, 1 });
+    thresh3->setPaddingNd(DimsHW{ 1, 1 });
     IActivationLayer* thresh4 = network->addActivation(*thresh3->getOutput(0), ActivationType::kSIGMOID);
     assert(thresh4);
 
@@ -281,6 +312,91 @@ void doInference(IExecutionContext& context, float* input, float* output, int h_
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
+bool get_mini_boxes(cv::RotatedRect& rotated_rect, cv::Point2f rect[],
+                    int min_size)
+{
+
+    cv::Point2f temp_rect[4];
+    rotated_rect.points(temp_rect);
+    for (int i = 0; i < 4; i++) {
+        for (int j = i + 1; j < 4; j++) {
+            if (temp_rect[i].x > temp_rect[j].x) {
+                cv::Point2f temp;
+                temp = temp_rect[i];
+                temp_rect[i] = temp_rect[j];
+                temp_rect[j] = temp;
+            }
+        }
+    }
+    int index0 = 0;
+    int index1 = 1;
+    int index2 = 2;
+    int index3 = 3;
+    if (temp_rect[1].y > temp_rect[0].y) {
+        index0 = 0;
+        index3 = 1;
+    } else {
+        index0 = 1;
+        index3 = 0;
+    }
+    if (temp_rect[3].y > temp_rect[2].y) {
+        index1 = 2;
+        index2 = 3;
+    } else {
+        index1 = 3;
+        index2 = 2;
+    }   
+
+    rect[0] = temp_rect[index0];  // Left top coordinate
+    rect[1] = temp_rect[index1];  // Left bottom coordinate
+    rect[2] = temp_rect[index2];  // Right bottom coordinate
+    rect[3] = temp_rect[index3];  // Right top coordinate
+
+    if (rotated_rect.size.width < min_size ||
+        rotated_rect.size.height < min_size) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+float get_box_score(float* map, cv::Point2f rect[], int width, int height,
+                    float threshold)
+{
+
+    int xmin = width - 1;
+    int ymin = height - 1;
+    int xmax = 0;
+    int ymax = 0;
+
+    for (int j = 0; j < 4; j++) {
+        if (rect[j].x < xmin) {
+            xmin = rect[j].x;
+        }
+        if (rect[j].y < ymin) {
+            ymin = rect[j].y;
+        }
+        if (rect[j].x > xmax) {
+            xmax = rect[j].x;
+        }
+        if (rect[j].y > ymax) {
+            ymax = rect[j].y;
+        }
+    }
+    float sum = 0;
+    int num = 0;
+    for (int i = ymin; i <= ymax; i++) {
+        for (int j = xmin; j <= xmax; j++) {
+            if (map[i * width + j] > threshold) {
+                sum = sum + map[i * width + j];
+                num++;
+            }
+        }
+    }
+
+    return sum / num;
+}
+
 int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
@@ -334,19 +450,24 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    // icdar2015.yaml Hyperparameter
     std::vector<float> mean_value{ 0.406, 0.456, 0.485 };  // BGR
     std::vector<float> std_value{ 0.225, 0.224, 0.229 };
+
     int fcount = 0;
+
     for (auto f : file_names) {
         fcount++;
         std::cout << fcount << "  " << f << std::endl;
         cv::Mat pr_img = cv::imread(std::string(argv[2]) + "/" + f);
         cv::Mat src_img = pr_img.clone();
         if (pr_img.empty()) continue;
-        float scale = paddimg(pr_img, SHORT_INPUT);
+        float scale = paddimg(pr_img, SHORT_INPUT); // resize the image
         std::cout << "letterbox shape: " << pr_img.cols << ", " << pr_img.rows << std::endl;
         if (pr_img.cols < MIN_INPUT_SIZE || pr_img.rows < MIN_INPUT_SIZE) continue;
         float* data = new float[3 * pr_img.rows * pr_img.cols];
+
+        auto start = std::chrono::system_clock::now();
         int i = 0;
         for (int row = 0; row < pr_img.rows; ++row) {
             uchar* uc_pixel = pr_img.data + row * pr_img.step;
@@ -358,15 +479,17 @@ int main(int argc, char** argv) {
                 ++i;
             }
         }
+        auto end = std::chrono::system_clock::now();
+        std::cout << "pre time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
         float* prob = new float[pr_img.rows *pr_img.cols * 2];
         // Run inference
-        auto start = std::chrono::system_clock::now();
+        start = std::chrono::system_clock::now();
         doInference(*context, data, prob, pr_img.rows, pr_img.cols);
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        end = std::chrono::system_clock::now();
+        std::cout << "detect time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-        // prob 为 2* 640*640  拿出第一个
+        // prob shape is 2*640*640, get the first one
         cv::Mat map = cv::Mat::zeros(cv::Size(pr_img.cols, pr_img.rows), CV_8UC1);
         for (int h = 0; h < pr_img.rows; ++h) {
             uchar *ptr = map.ptr(h);
@@ -374,7 +497,8 @@ int main(int argc, char** argv) {
                 ptr[w] = (prob[h * pr_img.cols + w] > 0.3) ? 255 : 0;
             }
         }
-        // 提取最小外接矩形
+
+        // Extracting minimum circumscribed rectangle
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarcy;
         cv::findContours(map, contours, hierarcy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
@@ -382,24 +506,43 @@ int main(int argc, char** argv) {
         std::vector<cv::Rect> boundRect(contours.size());
         std::vector<cv::RotatedRect> box(contours.size());
         cv::Point2f rect[4];
+        cv::Point2f order_rect[4];
+
         for (int i = 0; i < contours.size(); i++) {
-            box[i] = cv::minAreaRect(cv::Mat(contours[i]));
-            //boundRect[i] = cv::boundingRect(cv::Mat(contours[i]));
-            //绘制外接矩形和    最小外接矩形（for循环）
-            //cv::rectangle(img, cv::Point(boundRect[i].x, boundRect[i].y), cv::Point(boundRect[i].x + boundRect[i].width, boundRect[i].y + boundRect[i].height), cv::Scalar(0, 255, 0), 2, 8);
-            cv::RotatedRect expandbox = expandBox(box[i], EXPANDRATIO);
-            expandbox.points(rect);//把最小外接矩形四个端点复制给rect数组
-            for (int j = 0; j < 4; j++) {
-                cv::Point2f p1, p2;
-                p1.x = round(rect[j].x / pr_img.cols * src_img.cols);
-                p1.y = round(rect[j].y / pr_img.rows * src_img.rows);
-                p2.x = round(rect[(j + 1) % 4].x / pr_img.cols * src_img.cols);
-                p2.y = round(rect[(j + 1) % 4].y / pr_img.rows * src_img.rows);
-                cv::line(src_img, p1, p2, cv::Scalar(0, 0, 255), 2, 8);
+            cv::RotatedRect rotated_rect = cv::minAreaRect(cv::Mat(contours[i]));
+            if (!get_mini_boxes(rotated_rect, rect, BOX_MINI_SIZE)) {
+                std::cout << "box too small" <<  std::endl;
+                continue;
             }
+
+            // drop low score boxes
+            float score = get_box_score(prob, rect, pr_img.cols, pr_img.rows,
+                                        SCORE_THRESHOLD);
+            if (score < BOX_THRESHOLD) {
+                std::cout << "score too low =  " << score << ", threshold = " << BOX_THRESHOLD <<  std::endl;
+                continue;
+            }
+
+            // Scaling the predict boxes depend on EXPANDRATIO
+            cv::RotatedRect expandbox = expandBox(rect, EXPANDRATIO);
+            expandbox.points(rect);
+            if (!get_mini_boxes(expandbox, rect, BOX_MINI_SIZE + 2)) {  
+                continue;
+            }
+
+            // Restore the coordinates to the original image
+            for (int k = 0; k < 4; k++) {
+                order_rect[k] = rect[k];
+                order_rect[k].x = int(order_rect[k].x / pr_img.cols * src_img.cols);
+                order_rect[k].y = int(order_rect[k].y / pr_img.rows * src_img.rows);
+            }
+            
+            cv::rectangle(src_img, cv::Point(order_rect[0].x,order_rect[0].y), cv::Point(order_rect[2].x,order_rect[2].y), cv::Scalar(0, 0, 255), 2, 8);
+            //std::cout << "After LT =  " << order_rect[0] << ", After RD = " << order_rect[2] <<  std::endl;            
         }
 
         cv::imwrite("_" + f, src_img);
+        std::cout << "write image done." << std::endl;
         //cv::waitKey(0);
 
         delete prob;

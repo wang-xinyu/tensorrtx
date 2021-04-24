@@ -1,13 +1,13 @@
 # HRNet-Semantic-Segmentation
 
-The Pytorch implementation is [HRNet-Semantic-Segmentation](https://github.com/HRNet/HRNet-Semantic-Segmentation).  The implemented model is **HRNetV2-W18-Small-v2**
+The Pytorch implementation is [HRNet-Semantic-Segmentation-v1.1](https://github.com/HRNet/HRNet-Semantic-Segmentation/tree/pytorch-v1.1).  The implemented model is **HRNetV2-W18-Small-v2**
 
 
 ## How to Run
 
 * 1. generate .wts
 
-  Download code and model from [HRNet-Semantic-Segmentation](https://github.com/HRNet/HRNet-Semantic-Segmentation) and config your environments.
+  Download code and model from [HRNet-Semantic-Segmentation-v1.1](https://github.com/HRNet/HRNet-Semantic-Segmentation/tree/pytorch-v1.1) and config your environments.
 
   Put `demo.py`  in the `YOUR_ROOT_DIR\HRNet-Semantic-Segmentation\tools `  folder, set `savewts in  main()` as `True`, and run, the .wts will be generated.
 
