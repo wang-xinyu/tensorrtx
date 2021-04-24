@@ -9,11 +9,26 @@
 
 #include "utils.h"
 #include "layers_api.h"
-#include "engine.h"
 
 using namespace trtxlayers;
 
 namespace trtx {
+    struct InceptionV4Params
+    {
+        /* data */
+        int32_t batchSize{1};              // Number of inputs in a batch
+        bool int8{false};                  // Allow runnning the network in Int8 mode.
+        bool fp16{false};                  // Allow running the network in FP16 mode.
+        const char* inputTensorName = "data";
+        const char* outputTensorName = "prob";
+
+        int inputW;                // The input width of the network.
+        int inputH;                // The input height of the the network.
+        int outputSize;           // THe output size of the network.
+        std::string weightsFile;   // Weights file filename.
+        std::string trtEngineFile; // trt engine file name
+    };
+    
     class InceptionV4 {
     public:
         InceptionV4(trt::InferenceEngineConfig &enginecfg);
@@ -21,17 +36,17 @@ namespace trtx {
 
         bool serializeEngine();                  // create & serialize netowrk Engine 
         bool deserializeCudaEngine();
-        bool infer(std::vector<cv::Mat> &input); // batch inference 
 
-        float* getOutput(); 
-        int getDeviceID(); /* cuda deviceid */ 
-
+        void doInference(float* input, float* output, int batchSize);
+        bool cleanUp();
     private:
-        ICudaEngine *buildEngine(IBuilder *builder, IBuilderConfig *config);
-
+        ICudaEngine* buildEngine(IBuilder *builder, IBuilderConfig *config);
+        // Runs the Tensorrt network inference engine on a sample.
     private:
-        trtx::InferenceEngineConfig engineConfig;
-        std::unique_ptr<trtx::InceptionInferEngine> inferEngine{nullptr};
+        InceptionV4Params mParams;
+        ICudaEngine* mEngine;  // The tensorrt engine used to run the network.
+        std::map<std::string, Weights> weightMap; // The weight value map.
+        IExecutionContext* mContext; // The TensorRT execution context to run inference.
         std::string inception;
         DataType dt{DataType::kFLOAT};
     };
