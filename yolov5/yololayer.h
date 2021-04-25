@@ -51,7 +51,7 @@ namespace nvinfer1
 
         virtual size_t getWorkspaceSize(int maxBatchSize) const override { return 0; }
 
-        virtual int enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) override;
+        virtual int enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
         virtual size_t getSerializationSize() const override;
 
@@ -87,7 +87,7 @@ namespace nvinfer1
         void detachFromContext() override;
 
     private:
-        void forwardGpu(const float *const * inputs, float * output, cudaStream_t stream, int batchSize = 1);
+        void forwardGpu(const float* const* inputs, float *output, cudaStream_t stream, int batchSize = 1);
         int mThreadCount = 256;
         const char* mPluginNamespace;
         int mKernelCount;

@@ -48,7 +48,7 @@ mkdir build
 cd build
 cmake ..
 make
-sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x or c gd gw]  // serialize model to plan file
+sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
 sudo ./yolov5 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov5s
 sudo ./yolov5 -s yolov5s.wts yolov5s.engine s
