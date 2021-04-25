@@ -16,7 +16,7 @@ Following tricks are used in this inception:
 
 // 3. build and run
 
-cd tensorrtx/inceptionV4
+cd tensorrtx/inception/inceptionV4
 
 mkdir build
 
