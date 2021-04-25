@@ -57,12 +57,12 @@ namespace trtxlayers {
         Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
         // add conv -> bn -> relu
-        IConvolutionLayer* conv = network -> addConvolutionNd(input, outch, kSize, weightMap[lname + ".conv.weight"], emptywts);
+        IConvolutionLayer* conv = network -> addConvolutionNd(input, outch, ksize, weightMap[lname + ".conv.weight"], emptywts);
         assert(conv);
         conv -> setStrideNd(DimsHW{s, s});
         conv -> setPaddingNd(p);
 
-        IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv -> getOutput(0), lname + [".bn"], 1e-3);
+        IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv -> getOutput(0), lname + ".bn", 1e-3);
         
         IActivationLayer* relu = network -> addActivation(*bn -> getOutput(0), ActivationType::kRELU);
         assert(relu); 
@@ -77,15 +77,15 @@ namespace trtxlayers {
     )
     {
         // branch 0
-        IPoolingLayer* pool = network -> addPoolingNd(input, DimsHW{3, 3}, PoolingType::kMAX);
+        IPoolingLayer* pool = network -> addPoolingNd(input, PoolingType::kMAX, DimsHW{3, 3});
         assert(pool);
         pool -> setStrideNd(DimsHW{2, 2});
 
         // branch 1
-        IActivationLayer* relu = basicConv2d(network, weightMap, input, 96, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + [".conv"]);
+        IActivationLayer* relu = basicConv2d(network, weightMap, input, 96, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + ".conv");
         
         // concatenate two branches
-        ITensor* inputTensor[] = { pool -> getOutput(0), relu -> getOutput(0) };
+        ITensor* inputTensors[] = { pool -> getOutput(0), relu -> getOutput(0) };
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 2);
         assert(cat);
         return cat;
@@ -99,17 +99,17 @@ namespace trtxlayers {
     )
     {
         // branch 0
-        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch0.0"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput, 96, DimsHW{ 3, 3 }, 1, DimsHW{ 0, 0 }, lname + [".branch0.1"]);
+        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch0.0");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 0, 0 }, lname + ".branch0.1");
 
         // branch 1
-        IActivationLayer* relu2 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch1.0"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 64, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + [".branch1.1"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 64, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + [".branch1.2"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 0, 0 }, lname + [".branch1.3"]);
+        IActivationLayer* relu2 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch1.0");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 64, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + ".branch1.1");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 64, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + ".branch1.2");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 0, 0 }, lname + ".branch1.3");
 
         // concatenate two branches
-        ITensor* inputTensor[] = { relu1 -> getOutput(0), relu2 -> getOutput(0) };
+        ITensor* inputTensors[] = { relu1 -> getOutput(0), relu2 -> getOutput(0) };
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 2);
         assert(cat);
         return cat;
@@ -122,11 +122,12 @@ namespace trtxlayers {
         std::string lname
     )
     {
+        std::cout<<"mixed_5a"<<std::endl;
         //branch 0
-        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 192, DimsHW{ 3, 3 }, 1, DimsHW{ 0, 0 }, lname + [".conv"]);
+        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 192, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + ".conv");
 
         //branch 1
-        IPoolingLayer* pool1 = network -> addPoolingNd(*relu -> getOutput(0), DimsHW{ 3, 3 }, PoolingType::kMAX);
+        IPoolingLayer* pool1 = network -> addPoolingNd(input, PoolingType::kMAX, DimsHW{ 3, 3 });
         assert(pool1);
         pool1 -> setStrideNd(DimsHW{ 2, 2 });
 
@@ -134,7 +135,8 @@ namespace trtxlayers {
         ITensor* inputTensors[] = { relu1 -> getOutput(0), pool1 -> getOutput(0)};
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 2);
         assert(cat);
-        return cat
+        std::cout<<"mixed_5a done"<<std::endl;
+        return cat;
     }
 
     IConcatenationLayer* inceptionA(
@@ -145,16 +147,16 @@ namespace trtxlayers {
     )
     {
         // branch 0
-        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 96, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch0"])
+        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 96, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch0");
 
         // branch 1
-        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname[".branch1.0"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname[".branch1.1"]);
+        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname +".branch1.0");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname+".branch1.1");
         
         // branch 2
-        IActivationLayer* relu2 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname[".branch2.0"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname[".branch2.1"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname[".branch2.2"]);
+        IActivationLayer* relu2 = basicConv2d(network, weightMap, input, 64, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname+".branch2.0");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname+".branch2.1");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 96, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname+".branch2.2");
 
         // branch 3
         IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{3, 3});
@@ -162,14 +164,13 @@ namespace trtxlayers {
         pool1->setStrideNd(DimsHW{1, 1});
         pool1->setPaddingNd(DimsHW{1, 1});
         pool1->setAverageCountExcludesPadding(false);
-        IActivationLayer* relu3 = basicConv2d(network, weightMap, *pool1 -> getOutput(0), 96, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname[".branch3.1"])
+        IActivationLayer* relu3 = basicConv2d(network, weightMap, *pool1 -> getOutput(0), 96, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname+".branch3.1");
 
         // concatenate all branches outputs
         ITensor* inputTensors[] = { relu0 -> getOutput(0), relu1 -> getOutput(0), relu2 -> getOutput(0), relu3 -> getOutput(0)};
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 4);
         assert(cat);
-
-        return cat
+        return cat;
 
     }
 
@@ -181,15 +182,15 @@ namespace trtxlayers {
     )
     {
         // features 10 branch 0
-        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + [".branch0"]);
+        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + ".branch0");
 
         // branch 1
-        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch1.0"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 224, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname + [".branch1.1"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 256, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + [".branch1.2"]);
+        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch1.0");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 224, DimsHW{ 3, 3 }, 1, DimsHW{ 1, 1 }, lname + ".branch1.1");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 256, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + ".branch1.2");
 
         // branch 2
-        IPoolingLayer* pool1 = network -> addActivation(input, DimsHW{ 3, 3 }, ActivationType::kMAX);
+        IPoolingLayer* pool1 = network -> addPoolingNd(input, PoolingType::kMAX, DimsHW{ 3, 3 });
         assert(pool1);
         pool1 -> setStrideNd(DimsHW{ 2, 2 });
 
@@ -208,32 +209,33 @@ namespace trtxlayers {
     )
     {
         // features 11 branch 0
-        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch0"]);
+        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch0");
 
         // branch 1
-        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch1.0"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 224, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + [".branch1.1"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 256, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + [".branch1.2"]);
+        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch1.0");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 224, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + ".branch1.1");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 256, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + ".branch1.2");
         
         // branch 2
-        IActivationLayer* relu2 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch2.0"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 192, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + [".branch2.1"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 224, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + [".branch2.2"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 224, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + [".branch2.3"]);
-        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 256, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + [".branch2.4"]);
+        IActivationLayer* relu2 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch2.0");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 192, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + ".branch2.1");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 224, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + ".branch2.2");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 224, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + ".branch2.3");
+        relu2 = basicConv2d(network, weightMap, *relu2 -> getOutput(0), 256, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + ".branch2.4");
 
         // branch 3
-        IPoolingLayer* pool0 = network -> addActivation(input, DimsHW{ 3, 3 }, PoolingType::kAVERAGE);
+        IPoolingLayer* pool0 = network -> addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{ 3, 3 });
         assert(pool0);
         pool0 -> setStrideNd(DimsHW{ 1, 1 });
         pool0 -> setPaddingNd(DimsHW{ 1, 1 });
         pool0 -> setAverageCountExcludesPadding(false);
-        IActivationLayer* relu3 = basicConv2d(network, weightMap, *pool0 -> getOutput(0), 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch3.1"]);
+        IActivationLayer* relu3 = basicConv2d(network, weightMap, *pool0 -> getOutput(0), 128, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch3.1");
 
         // concatenate branches
         ITensor* inputTensors[] = { relu0 -> getOutput(0), relu1 -> getOutput(0), relu2 -> getOutput(0), relu3 -> getOutput(0) };
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 4);
         assert(cat);
+
         return cat;
     }
 
@@ -245,17 +247,17 @@ namespace trtxlayers {
     )
     {
         // features 18 branch 0
-        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch0.0"]);
-        relu0 = basicConv2d(network, weightMap, input, 192, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + [".branch0.1"]);
+        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 192, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch0.0");
+        relu0 = basicConv2d(network, weightMap, *relu0 -> getOutput(0), 192, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + ".branch0.1");
 
         // branch 1
-        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 256, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch1.0"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 256, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + [".branch1.1"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 320, DimsHW{ 7, 1 }, 2, DimsHW{ 3, 0 }, lname + [".branch1.2"]);
-        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 320, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + [".branch1.3"]);
+        IActivationLayer* relu1 = basicConv2d(network, weightMap, input, 256, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch1.0");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 256, DimsHW{ 1, 7 }, 1, DimsHW{ 0, 3 }, lname + ".branch1.1");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 320, DimsHW{ 7, 1 }, 1, DimsHW{ 3, 0 }, lname + ".branch1.2");
+        relu1 = basicConv2d(network, weightMap, *relu1 -> getOutput(0), 320, DimsHW{ 3, 3 }, 2, DimsHW{ 0, 0 }, lname + ".branch1.3");
 
         // branch 2
-        IPoolingLayer* pool1 = network -> addActivation(input, DimsHW{ 3, 3 }, ActivationType::kMAX);
+        IPoolingLayer* pool1 = network -> addPoolingNd(input, PoolingType::kMAX, DimsHW{ 3, 3 });
         assert(pool1);
         pool1 -> setStrideNd(DimsHW{ 2, 2 });
 
@@ -263,6 +265,7 @@ namespace trtxlayers {
         ITensor* inputTensors[] = { relu0 -> getOutput(0), relu1 -> getOutput(0), pool1 -> getOutput(0) };
         IConcatenationLayer* cat = network -> addConcatenation(inputTensors, 3);
         assert(cat);
+
         return cat;
     }
 
@@ -273,34 +276,35 @@ namespace trtxlayers {
         std::string lname
     )
     {
+
         // features 19 branch 0
-        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 256, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch0"]);
+        IActivationLayer* relu0 = basicConv2d(network, weightMap, input, 256, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch0");
 
         // branch 1
-        IActivationLayer* relu1_0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch1_0"]);
-        IActivationLayer* relu1_1a = basicConv2d(network, weightMap, *relu1_0 -> getOutput(0), 256, DimsHW{ 1, 3 }, 1, DimsHW{ 0, 1 }, lname + [".branch1_1a"]);
-        IActivationLayer* relu1_1b = basicConv2d(network, weightMap, *relu1_0 -> getOutput(0), 256, DimsHW{ 3, 1 }, 1, DimsHW{ 1, 0 }, lname + [".branch1_1b"]);
+        IActivationLayer* relu1_0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch1_0");
+        IActivationLayer* relu1_1a = basicConv2d(network, weightMap, *relu1_0 -> getOutput(0), 256, DimsHW{ 1, 3 }, 1, DimsHW{ 0, 1 }, lname + ".branch1_1a");
+        IActivationLayer* relu1_1b = basicConv2d(network, weightMap, *relu1_0 -> getOutput(0), 256, DimsHW{ 3, 1 }, 1, DimsHW{ 1, 0 }, lname + ".branch1_1b");
         ITensor* inputTensors1[] = { relu1_1a -> getOutput(0), relu1_1b -> getOutput(0) };
         IConcatenationLayer* cat1 = network -> addConcatenation(inputTensors1, 2);
         assert(cat1);
 
         // branch 2
-        IActivationLayer* relu2_0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch2_0"]);
-        IActivationLayer* relu2_1 = basicConv2d(network, weightMap, *relu2_0 -> getOutput(0), 448, DimsHW{ 3, 1 }, 1, DimsHW{ 1, 0 }, lname + [".branch2_1"]);
-        IActivationLayer* relu2_2 = basicConv2d(network, weightMap, *relu2_1 -> getOutput(0), 512, DimsHW{ 1, 3 }, 1, DimsHW{ 0, 1 }, lname + [".branch2_2"]);
-        IActivationLayer* relu2_3a = basicConv2d(network, weightMap, *relu2_2 -> getOutput(0), 256, DimsHW{ 1, 3 }, 1, DimsHW{ 0, 1 }, lname + [".branch2_3a"]);
-        IActivationLayer* relu2_3b = basicConv2d(network, weightMap, *relu2_2 -> getOutput(0), 256, DimsHW{ 3, 1 }, 1, DimsHW{ 1, 0 }, lname + [".branch2_3b"]);
+        IActivationLayer* relu2_0 = basicConv2d(network, weightMap, input, 384, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch2_0");
+        IActivationLayer* relu2_1 = basicConv2d(network, weightMap, *relu2_0 -> getOutput(0), 448, DimsHW{ 3, 1 }, 1, DimsHW{ 1, 0 }, lname + ".branch2_1");
+        IActivationLayer* relu2_2 = basicConv2d(network, weightMap, *relu2_1 -> getOutput(0), 512, DimsHW{ 1, 3 }, 1, DimsHW{ 0, 1 }, lname + ".branch2_2");
+        IActivationLayer* relu2_3a = basicConv2d(network, weightMap, *relu2_2 -> getOutput(0), 256, DimsHW{ 1, 3 }, 1, DimsHW{ 0, 1 }, lname + ".branch2_3a");
+        IActivationLayer* relu2_3b = basicConv2d(network, weightMap, *relu2_2 -> getOutput(0), 256, DimsHW{ 3, 1 }, 1, DimsHW{ 1, 0 }, lname + ".branch2_3b");
         ITensor* inputTensors2[] = { relu2_3a -> getOutput(0), relu2_3b -> getOutput(0) };
         IConcatenationLayer* cat2 = network -> addConcatenation(inputTensors2, 2);
         assert(cat2);
 
         // branch 3
-        IPoolingLayer* pool3 = network -> addActivation(input, DimsHW{ 3, 3 }, PoolingType::kAVERAGE);
+        IPoolingLayer* pool3 = network -> addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{ 3, 3 });
         assert(pool3);
         pool3 -> setStrideNd(DimsHW{ 1, 1 });
         pool3 -> setPaddingNd(DimsHW{ 1, 1 });
         pool3 -> setAverageCountExcludesPadding(false);
-        IActivationLayer* relu3 = basicConv2d(network, weightMap, *pool3 -> getOutput(0), 256, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + [".branch3.1"]);
+        IActivationLayer* relu3 = basicConv2d(network, weightMap, *pool3 -> getOutput(0), 256, DimsHW{ 1, 1 }, 1, DimsHW{ 0, 0 }, lname + ".branch3.1");
 
         // concatenate
         ITensor* inputTensors[] = { relu0 -> getOutput(0), cat1 -> getOutput(0), cat2 -> getOutput(0), relu3 -> getOutput(0) };
