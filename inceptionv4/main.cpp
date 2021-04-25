@@ -2,8 +2,8 @@
 
 
 /**
- * Initializes DenseNet class params in the 
- * DenseNetTrtParams structure.
+ * Initializes Inception class params in the 
+ * InceptionV4Params structure.
 **/
 trtx::InceptionV4Params initializeParams()
 {
