@@ -26,9 +26,9 @@ cmake ..
 
 make
 
-sudo ./inception -s   // serialize model to plan file i.e. 'inceptionV4.engine'
+sudo ./inceptionV4 -s   // serialize model to plan file i.e. 'inceptionV4.engine'
 
-sudo ./inception -d   // deserialize plan file and run inference
+sudo ./inceptionV4 -d   // deserialize plan file and run inference
 
 // 4. see if the output is same as rwightman/pytorch-image-models/inceptionv4
 ```
