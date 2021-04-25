@@ -2,7 +2,7 @@
 
 
 namespace trtx {
-    InceptionV4::~InceptionV4(const InceptionV4Params &params)
+    InceptionV4::InceptionV4(const InceptionV4Params &params)
     : mParams(params)
     , mContext(nullptr)
     , mEngine(nullptr)
@@ -26,7 +26,7 @@ namespace trtx {
         assert(config);
 
         // create engine
-        bool created = createEngine(builder, config);
+        bool created = buildEngine(builder, config);
         if(!created)
         {
             std::cerr << "Engine creation failed. Check logs." << std::endl;
@@ -59,11 +59,11 @@ namespace trtx {
         return true;
     }
 
-    ICudaEngine* InceptionV4::buildEngine(IBuilder *builder, IBuilderConfig *config) {
+    bool InceptionV4::buildEngine(IBuilder *builder, IBuilderConfig *config) {
         INetworkDefinition* network = builder->createNetworkV2(0U);
 
         // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
-        ITensor* data = network->addInput(mParams.inputBlobName, dt, Dims3{3, mParams.inputH, mParams.inputW});
+        ITensor* data = network->addInput(mParams.inputTensorName, dt, Dims3{3, mParams.inputH, mParams.inputW});
         assert(data);
 
         Weights emptywts{DataType::kFLOAT, nullptr, 0};
@@ -103,19 +103,19 @@ namespace trtx {
         cat0 = inceptionC(network, weightMap, *cat0 -> getOutput(0), "features.20");
         cat0 = inceptionC(network, weightMap, *cat0 -> getOutput(0), "features.21");
 
-        IPoolingLayer* pool2 = network->addPoolingNd(*cat0->getOutput(0), PoolingType::kAVERAGE, DimsHW{5, 5});
+        IPoolingLayer* pool2 = network->addPoolingNd(*cat0->getOutput(0), PoolingType::kAVERAGE, DimsHW{8, 8});
         assert(pool2);
 
         IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool2->getOutput(0), 1000, weightMap["last_linear.weight"], weightMap["last_linear.bias"]);
         assert(fc1);
 
-        fc1->getOutput(0)->setName(mParams.outputBlobName);
+        fc1->getOutput(0)->setName(mParams.outputTensorName);
         std::cout << "set name out" << std::endl;
         network->markOutput(*fc1->getOutput(0));
 
         // Build engine
         builder->setMaxBatchSize(mParams.batchSize);
-        config->setMaxWorkspaceSize(1 << 20);
+        config->setMaxWorkspaceSize(1 << 28);
         if (mParams.fp16)
             config->setFlag(BuilderFlag::kFP16);
         mEngine = builder->buildEngineWithConfig(*network, *config);
@@ -131,7 +131,7 @@ namespace trtx {
         }
 
         if (mEngine == nullptr) return false;
-        return true
+        return true;
     }
 
     bool InceptionV4::deserializeCudaEngine() {
@@ -191,13 +191,13 @@ namespace trtx {
     void InceptionV4::doInference(float* input, float* output, int batchSize) {
         // Pointers to input and output device buffers to pass to engine.
         // Engine requires exactly IEngine::getNbBindings() number of buffers.
-        assert(mEngine.getNbBindings() == 2);
+        assert(mEngine -> getNbBindings() == 2);
         void* buffers[2];
     
         // In order to bind the buffers, we need to know the names of the input and output tensors.
         // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-        const int inputIndex = mEngine.getBindingIndex(mParams.inputBlobName);
-        const int outputIndex = mEngine.getBindingIndex(mParams.outputBlobName);
+        const int inputIndex = mEngine->getBindingIndex(mParams.inputTensorName);
+        const int outputIndex = mEngine->getBindingIndex(mParams.outputTensorName);
     
         // Create GPU buffers on device
         CUDA_CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * mParams.inputH * mParams.inputW * sizeof(float)));
@@ -209,7 +209,7 @@ namespace trtx {
     
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
         CUDA_CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * mParams.inputH * mParams.inputW * sizeof(float), cudaMemcpyHostToDevice, stream));
-        context.enqueue(batchSize, buffers, stream, nullptr);
+        mContext->enqueue(batchSize, buffers, stream, nullptr);
         CUDA_CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * 1000 * sizeof(float), cudaMemcpyDeviceToHost, stream));
         cudaStreamSynchronize(stream);
     

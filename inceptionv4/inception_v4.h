@@ -7,9 +7,12 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 
+#include "logging.h"
 #include "utils.h"
 #include "layers_api.h"
 
+
+static Logger gLogger;
 using namespace trtxlayers;
 
 namespace trtx {
@@ -31,7 +34,7 @@ namespace trtx {
     
     class InceptionV4 {
     public:
-        InceptionV4(trt::InferenceEngineConfig &enginecfg);
+        InceptionV4(const InceptionV4Params &enginecfg);
         ~InceptionV4() {};
 
         bool serializeEngine();                  // create & serialize netowrk Engine 
@@ -40,7 +43,7 @@ namespace trtx {
         void doInference(float* input, float* output, int batchSize);
         bool cleanUp();
     private:
-        ICudaEngine* buildEngine(IBuilder *builder, IBuilderConfig *config);
+        bool buildEngine(IBuilder *builder, IBuilderConfig *config);
         // Runs the Tensorrt network inference engine on a sample.
     private:
         InceptionV4Params mParams;
