@@ -16,9 +16,9 @@ import tensorrt as trt
 import torch
 import torchvision
 
-INPUT_W = 608
-INPUT_H = 608
-CONF_THRESH = 0.1
+INPUT_W = 640
+INPUT_H = 640
+CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
 
 
@@ -66,7 +66,7 @@ class YoLov5TRT(object):
 
     def __init__(self, engine_file_path):
         # Create a Context on this device,
-        self.cfx = cuda.Device(0).make_context()
+        self.ctx = cuda.Device(0).make_context()
         stream = cuda.Stream()
         TRT_LOGGER = trt.Logger(trt.Logger.INFO)
         runtime = trt.Runtime(TRT_LOGGER)
@@ -111,7 +111,7 @@ class YoLov5TRT(object):
     def infer(self, input_image_path):
         threading.Thread.__init__(self)
         # Make self the active context, pushing it on top of the context stack.
-        self.cfx.push()
+        self.ctx.push()
         # Restore
         stream = self.stream
         context = self.context
@@ -127,6 +127,7 @@ class YoLov5TRT(object):
         )
         # Copy input image to host buffer
         np.copyto(host_inputs[0], input_image.ravel())
+        start = time.time()
         # Transfer input data  to the GPU.
         cuda.memcpy_htod_async(cuda_inputs[0], host_inputs[0], stream)
         # Run inference.
@@ -135,8 +136,9 @@ class YoLov5TRT(object):
         cuda.memcpy_dtoh_async(host_outputs[0], cuda_outputs[0], stream)
         # Synchronize the stream
         stream.synchronize()
+        end = time.time()
         # Remove any context from the top of the context stack, deactivating it.
-        self.cfx.pop()
+        self.ctx.pop()
         # Here we use the first row of output in that batch_size = 1
         output = host_outputs[0]
         # Do postprocess
@@ -155,12 +157,13 @@ class YoLov5TRT(object):
             )
         parent, filename = os.path.split(input_image_path)
         save_name = os.path.join(parent, "output_" + filename)
-        # 　Save image
+        # Save image
         cv2.imwrite(save_name, image_raw)
+        print('{:.2f}ms, saving {}'.format((end - start) * 1000, save_name))
 
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
-        self.cfx.pop()
+        self.ctx.pop()
 
     def preprocess_image(self, input_image_path):
         """
@@ -308,8 +311,7 @@ if __name__ == "__main__":
     # a  YoLov5TRT instance
     yolov5_wrapper = YoLov5TRT(engine_file_path)
 
-    # from https://github.com/ultralytics/yolov5/tree/master/inference/images
-    input_image_paths = ["zidane.jpg", "bus.jpg"]
+    input_image_paths = ["samples/zidane.jpg", "samples/bus.jpg"]
 
     for input_image_path in input_image_paths:
         # create a new thread to do inference
