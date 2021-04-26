@@ -41,11 +41,11 @@ python gen_wts.py yolov5s.pt
 2. build tensorrtx/yolov5 and run
 
 ```
-cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/
 cd {tensorrtx}/yolov5/
 // update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
+cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
 cmake ..
 make
 sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file

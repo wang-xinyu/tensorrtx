@@ -1,6 +1,6 @@
 # yolov3
 
-The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3). It provides two trained weights of yolov3, `yolov3.weights` and `yolov3.pt`
+The Pytorch implementation is [ultralytics/yolov3 archive branch](https://github.com/ultralytics/yolov3/tree/archive). It provides two trained weights of yolov3, `yolov3.weights` and `yolov3.pt`
 
 This branch is using tensorrt7 API, there is also a yolov3 implementation using tensorrt4 API, go to [branch trt4/yolov3](https://github.com/wang-xinyu/tensorrtx/tree/trt4/yolov3), which is using [ayooshkathuria/pytorch-yolo-v3](https://github.com/ayooshkathuria/pytorch-yolo-v3).
 

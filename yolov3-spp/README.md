@@ -2,7 +2,7 @@
 
 Currently this is supporting dynamic input shape, if you want to use non-dynamic version, please checkout commit [659fd2b](https://github.com/wang-xinyu/tensorrtx/commit/659fd2b23482197b19dccf746a5a3dbff1611381).
 
-The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3). It provides two trained weights of yolov3-spp, `yolov3-spp.pt` and `yolov3-spp-ultralytics.pt`(originally named `ultralytics68.pt`).
+The Pytorch implementation is [ultralytics/yolov3 archive branch](https://github.com/ultralytics/yolov3/tree/archive). It provides two trained weights of yolov3-spp, `yolov3-spp.pt` and `yolov3-spp-ultralytics.pt`(originally named `ultralytics68.pt`).
 
 ## Config
 
