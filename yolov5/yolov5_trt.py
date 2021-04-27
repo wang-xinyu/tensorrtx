@@ -3,6 +3,7 @@ An example that uses TensorRT's Python api to make inferences.
 """
 import ctypes
 import os
+import shutil
 import random
 import sys
 import threading
@@ -18,6 +19,19 @@ import torchvision
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
 
+
+def get_img_path_batches(batch_size, img_dir):
+    ret = []
+    batch = []
+    for root, dirs, files in os.walk(img_dir):
+        for name in files:
+            if len(batch) == batch_size:
+                ret.append(batch)
+                batch = []
+            batch.append(os.path.join(root, name))
+    if len(batch) > 0:
+        ret.append(batch)
+    return ret
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
@@ -107,8 +121,9 @@ class YoLov5TRT(object):
         self.host_outputs = host_outputs
         self.cuda_outputs = cuda_outputs
         self.bindings = bindings
+        self.batch_size = engine.max_batch_size
 
-    def infer(self, input_image_path):
+    def infer(self, image_path_batch):
         threading.Thread.__init__(self)
         # Make self the active context, pushing it on top of the context stack.
         self.ctx.push()
@@ -122,16 +137,25 @@ class YoLov5TRT(object):
         cuda_outputs = self.cuda_outputs
         bindings = self.bindings
         # Do image preprocess
-        input_image, image_raw, origin_h, origin_w = self.preprocess_image(
-            input_image_path
-        )
+        batch_image_raw = []
+        batch_origin_h = []
+        batch_origin_w = []
+        batch_input_image = np.empty(shape=[self.batch_size, 3, self.input_h, self.input_w])
+        for i, img_path in enumerate(image_path_batch):
+            input_image, image_raw, origin_h, origin_w = self.preprocess_image(img_path)
+            batch_image_raw.append(image_raw)
+            batch_origin_h.append(origin_h)
+            batch_origin_w.append(origin_w)
+            np.copyto(batch_input_image[i], input_image)
+        batch_input_image = np.ascontiguousarray(batch_input_image)
+
         # Copy input image to host buffer
-        np.copyto(host_inputs[0], input_image.ravel())
+        np.copyto(host_inputs[0], batch_input_image.ravel())
         start = time.time()
         # Transfer input data  to the GPU.
         cuda.memcpy_htod_async(cuda_inputs[0], host_inputs[0], stream)
         # Run inference.
-        context.execute_async(bindings=bindings, stream_handle=stream.handle)
+        context.execute_async(batch_size=self.batch_size, bindings=bindings, stream_handle=stream.handle)
         # Transfer predictions back from the GPU.
         cuda.memcpy_dtoh_async(host_outputs[0], cuda_outputs[0], stream)
         # Synchronize the stream
@@ -142,24 +166,25 @@ class YoLov5TRT(object):
         # Here we use the first row of output in that batch_size = 1
         output = host_outputs[0]
         # Do postprocess
-        result_boxes, result_scores, result_classid = self.post_process(
-            output, origin_h, origin_w
-        )
-        # Draw rectangles and labels on the original image
-        for i in range(len(result_boxes)):
-            box = result_boxes[i]
-            plot_one_box(
-                box,
-                image_raw,
-                label="{}:{:.2f}".format(
-                    categories[int(result_classid[i])], result_scores[i]
-                ),
+        for i, img_path in enumerate(image_path_batch):
+            result_boxes, result_scores, result_classid = self.post_process(
+                output[i * 6001: (i + 1) * 6001], batch_origin_h[i], batch_origin_w[i]
             )
-        parent, filename = os.path.split(input_image_path)
-        save_name = os.path.join(parent, "output_" + filename)
-        # Save image
-        cv2.imwrite(save_name, image_raw)
-        print('{:.2f}ms, saving {}'.format((end - start) * 1000, save_name))
+            # Draw rectangles and labels on the original image
+            for j in range(len(result_boxes)):
+                box = result_boxes[j]
+                plot_one_box(
+                    box,
+                    batch_image_raw[i],
+                    label="{}:{:.2f}".format(
+                        categories[int(result_classid[j])], result_scores[j]
+                    ),
+                )
+            parent, filename = os.path.split(img_path)
+            save_name = os.path.join('output', filename)
+            # Save image
+            cv2.imwrite(save_name, batch_image_raw[i])
+        print('input->{}, time->{:.2f}ms, saving into output/'.format(image_path_batch, (end - start) * 1000))
 
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
@@ -308,14 +333,18 @@ if __name__ == "__main__":
             "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
             "hair drier", "toothbrush"]
 
-    # a  YoLov5TRT instance
+    if os.path.exists('output/'):
+        shutil.rmtree('output/')
+    os.makedirs('output/')
+    # a YoLov5TRT instance
     yolov5_wrapper = YoLov5TRT(engine_file_path)
+    print('batch size is', yolov5_wrapper.batch_size)
+    image_dir = "samples/"
+    image_path_batches = get_img_path_batches(yolov5_wrapper.batch_size, image_dir)
 
-    input_image_paths = ["samples/zidane.jpg", "samples/bus.jpg"]
-
-    for input_image_path in input_image_paths:
+    for batch in image_path_batches:
         # create a new thread to do inference
-        thread1 = myThread(yolov5_wrapper.infer, [input_image_path])
+        thread1 = myThread(yolov5_wrapper.infer, [batch])
         thread1.start()
         thread1.join()
 
