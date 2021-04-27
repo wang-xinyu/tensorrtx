@@ -7,7 +7,6 @@ import random
 import sys
 import threading
 import time
-
 import cv2
 import numpy as np
 import pycuda.autoinit
@@ -16,8 +15,6 @@ import tensorrt as trt
 import torch
 import torchvision
 
-INPUT_W = 640
-INPUT_H = 640
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
 
@@ -83,6 +80,7 @@ class YoLov5TRT(object):
         bindings = []
 
         for binding in engine:
+            print('bingding:', binding, engine.get_binding_shape(binding))
             size = trt.volume(engine.get_binding_shape(binding)) * engine.max_batch_size
             dtype = trt.nptype(engine.get_binding_dtype(binding))
             # Allocate host and device buffers
@@ -92,6 +90,8 @@ class YoLov5TRT(object):
             bindings.append(int(cuda_mem))
             # Append to the appropriate list.
             if engine.binding_is_input(binding):
+                self.input_w = engine.get_binding_shape(binding)[-1]
+                self.input_h = engine.get_binding_shape(binding)[-2]
                 host_inputs.append(host_mem)
                 cuda_inputs.append(cuda_mem)
             else:
@@ -182,19 +182,19 @@ class YoLov5TRT(object):
         h, w, c = image_raw.shape
         image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
         # Calculate widht and height and paddings
-        r_w = INPUT_W / w
-        r_h = INPUT_H / h
+        r_w = self.input_w / w
+        r_h = self.input_h / h
         if r_h > r_w:
-            tw = INPUT_W
+            tw = self.input_w
             th = int(r_w * h)
             tx1 = tx2 = 0
-            ty1 = int((INPUT_H - th) / 2)
-            ty2 = INPUT_H - th - ty1
+            ty1 = int((self.input_h - th) / 2)
+            ty2 = self.input_h - th - ty1
         else:
             tw = int(r_h * w)
-            th = INPUT_H
-            tx1 = int((INPUT_W - tw) / 2)
-            tx2 = INPUT_W - tw - tx1
+            th = self.input_h
+            tx1 = int((self.input_w - tw) / 2)
+            tx2 = self.input_w - tw - tx1
             ty1 = ty2 = 0
         # Resize the image with long side while maintaining ratio
         image = cv2.resize(image, (tw, th))
@@ -224,17 +224,17 @@ class YoLov5TRT(object):
             y:          A boxes tensor, each row is a box [x1, y1, x2, y2]
         """
         y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
-        r_w = INPUT_W / origin_w
-        r_h = INPUT_H / origin_h
+        r_w = self.input_w / origin_w
+        r_h = self.input_h / origin_h
         if r_h > r_w:
             y[:, 0] = x[:, 0] - x[:, 2] / 2
             y[:, 2] = x[:, 0] + x[:, 2] / 2
-            y[:, 1] = x[:, 1] - x[:, 3] / 2 - (INPUT_H - r_w * origin_h) / 2
-            y[:, 3] = x[:, 1] + x[:, 3] / 2 - (INPUT_H - r_w * origin_h) / 2
+            y[:, 1] = x[:, 1] - x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
+            y[:, 3] = x[:, 1] + x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
             y /= r_w
         else:
-            y[:, 0] = x[:, 0] - x[:, 2] / 2 - (INPUT_W - r_h * origin_w) / 2
-            y[:, 2] = x[:, 0] + x[:, 2] / 2 - (INPUT_W - r_h * origin_w) / 2
+            y[:, 0] = x[:, 0] - x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
+            y[:, 2] = x[:, 0] + x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
             y[:, 1] = x[:, 1] - x[:, 3] / 2
             y[:, 3] = x[:, 1] + x[:, 3] / 2
             y /= r_h
