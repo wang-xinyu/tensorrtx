@@ -123,7 +123,7 @@ class YoLov5TRT(object):
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
 
-    def infer(self, image_path_batch):
+    def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
         # Make self the active context, pushing it on top of the context stack.
         self.ctx.push()
@@ -141,13 +141,8 @@ class YoLov5TRT(object):
         batch_origin_h = []
         batch_origin_w = []
         batch_input_image = np.empty(shape=[self.batch_size, 3, self.input_h, self.input_w])
-        for i in range(self.batch_size):
-            if image_path_batch is None:
-                input_image = np.zeros([3, self.input_h, self.input_w])
-                input_image, image_raw, origin_h, origin_w = input_image,input_image,self.input_h,self.input_w
-            else:
-                img_path = image_path_batch[i]
-                input_image, image_raw, origin_h, origin_w = self.preprocess_image(img_path)
+        for i, image_raw in enumerate(raw_image_generator):
+            input_image, image_raw, origin_h, origin_w = self.preprocess_image(image_raw)
             batch_image_raw.append(image_raw)
             batch_origin_h.append(origin_h)
             batch_origin_w.append(origin_w)
@@ -185,25 +180,31 @@ class YoLov5TRT(object):
                         categories[int(result_classid[j])], result_scores[j]
                     ),
                 )
-            if image_path_batch is not None:
-                img_path = image_path_batch[i]
-                parent, filename = os.path.split(img_path)
-                save_name = os.path.join('output', filename)
-                # Save image
-                cv2.imwrite(save_name, batch_image_raw[i])
-        if image_path_batch is None:
-            print('warm_up->{}, time->{:.2f}ms'.format(batch_input_image.shape, (end - start) * 1000))
-        else:
-            print('input->{}, time->{:.2f}ms, saving into output/'.format(image_path_batch, (end - start) * 1000))
+        return batch_image_raw, end - start
 
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
         self.ctx.pop()
-
-    def preprocess_image(self, input_image_path):
+        
+    def get_raw_image(self, image_path_batch):
         """
-        description: Read an image from image path, convert it to RGB,
-                     resize and pad it to target size, normalize to [0,1],
+        description: Read an image from image path, convert it to RGB
+        """
+        for img_path in image_path_batch:
+            image_raw = cv2.imread(img_path)
+            image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
+            yield image
+        
+    def get_raw_image_zeros(self, image_path_batch=None):
+        """
+        description: Ready data for warmup
+        """
+        for _ in range(self.batch_size):
+            yield np.zeros([self.input_h, self.input_w, 3])
+
+    def preprocess_image(self, raw_rgb_image):
+        """
+        description: Resize and pad RGB image to target size, normalize to [0,1],
                      transform to NCHW format.
         param:
             input_image_path: str, image path
@@ -213,9 +214,8 @@ class YoLov5TRT(object):
             h: original height
             w: original width
         """
-        image_raw = cv2.imread(input_image_path)
+        image = image_raw = raw_rgb_image
         h, w, c = image_raw.shape
-        image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
         # Calculate widht and height and paddings
         r_w = self.input_w / w
         r_h = self.input_h / h
@@ -315,14 +315,31 @@ class YoLov5TRT(object):
         return result_boxes, result_scores, result_classid
 
 
-class myThread(threading.Thread):
-    def __init__(self, func, args):
+class inferThread(threading.Thread):
+    def __init__(self, yolov5_wrapper, image_path_batch):
         threading.Thread.__init__(self)
-        self.func = func
-        self.args = args
+        self.yolov5_wrapper = yolov5_wrapper
+        self.image_path_batch = image_path_batch
 
     def run(self):
-        self.func(*self.args)
+        batch_image_raw, use_time = self.yolov5_wrapper.infer(self.yolov5_wrapper.get_raw_image(self.image_path_batch))
+        for i, img_path in enumerate(self.image_path_batch):
+            parent, filename = os.path.split(img_path)
+            save_name = os.path.join('output', filename)
+            # Save image
+            cv2.imwrite(save_name, batch_image_raw[i])
+        print('input->{}, time->{:.2f}ms, saving into output/'.format(self.image_path_batch, use_time * 1000))
+
+
+class warmUpThread(threading.Thread):
+    def __init__(self, yolov5_wrapper):
+        threading.Thread.__init__(self)
+        self.yolov5_wrapper = yolov5_wrapper
+
+    def run(self):
+        batch_image_raw, use_time = self.yolov5_wrapper.infer(self.yolov5_wrapper.get_raw_image_zeros())
+        print('warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
+
 
 
 if __name__ == "__main__":
@@ -362,12 +379,12 @@ if __name__ == "__main__":
 
         for i in range(10):
             # create a new thread to do warm_up
-            thread1 = myThread(yolov5_wrapper.infer, [None])
+            thread1 = warmUpThread(yolov5_wrapper)
             thread1.start()
             thread1.join()
         for batch in image_path_batches:
             # create a new thread to do inference
-            thread1 = myThread(yolov5_wrapper.infer, [batch])
+            thread1 = inferThread(yolov5_wrapper, batch)
             thread1.start()
             thread1.join()
     finally:
