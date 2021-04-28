@@ -141,8 +141,13 @@ class YoLov5TRT(object):
         batch_origin_h = []
         batch_origin_w = []
         batch_input_image = np.empty(shape=[self.batch_size, 3, self.input_h, self.input_w])
-        for i, img_path in enumerate(image_path_batch):
-            input_image, image_raw, origin_h, origin_w = self.preprocess_image(img_path)
+        for i in range(self.batch_size):
+            if image_path_batch is None:
+                input_image = np.zeros([3, self.input_h, self.input_w])
+                input_image, image_raw, origin_h, origin_w = input_image,input_image,self.input_h,self.input_w
+            else:
+                img_path = image_path_batch[i]
+                input_image, image_raw, origin_h, origin_w = self.preprocess_image(img_path)
             batch_image_raw.append(image_raw)
             batch_origin_h.append(origin_h)
             batch_origin_w.append(origin_w)
@@ -166,7 +171,7 @@ class YoLov5TRT(object):
         # Here we use the first row of output in that batch_size = 1
         output = host_outputs[0]
         # Do postprocess
-        for i, img_path in enumerate(image_path_batch):
+        for i in range(self.batch_size):
             result_boxes, result_scores, result_classid = self.post_process(
                 output[i * 6001: (i + 1) * 6001], batch_origin_h[i], batch_origin_w[i]
             )
@@ -180,11 +185,16 @@ class YoLov5TRT(object):
                         categories[int(result_classid[j])], result_scores[j]
                     ),
                 )
-            parent, filename = os.path.split(img_path)
-            save_name = os.path.join('output', filename)
-            # Save image
-            cv2.imwrite(save_name, batch_image_raw[i])
-        print('input->{}, time->{:.2f}ms, saving into output/'.format(image_path_batch, (end - start) * 1000))
+            if image_path_batch is not None:
+                img_path = image_path_batch[i]
+                parent, filename = os.path.split(img_path)
+                save_name = os.path.join('output', filename)
+                # Save image
+                cv2.imwrite(save_name, batch_image_raw[i])
+        if image_path_batch is None:
+            print('warm_up->{}, time->{:.2f}ms'.format(batch_input_image.shape, (end - start) * 1000))
+        else:
+            print('input->{}, time->{:.2f}ms, saving into output/'.format(image_path_batch, (end - start) * 1000))
 
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
@@ -318,8 +328,14 @@ class myThread(threading.Thread):
 if __name__ == "__main__":
     # load custom plugins
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    ctypes.CDLL(PLUGIN_LIBRARY)
     engine_file_path = "build/yolov5s.engine"
+
+    if len(sys.argv) > 1:
+        engine_file_path = sys.argv[1]
+    if len(sys.argv) > 2:
+        PLUGIN_LIBRARY = sys.argv[2]
+
+    ctypes.CDLL(PLUGIN_LIBRARY)
 
     # load coco labels
 
@@ -338,15 +354,22 @@ if __name__ == "__main__":
     os.makedirs('output/')
     # a YoLov5TRT instance
     yolov5_wrapper = YoLov5TRT(engine_file_path)
-    print('batch size is', yolov5_wrapper.batch_size)
-    image_dir = "samples/"
-    image_path_batches = get_img_path_batches(yolov5_wrapper.batch_size, image_dir)
+    try:
+        print('batch size is', yolov5_wrapper.batch_size)
+        
+        image_dir = "samples/"
+        image_path_batches = get_img_path_batches(yolov5_wrapper.batch_size, image_dir)
 
-    for batch in image_path_batches:
-        # create a new thread to do inference
-        thread1 = myThread(yolov5_wrapper.infer, [batch])
-        thread1.start()
-        thread1.join()
-
-    # destroy the instance
-    yolov5_wrapper.destroy()
+        for i in range(10):
+            # create a new thread to do warm_up
+            thread1 = myThread(yolov5_wrapper.infer, [None])
+            thread1.start()
+            thread1.join()
+        for batch in image_path_batches:
+            # create a new thread to do inference
+            thread1 = myThread(yolov5_wrapper.infer, [batch])
+            thread1.start()
+            thread1.join()
+    finally:
+        # destroy the instance
+        yolov5_wrapper.destroy()
