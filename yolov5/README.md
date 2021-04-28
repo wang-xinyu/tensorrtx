@@ -15,7 +15,7 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1, v4.0 and v5.0
 
 ## Config
 
-- Choose the model s/m/l/x by `NET` macro in yolov5.cpp
+- Choose the model s/m/l/x/s6/m6/l6/x6 from command line arguments.
 - Input shape defined in yololayer.h
 - Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
 - INT8/FP16/FP32 can be selected by the macro in yolov5.cpp, **INT8 need more steps, pls follow `How to Run` first and then go the `INT8 Quantization` below**
