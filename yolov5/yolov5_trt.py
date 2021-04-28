@@ -188,23 +188,22 @@ class YoLov5TRT(object):
         
     def get_raw_image(self, image_path_batch):
         """
-        description: Read an image from image path, convert it to RGB
+        description: Read an image from image path
         """
         for img_path in image_path_batch:
-            image_raw = cv2.imread(img_path)
-            image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
-            yield image
+            yield cv2.imread(img_path)
         
     def get_raw_image_zeros(self, image_path_batch=None):
         """
         description: Ready data for warmup
         """
         for _ in range(self.batch_size):
-            yield np.zeros([self.input_h, self.input_w, 3])
+            yield np.zeros([self.input_h, self.input_w, 3], dtype=np.uint8)
 
-    def preprocess_image(self, raw_rgb_image):
+    def preprocess_image(self, raw_bgr_image):
         """
-        description: Resize and pad RGB image to target size, normalize to [0,1],
+        description: Convert BGR image to RGB,
+                     resize and pad it to target size, normalize to [0,1],
                      transform to NCHW format.
         param:
             input_image_path: str, image path
@@ -214,8 +213,9 @@ class YoLov5TRT(object):
             h: original height
             w: original width
         """
-        image = image_raw = raw_rgb_image
+        image_raw = raw_bgr_image
         h, w, c = image_raw.shape
+        image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
         # Calculate widht and height and paddings
         r_w = self.input_w / w
         r_h = self.input_h / h
