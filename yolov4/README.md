@@ -1,6 +1,6 @@
 # yolov4
 
-The Pytorch implementation is from [ultralytics/yolov3](https://github.com/ultralytics/yolov3). It can load yolov4.cfg and yolov4.weights(from AlexeyAB/darknet).
+The Pytorch implementation is from [ultralytics/yolov3 archive branch](https://github.com/ultralytics/yolov3/tree/archive). It can load yolov4.cfg and yolov4.weights(from AlexeyAB/darknet).
 
 ## Config
 

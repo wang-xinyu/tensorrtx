@@ -15,7 +15,7 @@ Currently, we support yolov5 v1.0(yolov5s only), v2.0, v3.0, v3.1, v4.0 and v5.0
 
 ## Config
 
-- Choose the model s/m/l/x by `NET` macro in yolov5.cpp
+- Choose the model s/m/l/x/s6/m6/l6/x6 from command line arguments.
 - Input shape defined in yololayer.h
 - Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
 - INT8/FP16/FP32 can be selected by the macro in yolov5.cpp, **INT8 need more steps, pls follow `How to Run` first and then go the `INT8 Quantization` below**
@@ -41,14 +41,14 @@ python gen_wts.py yolov5s.pt
 2. build tensorrtx/yolov5 and run
 
 ```
-cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/
 cd {tensorrtx}/yolov5/
 // update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
+cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
 cmake ..
 make
-sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x or c gd gw]  // serialize model to plan file
+sudo ./yolov5 -s [.wts] [.engine] [s/m/l/x/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
 sudo ./yolov5 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov5s
 sudo ./yolov5 -s yolov5s.wts yolov5s.engine s

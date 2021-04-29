@@ -1,6 +1,6 @@
 # yolov3-tiny
 
-The Pytorch implementation is [ultralytics/yolov3](https://github.com/ultralytics/yolov3).
+The Pytorch implementation is [ultralytics/yolov3 archive branch](https://github.com/ultralytics/yolov3/tree/archive).
 
 ## Excute:
 
