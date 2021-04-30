@@ -6,7 +6,8 @@
 #include <iostream>
 #include <iterator>
 #include <fstream>
-#include "cuda_utils.h"
+#include <algorithm>
+#include "./cuda_utils.h"
 #include "common.hpp"
 
 //! \class Int8EntropyCalibrator2
@@ -15,8 +16,10 @@
 //!  CalibrationAlgoType is kENTROPY_CALIBRATION_2.
 //!
 class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
-public:
-    Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache = true);
+ public:
+    Int8EntropyCalibrator2(int batchsize, int input_w, int input_h,
+    const char* img_dir, const char* calib_table_name,
+    const char* input_blob_name, bool read_cache = true);
 
     virtual ~Int8EntropyCalibrator2();
     int getBatchSize() const override;
@@ -24,7 +27,7 @@ public:
     const void* readCalibrationCache(size_t& length) override;
     void writeCalibrationCache(const void* cache, size_t length) override;
 
-private:
+ private:
     int batchsize_;
     int input_w_;
     int input_h_;
@@ -39,7 +42,10 @@ private:
     std::vector<char> calib_cache_;
 };
 
-Int8EntropyCalibrator2::Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache)
+Int8EntropyCalibrator2::Int8EntropyCalibrator2(int batchsize,
+int input_w, int input_h, const char* img_dir,
+const char* calib_table_name, const char* input_blob_name,
+bool read_cache)
     : batchsize_(batchsize)
     , input_w_(input_w)
     , input_h_(input_h)
@@ -62,7 +68,7 @@ int Int8EntropyCalibrator2::getBatchSize() const {
 }
 
 bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int nbBindings) {
-    if (img_idx_ + batchsize_ > (int)img_files_.size()) {
+    if (img_idx_ + batchsize_ > static_cast<int>(img_files_.size())) {
         return false;
     }
 
@@ -76,7 +82,7 @@ bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int
             return false;
         }
         for (int ind = 0; ind < input_w_*input_h_*3; ind++)
-            input_imgs_[(i-img_idx_)*input_w_*input_h_*3 + ind] = (float)(*(temp.data + ind));
+            input_imgs_[(i-img_idx_)*input_w_*input_h_*3 + ind] = static_cast<float>(*(temp.data + ind));
     }
     img_idx_ += batchsize_;
 

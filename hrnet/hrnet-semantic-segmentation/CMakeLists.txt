@@ -24,10 +24,17 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(hrnetseg ${PROJECT_SOURCE_DIR}/hrnetseg.cpp)
-target_link_libraries(hrnetseg nvinfer)
-target_link_libraries(hrnetseg cudart)
-target_link_libraries(hrnetseg ${OpenCV_LIBS})
+add_executable(hrnet ${PROJECT_SOURCE_DIR}/hrnet.cpp)
+target_link_libraries(hrnet nvinfer)
+target_link_libraries(hrnet cudart)
+target_link_libraries(hrnet ${OpenCV_LIBS})
+
+
+add_executable(hrnet_ocr ${PROJECT_SOURCE_DIR}/hrnet_ocr.cpp)
+target_link_libraries(hrnet_ocr nvinfer)
+target_link_libraries(hrnet_ocr cudart)
+target_link_libraries(hrnet_ocr ${OpenCV_LIBS})
+
 
 add_definitions(-O2 -pthread)
 

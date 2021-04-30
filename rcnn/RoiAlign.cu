@@ -1,5 +1,9 @@
-#include "RoiAlignPlugin.h"
-#include "cuda_utils.h"
+#include <cuda.h>
+#include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
+#include <thrust/sequence.h>
+#include <thrust/execution_policy.h>
+#include <thrust/gather.h>
 
 #include <algorithm>
 #include <iostream>
@@ -8,12 +12,8 @@
 #include <vector>
 #include <cmath>
 
-#include <cuda.h>
-#include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
-#include <thrust/sequence.h>
-#include <thrust/execution_policy.h>
-#include <thrust/gather.h>
+#include "RoiAlignPlugin.h"
+#include "./cuda_utils.h"
 
 namespace nvinfer1 {
 template <typename T>
@@ -36,8 +36,8 @@ __device__ T bilinear_interpolate(
         x = 0;
     }
 
-    int y_low = (int)y;
-    int x_low = (int)x;
+    int y_low = static_cast<int>(y);
+    int x_low = static_cast<int>(x);
     int y_high;
     int x_high;
 
@@ -152,8 +152,8 @@ int roiAlign(int batchSize, const void *const *inputs, void **outputs, int poole
         auto out_features = static_cast<float *>(outputs[0]) + batch * nthreads;
         const int max_threads = 1024;
 
-        int blocksPerGrid = ceil((float)nthreads / max_threads);
-        RoIAlignForward<< <blocksPerGrid, max_threads, 0 >> > (
+        int blocksPerGrid = ceil(static_cast<float>(nthreads) / max_threads);
+        RoIAlignForward<< <blocksPerGrid, max_threads, 0, stream>> > (
             nthreads,
             in_features,
             spatial_scale,

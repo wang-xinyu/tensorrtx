@@ -31,7 +31,7 @@ class RpnNmsPlugin : public IPluginV2Ext {
     size_t _pre_nms_topk;
     mutable int size = -1;
 
-protected:
+ protected:
     void deserialize(void const* data, size_t length) {
         const char* d = static_cast<const char*>(data);
         read(d, _nms_thresh);
@@ -51,7 +51,7 @@ protected:
         write(d, _pre_nms_topk);
     }
 
-public:
+ public:
     RpnNmsPlugin(float nms_thresh, int post_nms_topk)
         : _nms_thresh(nms_thresh), _post_nms_topk(post_nms_topk) {
         assert(nms_thresh > 0);
@@ -151,7 +151,7 @@ public:
         return new RpnNmsPlugin(_nms_thresh, _post_nms_topk, _pre_nms_topk);
     }
 
-private:
+ private:
     template<typename T> void write(char*& buffer, const T& val) const {
         *reinterpret_cast<T*>(buffer) = val;
         buffer += sizeof(T);
@@ -164,7 +164,7 @@ private:
 };
 
 class RpnNmsPluginCreator : public IPluginCreator {
-public:
+ public:
     RpnNmsPluginCreator() {}
 
     const char *getPluginNamespace() const override {
