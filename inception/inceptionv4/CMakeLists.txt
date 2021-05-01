@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
-project(hrnetseg)
+project(InceptionV4)
 
 add_definitions(-std=c++11)
 
@@ -19,22 +19,17 @@ link_directories(/usr/local/cuda/lib64)
 include_directories(/usr/include/x86_64-linux-gnu/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(hrnet ${PROJECT_SOURCE_DIR}/hrnet.cpp)
-target_link_libraries(hrnet nvinfer)
-target_link_libraries(hrnet cudart)
-target_link_libraries(hrnet ${OpenCV_LIBS})
+file(GLOB SOURCE_FILES "*.h" "*.cpp")
 
-
-add_executable(hrnet_ocr ${PROJECT_SOURCE_DIR}/hrnet_ocr.cpp)
-target_link_libraries(hrnet_ocr nvinfer)
-target_link_libraries(hrnet_ocr cudart)
-target_link_libraries(hrnet_ocr ${OpenCV_LIBS})
-
+add_executable(inceptionv4 ${SOURCE_FILES})
+target_link_libraries(inceptionv4 nvinfer)
+target_link_libraries(inceptionv4 cudart)
+target_link_libraries(inceptionv4 ${OpenCV_LIBS})
 
 add_definitions(-O2 -pthread)
 

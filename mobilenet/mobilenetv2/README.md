@@ -17,7 +17,7 @@ Following tricks are used in this mobilenet,
 
 // 3. build and run
 
-cd tensorrtx/mobilenet
+cd tensorrtx/mobilenet/mobilenetv2
 
 mkdir build
 
@@ -34,4 +34,19 @@ sudo ./mobilenet -d   // deserialize plan file and run inference
 // 4. see if the output is same as pytorchx/mobilenet
 ```
 
+### TensorRT Python API
 
+```
+# 1. generate mobilenetv2.wts from [pytorchx/mobilenet](https://github.com/wang-xinyu/pytorchx/tree/master/mobilenet)
+
+# 2. put mobilenetv2.wts into tensorrtx/mobilenet/mobilenetv2
+
+# 3. install Python dependencies (tensorrt/pycuda/numpy)
+
+cd tensorrtx/mobilenet/mobilenetv2
+
+python mobilenet_v2.py -s   // serialize model to plan file i.e. 'mobilenetv2.engine'
+python mobilenet_v2.py -d   // deserialize plan file and run inference
+
+# 4. see if the output is same as pytorchx/mobilenet
+```

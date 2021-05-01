@@ -29,5 +29,9 @@ add_executable(resnext50 ${PROJECT_SOURCE_DIR}/resnext50_32x4d.cpp)
 target_link_libraries(resnext50 nvinfer)
 target_link_libraries(resnext50 cudart)
 
+add_executable(wideresnet50 ${PROJECT_SOURCE_DIR}/wideresnet50.cpp)
+target_link_libraries(wideresnet50 nvinfer)
+target_link_libraries(wideresnet50 cudart)
+
 add_definitions(-O2 -pthread)
 

@@ -23,9 +23,12 @@ More details about the shift module(which is the core of TSM) could to [test_shi
 python gen_wts.py /path/to/pytorch.pth --out-filename /path/to/tensorrt.wts
 ```
 
-+ Step 3: Modify configs in `tsm_r50.py`.
++ Step 3: Test Python API.
+  + Modify configs in `tsm_r50.py`.
+  + Inference with `tsm_r50.py`.
 
 ```python
+# Supported settings
 BATCH_SIZE = 1
 NUM_SEGMENTS = 8
 INPUT_H = 224
@@ -34,10 +37,8 @@ OUTPUT_SIZE = 400
 SHIFT_DIV = 8
 ```
 
-+ Step 4: Inference with `tsm_r50.py`.
-
 ```shell
-usage: tsm_r50.py [-h] [--tensorrt-weights TENSORRT_WEIGHTS] [--input-video INPUT_VIDEO] [--save-engine-path SAVE_ENGINE_PATH] [--load-engine-path LOAD_ENGINE_PATH] [--test-mmaction2] [--mmaction2-config MMACTION2_CONFIG] [--mmaction2-checkpoint MMACTION2_CHECKPOINT]
+usage: tsm_r50.py [-h] [--tensorrt-weights TENSORRT_WEIGHTS] [--input-video INPUT_VIDEO] [--save-engine-path SAVE_ENGINE_PATH] [--load-engine-path LOAD_ENGINE_PATH] [--test-mmaction2] [--mmaction2-config MMACTION2_CONFIG] [--mmaction2-checkpoint MMACTION2_CHECKPOINT] [--test-cpp] [--cpp-result-path CPP_RESULT_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -54,7 +55,17 @@ optional arguments:
                         Path to MMAction2 config file
   --mmaction2-checkpoint MMACTION2_CHECKPOINT
                         Path to MMAction2 checkpoint url or file path
+  --test-cpp            Compare Python API results with C++ API results
+  --cpp-result-path CPP_RESULT_PATH
+                        Path to C++ API results
 ```
+
++ Step 4: Test C++ API.
+  + Mocify Configs in `tsm_r50.cpp`.
+  + Build from source code: `mkdir build && cd build && cmake .. && make`
+  + Generate Engine file: `./tsm_r50 -s`
+  + Inference with genrated engine file and write predictions to local: `./tsm_r50 -d`
+  + Compare results with Python API: `python tsm_r50.py --tensorrt-weights /path/to/tensorrt.weights --test-cpp --cpp-result-file /path/to/cpp-result.txt`
 
 ## TODO
 
@@ -63,4 +74,4 @@ optional arguments:
 + [x] Python API Definition
 + [x] Test with mmaction2 demo
 + [x] Tutorial
-+ [ ] C++ API Definition
++ [x] C++ API Definition
