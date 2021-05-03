@@ -1,45 +1,54 @@
+#include <fstream>
+#include <map>
+#include <sstream>
+#include <vector>
+#include <opencv2/opencv.hpp>
+
 #include "NvInfer.h"
 #include "yololayer.h"
 #include "mish.h"
 
+
+using namespace nvinfer1;
+
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
-    float r_w = INPUT_W / (img.cols*1.0);
-    float r_h = INPUT_H / (img.rows*1.0);
+    float r_w = Yolo::INPUT_W / (img.cols*1.0);
+    float r_h = Yolo::INPUT_H / (img.rows*1.0);
     if (r_h > r_w) {
-        w = INPUT_W;
+        w = Yolo::INPUT_W;
         h = r_w * img.rows;
         x = 0;
-        y = (INPUT_H - h) / 2;
+        y = (Yolo::INPUT_H - h) / 2;
     } else {
         w = r_h* img.cols;
-        h = INPUT_H;
-        x = (INPUT_W - w) / 2;
+        h = Yolo::INPUT_H;
+        x = (Yolo::INPUT_W - w) / 2;
         y = 0;
     }
     cv::Mat re(h, w, CV_8UC3);
     cv::resize(img, re, re.size());
-    cv::Mat out(INPUT_H, INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
+    cv::Mat out(Yolo::INPUT_H, Yolo::INPUT_W, CV_8UC3, cv::Scalar(128, 128, 128));
     re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
     return out;
 }
 
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     int l, r, t, b;
-    float r_w = INPUT_W / (img.cols * 1.0);
-    float r_h = INPUT_H / (img.rows * 1.0);
+    float r_w = Yolo::INPUT_W / (img.cols * 1.0);
+    float r_h = Yolo::INPUT_H / (img.rows * 1.0);
     if (r_h > r_w) {
         l = bbox[0] - bbox[2]/2.f;
         r = bbox[0] + bbox[2]/2.f;
-        t = bbox[1] - bbox[3]/2.f - (INPUT_H - r_w * img.rows) / 2;
-        b = bbox[1] + bbox[3]/2.f - (INPUT_H - r_w * img.rows) / 2;
+        t = bbox[1] - bbox[3]/2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
+        b = bbox[1] + bbox[3]/2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
         l = l / r_w;
         r = r / r_w;
         t = t / r_w;
         b = b / r_w;
     } else {
-        l = bbox[0] - bbox[2]/2.f - (INPUT_W - r_h * img.cols) / 2;
-        r = bbox[0] + bbox[2]/2.f - (INPUT_W - r_h * img.cols) / 2;
+        l = bbox[0] - bbox[2]/2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
+        r = bbox[0] + bbox[2]/2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
         t = bbox[1] - bbox[3]/2.f;
         b = bbox[1] + bbox[3]/2.f;
         l = l / r_h;
@@ -69,12 +78,13 @@ bool cmp(const Yolo::Detection& a, const Yolo::Detection& b) {
     return a.det_confidence > b.det_confidence;
 }
 
-void nms(std::vector<Yolo::Detection>& res, float *output, float nms_thresh = NMS_THRESH) {
+void nms(std::vector<Yolo::Detection>& res, float *output, float conf_thresh, float nms_thresh = 0.5) {
+    int det_size = sizeof(Yolo::Detection) / sizeof(float);
     std::map<float, std::vector<Yolo::Detection>> m;
     for (int i = 0; i < output[0] && i < Yolo::MAX_OUTPUT_BBOX_COUNT; i++) {
-        if (output[1 + DETECTION_SIZE * i + 4] <= BBOX_CONF_THRESH) continue;
+        if (output[1 + det_size * i + 4] <= conf_thresh) continue;
         Yolo::Detection det;
-        memcpy(&det, &output[1 + DETECTION_SIZE * i], DETECTION_SIZE * sizeof(float));
+        memcpy(&det, &output[1 + det_size * i], det_size * sizeof(float));
         if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Yolo::Detection>());
         m[det.class_id].push_back(det);
     }

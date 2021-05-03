@@ -24,7 +24,7 @@ namespace nvinfer1
 
     void MishPlugin::serialize(void* buffer) const
     {
-        *reinterpret_cast<int*>buffer = input_size_;
+        *reinterpret_cast<int*>(buffer) = input_size_;
     }
 
     size_t MishPlugin::getSerializationSize() const
@@ -40,7 +40,7 @@ namespace nvinfer1
     Dims MishPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
     {
         assert(nbInputDims==1);
-        assert(index==0)
+        assert(index==0);
 
         input_size_ = inputs[0].d[0] * inputs[0].d[1] * inputs[0].d[2];
 
@@ -120,14 +120,14 @@ namespace nvinfer1
     }
 
     // softplus kernel
-    __device__ softplus_kernel(float x, float threshold = 20)
+    __device__ float softplus_kernel(float x, float threshold = 20)
     {
         if (x > threshold) return x;                  // too large
         else if (x < -threshold) return expf(x);      // too small
         return logf(expf(x) + 1);
     }
 
-    __device__ mish_kernel(onst float* input, float* output, int n)
+    __global__ void mish_kernel(const float* input, float* output, int n)
     {
         //int i = (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x + threadIdx.x;
         int i = threadIdx.x + blockDim.x * blockIdx.x;

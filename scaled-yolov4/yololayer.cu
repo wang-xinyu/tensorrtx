@@ -34,7 +34,7 @@ namespace nvinfer1
     YoloLayerPlugin::YoloLayerPlugin(const void* data, size_t length)
     {
         using namespace Tn;
-        const char *d = reinterpret_cast<char *>(data), *a = d;
+        const char *d = reinterpret_cast<const char *>(data), *a = d;
         read(d, mClassCount);
         read(d, mThreadCount);
         read(d, mKernelCount);
@@ -153,8 +153,8 @@ namespace nvinfer1
 
     __device__ float Logist(float data){ return 1./(1. + exp(-data)); };
 
-    __global__ void CalDetection(const float *input, float *output,int noElements, 
-            int yoloWidth,int yoloHeight,const float anchors[CHECK_COUNT*2],int classes,int outputElem) {
+    __global__ void CalDetection(const float *input, float *output, int noElements, 
+            int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT*2],int classes,int outputElem) {
  
         int idx = threadIdx.x + blockDim.x * blockIdx.x;
         if (idx >= noElements) return;
