@@ -188,10 +188,10 @@ namespace nvinfer1
             int col = idx % yoloWidth;
 
             //Location
-            det->bbox[0] = (col + Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * INPUT_W / yoloWidth;
-            det->bbox[1] = (row + Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * INPUT_H / yoloHeight;
-            det->bbox[2] = exp(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]) * anchors[2*k];
-            det->bbox[3] = exp(curInput[idx + k * info_len_i * total_grid + 3 * total_grid]) * anchors[2*k + 1];
+            det->bbox[0] = (col + (2 * (Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid]))) - 0.5) * INPUT_W / yoloWidth;
+            det->bbox[1] = (row + (2 * (Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid]))) - 0.5) * INPUT_H / yoloHeight;
+            det->bbox[2] = (powf(2 * (Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid])), 2)) * anchors[2*k];
+            det->bbox[3] = (powf(2 * (Logist(curInput[idx + k * info_len_i * total_grid + 3 * total_grid])), 2)) * anchors[2*k + 1];
             det->det_confidence = box_prob;
             det->class_id = class_id;
             det->class_confidence = max_cls_prob;
