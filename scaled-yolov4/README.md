@@ -42,6 +42,13 @@ sudo ./yolov4csp -d ../../yolov3-spp/samples // deserialize plan file and run in
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
+<p align="center">
+<img src= https://user-images.githubusercontent.com/39617050/117172509-824cf980-ade9-11eb-8e4c-27dbe658e355.jpg>
+</p>
+
+<p align="center">
+<img src= https://user-images.githubusercontent.com/39617050/117172880-dbb52880-ade9-11eb-839a-0814fd46198e.jpg>
+</p>
 
 
 ## More Information
