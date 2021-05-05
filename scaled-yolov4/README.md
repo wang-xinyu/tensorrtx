@@ -22,7 +22,7 @@ Note: There is a slight difference in yolov4-csp.cfg for darknet and pytorch. Us
 git clone https://github.com/wang-xinyu/tensorrtx.git
 git clone -b yolov4-csp https://github.com/WongKinYiu/ScaledYOLOv4.git
 // download yolov4-csp.weights from https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-csp#yolov4-csp
-cp {tensorrtx}/yolov4/gen_wts.py {ScaledYOLOv4/}
+cp {tensorrtx}/scaled-yolov4/gen_wts.py {ScaledYOLOv4/}
 cd {ScaledYOLOv4/}
 python gen_wts.py yolov4-csp.weights
 // a file 'yolov4_csp.wts' will be generated.
