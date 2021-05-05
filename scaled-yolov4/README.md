@@ -1,6 +1,6 @@
 # scaled-yolov4
 
-The Pytorch implementation is from [WongKinYiu/ScaledYOLOv4 yolov4-csp branch](https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-csp). It can load yolov4-csp.cfg and yolov4.weights(from AlexeyAB/darknet).
+The Pytorch implementation is from [WongKinYiu/ScaledYOLOv4 yolov4-csp branch](https://github.com/WongKinYiu/ScaledYOLOv4/tree/yolov4-csp). It can load yolov4-csp.cfg and yolov4-csp.weights(from AlexeyAB/darknet).
 
 Note: There is a slight difference in yolov4-csp.cfg for darknet and pytorch. Use the one given in the above repo.
 
