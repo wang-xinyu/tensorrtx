@@ -27,11 +27,11 @@ target_link_libraries(myplugins nvinfer cudart)
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(yolov4 ${PROJECT_SOURCE_DIR}/yolov4_csp.cpp)
-target_link_libraries(yolov4 nvinfer)
-target_link_libraries(yolov4 cudart)
-target_link_libraries(yolov4 myplugins)
-target_link_libraries(yolov4 ${OpenCV_LIBS})
+add_executable(yolov4csp ${PROJECT_SOURCE_DIR}/yolov4_csp.cpp)
+target_link_libraries(yolov4csp nvinfer)
+target_link_libraries(yolov4csp cudart)
+target_link_libraries(yolov4csp myplugins)
+target_link_libraries(yolov4csp ${OpenCV_LIBS})
 
 add_definitions(-O2 -pthread)
 
