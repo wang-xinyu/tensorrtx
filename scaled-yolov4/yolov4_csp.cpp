@@ -222,7 +222,6 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(upsample129);
     upsample129 -> setStrideNd(DimsHW{2, 2});
     upsample129 -> setNbGroups(128);
-    weightMap["upsample129"] = upsamplewts129;
 
     auto l130 = l48;
     auto l131 = convBnMish(network, weightMap, *l130 -> getOutput(0), 128, 1, 1, 0, 131);
@@ -319,20 +318,14 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // Don't need the network any more
     network -> destroy();
 
-    std::cout << "destroyed network successfully!" << std::endl;
-
     
     // Release host memory
-    // corrupted size vs. prev_size while consolidating ?? error compiler
-    // for (auto& mem : weightMap)
-    // {
-    //     free((void*) (mem.second.values));
-    // }
-
-    std::cout << "released memory successfully!" << std::endl;
+    for (auto& mem : weightMap)
+    {
+        free((void*) (mem.second.values));
+    }
 
     return engine;
-
 }
 
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
@@ -344,18 +337,15 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
 
     // Create model to populate the network, then set the outputs and create an engine
     ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
-    std::cout << "engine returned" << std::endl;
     assert(engine != nullptr);
 
     // serialize the trt engine
     (*modelStream) = engine -> serialize();
-    std::cout << "engine serialized" << std::endl;
+    
     // Close everything down
     engine -> destroy();
     builder -> destroy();
     config -> destroy();
-
-    std::cout << "destroyed network" << std::endl;
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
@@ -419,7 +409,7 @@ int main(int argc, char** argv){
         IHostMemory* modelStream{nullptr};
         APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
-        std::ofstream p("yolov4.engine", std::ios::binary);
+        std::ofstream p("yolov4csp.engine", std::ios::binary);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
@@ -428,7 +418,7 @@ int main(int argc, char** argv){
         modelStream->destroy();
         return 0;
     } else if (argc == 3 && std::string(argv[1]) == "-d") {
-        std::ifstream file("yolov4.engine", std::ios::binary);
+        std::ifstream file("yolov4csp.engine", std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
             size = file.tellg();
