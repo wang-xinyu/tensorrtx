@@ -26,7 +26,8 @@ TensorRT7.2 is recomended because Resize layer in 7.0 with kLINEAR mode is a lit
 // go to facebookresearch/detectron2
 python setup.py build develop // more install information see https://github.com/facebookresearch/detectron2/blob/master/INSTALL.md
 // download https://dl.fbaipublicfiles.com/detectron2/COCO-Detection/faster_rcnn_R_50_C4_1x/137257644/model_final_721ade.pkl
-// copy tensorrtx/rcnn/(gen_wts.py,demo.jpg) into facebookresearch/detectron2
+// download https://raw.githubusercontent.com/freedenS/TestImage/main/demo.jpg
+// copy tensorrtx/rcnn/gen_wts.py and demo.jpg into facebookresearch/detectron2
 // ensure cfg.MODEL.WEIGHTS in gen_wts.py is correct
 // go to facebookresearch/detectron2
 python gen_wts.py
