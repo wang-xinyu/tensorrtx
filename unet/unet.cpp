@@ -85,13 +85,27 @@ ILayer* up(INetworkDefinition *network, std::map<std::string, Weights>& weightMa
     for (int i = 0; i < resize * 2 * 2; i++) {
         deval[i] = 1.0;
     }
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    Weights deconvwts1{DataType::kFLOAT, deval, resize * 2 * 2};
-    IDeconvolutionLayer* deconv1 = network->addDeconvolutionNd(input1, resize, DimsHW{2, 2}, deconvwts1, emptywts);
-    deconv1->setStrideNd(DimsHW{2, 2});
-    deconv1->setNbGroups(resize);
-    weightMap["deconvwts."+lname] = deconvwts1;
+    // Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    // Weights deconvwts1{DataType::kFLOAT, deval, resize * 2 * 2};
+    // Weights upsamplewts1{DataType::kFLOAT, deval, resize * 2 * 2};
+    // add upsample bilinear
+    IResizeLayer* deconv1 = network->addResize(input1);
 
+    auto outdims = input2.getDimensions();
+    // std::vector<float> upsample_scales{1,1,2,2};
+    // auto upshape = network->addShape(input2)->getOutput(0);
+    // deconv1->setInput(1,*upshape);
+    // deconv1->setScales(upsample_scales.data(), upsample_scales.size());
+    deconv1->setOutputDimensions(outdims);
+    deconv1->setResizeMode(ResizeMode::kLINEAR);
+    deconv1->setAlignCorners(true);
+
+    // upsample deconv(nearest) 
+    // IDeconvolutionLayer* deconv1 = network->addDeconvolutionNd(input1, resize, DimsHW{2, 2}, deconvwts1, emptywts);
+    // deconv1->setStrideNd(DimsHW{2, 2});
+    // deconv1->setNbGroups(resize);
+    // weightMap["deconvwts."+lname] = deconvwts1;
+    // weightMap["deconvwts."+lname] = upsamplewts1;
     int diffx = input2.getDimensions().d[1]-deconv1->getOutput(0)->getDimensions().d[1];
     int diffy = input2.getDimensions().d[2]-deconv1->getOutput(0)->getDimensions().d[2];
     // IPoolingLayer* pool1 = network->addPooling(dcov1, PoolingType::kMAX, DimsHW{2, 2});
