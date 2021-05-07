@@ -4,6 +4,10 @@
 #include <string>
 #include "common.hpp"
 
+/* when stride>1, whether to put stride in the first 1x1 convolution or the bottleneck 3x3 convolution.
+set false when use backbone from torchvision*/
+#define STRIDE_IN_1X1 true
+
 enum RESNETTYPE {
     R18 = 0,
     R34,
@@ -44,6 +48,55 @@ int group_num = 1) {
     return max_pool2d;
 }
 
+ITensor* BasicBlock(INetworkDefinition *network,
+std::map<std::string, Weights>& weightMap,
+const std::string& lname,
+ITensor& input,
+int in_channels,
+int out_channels,
+int stride = 1) {
+    // conv1
+    IConvolutionLayer* conv1 = network->addConvolutionNd(input, out_channels, DimsHW{ 3, 3 },
+    weightMap[lname + ".conv1.weight"],
+    weightMap[lname + ".conv1.bias"]);
+    assert(conv1);
+    conv1->setStrideNd(DimsHW{ stride, stride });
+    conv1->setPaddingNd(DimsHW{ 1, 1 });
+
+    auto r1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
+    assert(r1);
+
+    // conv2
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*r1->getOutput(0), out_channels, DimsHW{ 3, 3 },
+    weightMap[lname + ".conv2.weight"],
+    weightMap[lname + ".conv2.bias"]);
+    assert(conv2);
+    conv2->setStrideNd(DimsHW{ 1, 1 });
+    conv2->setPaddingNd(DimsHW{ 1, 1 });
+
+    // shortcut
+    ITensor* shortcut_value = nullptr;
+    if (in_channels != out_channels) {
+        auto shortcut = network->addConvolutionNd(input, out_channels, DimsHW{ 1, 1 },
+        weightMap[lname + ".shortcut.weight"],
+        weightMap[lname + ".shortcut.bias"]);
+        assert(shortcut);
+        shortcut->setStrideNd(DimsHW{ stride, stride });
+        shortcut_value = shortcut->getOutput(0);
+    } else {
+        shortcut_value = &input;
+    }
+
+    // add
+    auto ew = network->addElementWise(*conv2->getOutput(0), *shortcut_value, ElementWiseOperation::kSUM);
+    assert(ew);
+
+    auto r3 = network->addActivation(*ew->getOutput(0), ActivationType::kRELU);
+    assert(r3);
+
+    return r3->getOutput(0);
+}
+
 ITensor* BottleneckBlock(INetworkDefinition *network,
 std::map<std::string, Weights>& weightMap,
 const std::string& lname,
@@ -54,12 +107,14 @@ int out_channels,
 int stride = 1,
 int dilation = 1,
 int group_num = 1) {
+    int stride_1x1 = STRIDE_IN_1X1 ? stride : 1;
+    int stride_3x3 = STRIDE_IN_1X1 ? 1 : stride;
     // conv1
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, bottleneck_channels, DimsHW{ 1, 1 },
     weightMap[lname + ".conv1.weight"],
     weightMap[lname + ".conv1.bias"]);
     assert(conv1);
-    conv1->setStrideNd(DimsHW{ stride, stride });
+    conv1->setStrideNd(DimsHW{ stride_1x1, stride_1x1 });
     conv1->setNbGroups(group_num);
 
     auto r1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
@@ -70,7 +125,7 @@ int group_num = 1) {
     weightMap[lname + ".conv2.weight"],
     weightMap[lname + ".conv2.bias"]);
     assert(conv2);
-    conv2->setStrideNd(DimsHW{ 1, 1 });
+    conv2->setStrideNd(DimsHW{ stride_3x3, stride_3x3 });
     conv2->setPaddingNd(DimsHW{ 1 * dilation, 1 * dilation });
     conv2->setDilationNd(DimsHW{ dilation, dilation });
     conv2->setNbGroups(group_num);
@@ -115,6 +170,7 @@ std::map<std::string, Weights>& weightMap,
 const std::string& lname,
 ITensor& input,
 int stage,
+RESNETTYPE resnet_type,
 int in_channels,
 int bottleneck_channels,
 int out_channels,
@@ -122,14 +178,15 @@ int first_stride = 1,
 int dilation = 1) {
     ITensor* out = &input;
     for (int i = 0; i < stage; i++) {
-        if (i == 0)
-            out = BottleneckBlock(network, weightMap,
-            lname + "." + std::to_string(i), *out, in_channels,
-            bottleneck_channels, out_channels, first_stride, dilation);
+        std::string layerName = lname + "." + std::to_string(i);
+        int stride = i == 0 ? first_stride : 1;
+
+        if (resnet_type == R18 || resnet_type == R34)
+            out = BasicBlock(network, weightMap, layerName, *out, in_channels, out_channels, stride);
         else
-            out = BottleneckBlock(network, weightMap,
-            lname + "." + std::to_string(i), *out, in_channels,
-            bottleneck_channels, out_channels, 1, dilation);
+            out = BottleneckBlock(network, weightMap, layerName, *out,
+            in_channels, bottleneck_channels, out_channels, stride, dilation);
+
         in_channels = out_channels;
     }
     return out;
@@ -161,8 +218,9 @@ int res5_dilation = 1) {
         int first_stride = (i == 0 || (i == 3 && dilation == 2)) ? 1 : 2;
         out = MakeStage(network, weightMap,
         "backbone.res" + std::to_string(i + 2), *out,
-        num_blocks_per_stage.at(resnet_type)[i], stem_out_channels,
-        bottleneck_channels, out_channels, first_stride, dilation);
+        num_blocks_per_stage.at(resnet_type)[i], resnet_type,
+        stem_out_channels, bottleneck_channels, out_channels,
+        first_stride, dilation);
         stem_out_channels = out_channels;
         bottleneck_channels *= 2;
         out_channels *= 2;
