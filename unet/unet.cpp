@@ -12,6 +12,7 @@
 // #define USE_FP16  // comment out this if want to use FP16
 #define CONF_THRESH 0.5
 #define BATCH_SIZE 1
+#define BILINEAR true
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 816;
 static const int INPUT_W = 672;
@@ -85,51 +86,62 @@ ILayer* up(INetworkDefinition *network, std::map<std::string, Weights>& weightMa
     for (int i = 0; i < resize * 2 * 2; i++) {
         deval[i] = 1.0;
     }
-    // Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    // Weights deconvwts1{DataType::kFLOAT, deval, resize * 2 * 2};
-    // Weights upsamplewts1{DataType::kFLOAT, deval, resize * 2 * 2};
-    // add upsample bilinear
-    IResizeLayer* deconv1 = network->addResize(input1);
 
-    auto outdims = input2.getDimensions();
-    // std::vector<float> upsample_scales{1,1,2,2};
-    // auto upshape = network->addShape(input2)->getOutput(0);
-    // deconv1->setInput(1,*upshape);
-    // deconv1->setScales(upsample_scales.data(), upsample_scales.size());
-    deconv1->setOutputDimensions(outdims);
-    deconv1->setResizeMode(ResizeMode::kLINEAR);
-    deconv1->setAlignCorners(true);
+    if (BILINEAR){
+        // add upsample bilinear
+        IResizeLayer* deconv1 = network->addResize(input1);
+        auto outdims = input2.getDimensions();
+        deconv1->setOutputDimensions(outdims);
+        deconv1->setResizeMode(ResizeMode::kLINEAR);
+        deconv1->setAlignCorners(true);
 
-    // upsample deconv(nearest) 
-    // IDeconvolutionLayer* deconv1 = network->addDeconvolutionNd(input1, resize, DimsHW{2, 2}, deconvwts1, emptywts);
-    // deconv1->setStrideNd(DimsHW{2, 2});
-    // deconv1->setNbGroups(resize);
-    // weightMap["deconvwts."+lname] = deconvwts1;
-    // weightMap["deconvwts."+lname] = upsamplewts1;
-    int diffx = input2.getDimensions().d[1]-deconv1->getOutput(0)->getDimensions().d[1];
-    int diffy = input2.getDimensions().d[2]-deconv1->getOutput(0)->getDimensions().d[2];
-    // IPoolingLayer* pool1 = network->addPooling(dcov1, PoolingType::kMAX, DimsHW{2, 2});
-    // pool1->setStrideNd(DimsHW{2, 2});
-    // dcov1->add_pading
-    ILayer* pad1 = network->addPaddingNd(*deconv1->getOutput(0),DimsHW{diffx / 2, diffy / 2},DimsHW{diffx - (diffx / 2), diffy - (diffy / 2)});
-    // dcov1->setPaddingNd(DimsHW{diffx / 2, diffx - diffx / 2},DimsHW{diffy / 2, diffy - diffy / 2});
-    ITensor* inputTensors[] = {&input2,pad1->getOutput(0)};
-    auto cat = network->addConcatenation(inputTensors, 2);
-    assert(cat);
-    if (midch==64){
-        ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),outch,3,lname+".conv",outch);
-        assert(dcov1);
-        return dcov1;
+        int diffx = input2.getDimensions().d[1]-deconv1->getOutput(0)->getDimensions().d[1];
+        int diffy = input2.getDimensions().d[2]-deconv1->getOutput(0)->getDimensions().d[2];
+
+        ILayer* pad1 = network->addPaddingNd(*deconv1->getOutput(0),DimsHW{diffx / 2, diffy / 2},DimsHW{diffx - (diffx / 2), diffy - (diffy / 2)});
+        // dcov1->setPaddingNd(DimsHW{diffx / 2, diffx - diffx / 2},DimsHW{diffy / 2, diffy - diffy / 2});
+        ITensor* inputTensors[] = {&input2,pad1->getOutput(0)};
+        auto cat = network->addConcatenation(inputTensors, 2);
+        assert(cat);
+        if (midch==64){
+            ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),outch,3,lname+".conv",outch);
+            assert(dcov1);
+            return dcov1;
+        }else{
+            int midch1 = outch/2;
+            ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),midch1,3,lname+".conv",outch);
+            assert(dcov1);
+            return dcov1;
+        }
     }else{
-        int midch1 = outch/2;
-        ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),midch1,3,lname+".conv",outch);
-        assert(dcov1);
-        return dcov1;
-    }
-    
-    // assert(dcov1);
+        Weights emptywts{DataType::kFLOAT, nullptr, 0};
+        Weights deconvwts1{DataType::kFLOAT, deval, resize * 2 * 2};
+        IDeconvolutionLayer* deconv1 = network->addDeconvolutionNd(input1, resize, DimsHW{2, 2}, deconvwts1, emptywts);
+        deconv1->setStrideNd(DimsHW{2, 2});
+        deconv1->setNbGroups(resize);
+        weightMap["deconvwts."+lname] = deconvwts1;
 
-    // return dcov1;
+        int diffx = input2.getDimensions().d[1]-deconv1->getOutput(0)->getDimensions().d[1];
+        int diffy = input2.getDimensions().d[2]-deconv1->getOutput(0)->getDimensions().d[2];
+
+        ILayer* pad1 = network->addPaddingNd(*deconv1->getOutput(0),DimsHW{diffx / 2, diffy / 2},DimsHW{diffx - (diffx / 2), diffy - (diffy / 2)});
+        // dcov1->setPaddingNd(DimsHW{diffx / 2, diffx - diffx / 2},DimsHW{diffy / 2, diffy - diffy / 2});
+        ITensor* inputTensors[] = {&input2,pad1->getOutput(0)};
+        auto cat = network->addConcatenation(inputTensors, 2);
+        assert(cat);
+        if (midch==64){
+            ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),outch,3,lname+".conv",outch);
+            assert(dcov1);
+            return dcov1;
+        }else{
+            int midch1 = outch/2;
+            ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),midch1,3,lname+".conv",outch);
+            assert(dcov1);
+            return dcov1;
+        }
+    }
+
+
 }
 
 ILayer* outConv(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input,  int outch, std::string lname){
