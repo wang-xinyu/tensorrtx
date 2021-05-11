@@ -180,9 +180,8 @@ class Retinaface_trt(object):
 
     def preprocess_image(self, input_image_path):
         """
-        description: Read an image from image path, convert it to RGB,
-                     resize and pad it to target size, normalize to [0,1],
-                     transform to NCHW format.
+        description: Read an image from image path, resize and pad it to target size,
+                     normalize to [0,1],transform to NCHW format.
         param:
             input_image_path: str, image path
         return:
@@ -193,7 +192,6 @@ class Retinaface_trt(object):
         """
         image_raw = cv2.imread(input_image_path)
         h, w, c = image_raw.shape
-        #image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
         image = cv2.resize(image_raw, (INPUT_W, INPUT_H))
 
         image = image.astype(np.float32)
