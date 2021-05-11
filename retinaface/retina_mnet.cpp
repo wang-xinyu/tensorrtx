@@ -350,7 +350,7 @@ int main(int argc, char** argv) {
 
     for (int b = 0; b < BATCH_SIZE; b++) {
         std::vector<decodeplugin::Detection> res;
-        nms(res, &prob[b * OUTPUT_SIZE],IOU_THRESHOLD);
+        nms(res, &prob[b * OUTPUT_SIZE], IOU_THRESHOLD);
         std::cout << "number of detections -> " << prob[b * OUTPUT_SIZE] << std::endl;
         std::cout << " -> " << prob[b * OUTPUT_SIZE + 10] << std::endl;
         std::cout << "after nms -> " << res.size() << std::endl;
