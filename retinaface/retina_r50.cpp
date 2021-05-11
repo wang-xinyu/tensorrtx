@@ -12,6 +12,8 @@
 #define USE_INT8  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define BATCH_SIZE 1
+#define CONF_THRESH = 0.75
+#define IOU_THRESH = 0.4
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = decodeplugin::INPUT_H;  // H, W must be able to  be divided by 32.
@@ -369,13 +371,13 @@ int main(int argc, char** argv) {
 
     for (int b = 0; b < BATCH_SIZE; b++) {
         std::vector<decodeplugin::Detection> res;
-        nms(res, &prob[b * OUTPUT_SIZE]);
+        nms(res, &prob[b * OUTPUT_SIZE], IOU_THRESH);
         std::cout << "number of detections -> " << prob[b * OUTPUT_SIZE] << std::endl;
         std::cout << " -> " << prob[b * OUTPUT_SIZE + 10] << std::endl;
         std::cout << "after nms -> " << res.size() << std::endl;
         cv::Mat tmp = img.clone();
         for (size_t j = 0; j < res.size(); j++) {
-            if (res[j].class_confidence < 0.1) continue;
+            if (res[j].class_confidence < CONF_THRESH) continue;
             cv::Rect r = get_rect_adapt_landmark(tmp, INPUT_W, INPUT_H, res[j].bbox, res[j].landmark);
             cv::rectangle(tmp, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
             //cv::putText(tmp, std::to_string((int)(res[j].class_confidence * 100)) + "%", cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 1);
