@@ -13,7 +13,7 @@
 #define DEVICE 0  // GPU id
 #define BATCH_SIZE 1
 #define CONF_THRESH = 0.75
-#define IOU_THRESHOLD = 0.4
+#define IOU_THRESH = 0.4
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = decodeplugin::INPUT_H;  // H, W must be able to  be divided by 32.
@@ -350,7 +350,7 @@ int main(int argc, char** argv) {
 
     for (int b = 0; b < BATCH_SIZE; b++) {
         std::vector<decodeplugin::Detection> res;
-        nms(res, &prob[b * OUTPUT_SIZE], IOU_THRESHOLD);
+        nms(res, &prob[b * OUTPUT_SIZE], IOU_THRESH);
         std::cout << "number of detections -> " << prob[b * OUTPUT_SIZE] << std::endl;
         std::cout << " -> " << prob[b * OUTPUT_SIZE + 10] << std::endl;
         std::cout << "after nms -> " << res.size() << std::endl;
