@@ -12,8 +12,8 @@
 #define USE_INT8  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define BATCH_SIZE 1
-#define CONF_THRESH = 0.75
-#define IOU_THRESH = 0.4
+#define CONF_THRESH 0.75
+#define IOU_THRESH 0.4
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = decodeplugin::INPUT_H;  // H, W must be able to  be divided by 32.
