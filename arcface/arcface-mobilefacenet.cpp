@@ -23,7 +23,7 @@
 
 //#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
-#define BATCH_SIZE 20  // currently, only support BATCH=1
+#define BATCH_SIZE 1  // currently, only support BATCH=1
 
 using namespace nvinfer1;
 
