@@ -10,6 +10,10 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `17 May 2021`. [ybw108](https://github.com/ybw108): arcface LResNet100E-IR and MobileFaceNet.
+- `6 May 2021`. [makaveli10](https://github.com/makaveli10): scaled-yolov4 yolov4-csp.
+- `29 Apr 2021`. [upczww](https://github.com/upczww): hrnet segmentation w18/w32/w48, ocr branch also.
+- `28 Apr 2021`. [aditya-dl](https://github.com/aditya-dl): mobilenetv2, alexnet, densenet121, mobilenetv3 with python API.
 - `26 Apr 2021`. [makaveli10](https://github.com/makaveli10) add Inceptionv4.
 - `25 Apr 2021`. YOLOv5 updated to v5.0, supporting s/m/l/x/s6/m6/l6/x6.
 - `23 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) add TSM: Temporal Shift Module for Efficient Video Understanding, ICCV2019.
@@ -21,10 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `31 Jan 2021`. RepVGG added by [upczww](https://github.com/upczww).
 - `29 Jan 2021`. U-Net added by [YuzhouPeng](https://github.com/YuzhouPeng).
 - `24 Jan 2021`. IBN-Net added by [TCHeish](https://github.com/TCHeish), PSENet optimized, YOLOv5 v4.0 INT8, etc.
-- `8 Jan 2021`. YOLOv5 s/m/l/x updated to v4.0.
-- `27 Dec 2020`. HRNet-Semantic-Segmentation added by [BaofengZan](https://github.com/BaofengZan).
-- `4 Dec 2020`. DBNet dynamic input shape support by [BaofengZan](https://github.com/BaofengZan), YOLOv3 int8, PSENet(tensorflow) text detection by [upczww](https://github.com/upczww).
-- `19 Nov 2020`. YOLOv3-SPP supports dynamic input shape, including a dynamic plugin.
 
 ## Tutorials
 
@@ -70,7 +70,7 @@ Following models are implemented.
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov5](./yolov5)| yolov5 v1.0-v5.0, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
-|[arcface](./arcface)| LResNet50E-IR, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
+|[arcface](./arcface)| LResNet50E-IR, LResNet100E-IR and MobileFaceNet, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
 |[dbnet](./dbnet)| Scene Text Detection, weights from [BaofengZan/DBNet.pytorch](https://github.com/BaofengZan/DBNet.pytorch) |
 |[crnn](./crnn)| pytorch implementation from [meijieru/crnn.pytorch](https://github.com/meijieru/crnn.pytorch) |
@@ -85,6 +85,7 @@ Following models are implemented.
 |[densenet](./densenet)| DenseNet-121, from torchvision.models |
 |[rcnn](./rcnn)| FasterRCNN and MaskRCNN, model from [detectron2](https://github.com/facebookresearch/detectron2) |
 |[tsm](./tsm)| TSM: Temporal Shift Module for Efficient Video Understanding, ICCV2019 |
+|[scaled-yolov4](./scaled-yolov4)| yolov4-csp, pytorch from [WongKinYiu/ScaledYOLOv4](https://github.com/WongKinYiu/ScaledYOLOv4) |
 
 ## Model Zoo
 
