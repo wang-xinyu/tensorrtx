@@ -223,11 +223,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
-<<<<<<< HEAD
     std::map<std::string, Weights> weightMap = loadWeights("../arcface-mobilefacenet.wts");
-=======
-    std::map<std::string, Weights> weightMap = loadWeights("../arcface-mnt.wts");
->>>>>>> origin/tensorrtx_t
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     auto conv_1 = conv_bn_relu(network, weightMap, *data, "conv_1", 64, 3, 1, 2);
@@ -360,11 +356,7 @@ int main(int argc, char** argv) {
         IHostMemory* modelStream{nullptr};
         APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
-<<<<<<< HEAD
         std::ofstream p("arcface-mobilefacenet.engine", std::ios::binary);
-=======
-        std::ofstream p("arcface-mnt.engine", std::ios::binary);
->>>>>>> origin/tensorrtx_t
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
@@ -373,11 +365,7 @@ int main(int argc, char** argv) {
         modelStream->destroy();
         return 0;
     } else if (argc == 2 && std::string(argv[1]) == "-d") {
-<<<<<<< HEAD
         std::ifstream file("arcface-mobilefacenet.engine", std::ios::binary);
-=======
-        std::ifstream file("arcface-mnt.engine", std::ios::binary);
->>>>>>> origin/tensorrtx_t
         if (file.good()) {
             file.seekg(0, file.end);
             size = file.tellg();
@@ -389,13 +377,8 @@ int main(int argc, char** argv) {
         }
     } else {
         std::cerr << "arguments not right!" << std::endl;
-<<<<<<< HEAD
         std::cerr << "./arcface-mobilefacenet -s  // serialize model to plan file" << std::endl;
         std::cerr << "./arcface-mobilefacenet -d  // deserialize plan file and run inference" << std::endl;
-=======
-        std::cerr << "./arcface-r50 -s  // serialize model to plan file" << std::endl;
-        std::cerr << "./arcface-r50 -d  // deserialize plan file and run inference" << std::endl;
->>>>>>> origin/tensorrtx_t
         return -1;
     }
 

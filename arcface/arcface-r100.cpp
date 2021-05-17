@@ -182,7 +182,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
-    std::map<std::string, Weights> weightMap = loadWeights("../arcface-r50.wts");
+    std::map<std::string, Weights> weightMap = loadWeights("../arcface-r100.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     IConvolutionLayer* conv0 = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["conv0_weight"], emptywts);
@@ -201,7 +201,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto s2u4 = resUnit(network, weightMap, *s2u3->getOutput(0), 128, 1, true, "stage2_unit4");
 
 
-        auto s2u5 = resUnit(network, weightMap, *s2u4->getOutput(0), 128, 1, true, "stage2_unit5");
+    auto s2u5 = resUnit(network, weightMap, *s2u4->getOutput(0), 128, 1, true, "stage2_unit5");
     auto s2u6 = resUnit(network, weightMap, *s2u5->getOutput(0), 128, 1, true, "stage2_unit6");
     auto s2u7 = resUnit(network, weightMap, *s2u6->getOutput(0), 128, 1, true, "stage2_unit7");
     auto s2u8 = resUnit(network, weightMap, *s2u7->getOutput(0), 128, 1, true, "stage2_unit8");
@@ -227,7 +227,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto s3u13 = resUnit(network, weightMap, *s3u12->getOutput(0), 256, 1, true, "stage3_unit13");
     auto s3u14 = resUnit(network, weightMap, *s3u13->getOutput(0), 256, 1, true, "stage3_unit14");
 
-        auto s3u15 = resUnit(network, weightMap, *s3u14->getOutput(0), 256, 1, true, "stage3_unit15");
+    auto s3u15 = resUnit(network, weightMap, *s3u14->getOutput(0), 256, 1, true, "stage3_unit15");
     auto s3u16 = resUnit(network, weightMap, *s3u15->getOutput(0), 256, 1, true, "stage3_unit16");
     auto s3u17 = resUnit(network, weightMap, *s3u16->getOutput(0), 256, 1, true, "stage3_unit17");
     auto s3u18 = resUnit(network, weightMap, *s3u17->getOutput(0), 256, 1, true, "stage3_unit18");
@@ -360,7 +360,7 @@ int main(int argc, char** argv) {
         IHostMemory* modelStream{nullptr};
         APIToModel(256, &modelStream);
         assert(modelStream != nullptr);
-        std::ofstream p("arcface-r50.engine", std::ios::binary);
+        std::ofstream p("arcface-r100.engine", std::ios::binary);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
@@ -369,7 +369,7 @@ int main(int argc, char** argv) {
         modelStream->destroy();
         return 0;
     } else if (argc == 2 && std::string(argv[1]) == "-d") {
-        std::ifstream file("arcface-r50.engine", std::ios::binary);
+        std::ifstream file("arcface-r100.engine", std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
             size = file.tellg();
@@ -381,8 +381,8 @@ int main(int argc, char** argv) {
         }
     } else {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./arcface-r50 -s  // serialize model to plan file" << std::endl;
-        std::cerr << "./arcface-r50 -d  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./arcface-r100 -s  // serialize model to plan file" << std::endl;
+        std::cerr << "./arcface-r100 -d  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
