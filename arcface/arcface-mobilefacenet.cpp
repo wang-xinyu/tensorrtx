@@ -30,7 +30,7 @@ using namespace nvinfer1;
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 112;
 static const int INPUT_W = 112;
-static const int OUTPUT_SIZE = 512;
+static const int OUTPUT_SIZE = 128;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -408,7 +408,7 @@ int main(int argc, char** argv) {
     auto end = std::chrono::system_clock::now();
     std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-    cv::Mat out(512, 1, CV_32FC1, prob);
+    cv::Mat out(128, 1, CV_32FC1, prob);
     cv::Mat out_norm;
     cv::normalize(out, out_norm);
 
@@ -425,7 +425,7 @@ int main(int argc, char** argv) {
     end = std::chrono::system_clock::now();
     std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-    cv::Mat out1(1, 512, CV_32FC1, prob);
+    cv::Mat out1(1, 128, CV_32FC1, prob);
     cv::Mat out_norm1;
     cv::normalize(out1, out_norm1);
 
