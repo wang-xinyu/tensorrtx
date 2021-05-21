@@ -16,8 +16,6 @@ PLUGIN_CREATORS = trt.get_plugin_registry().plugin_creator_list
 for plugin_creator in PLUGIN_CREATORS:
     if plugin_creator.name == 'DCNv2_TRT':
         dcnCreator = plugin_creator
-    if plugin_creator.name == 'BatchedNMS_TRT':
-        nmsCreator = plugin_creator
 
 
 class ModelData(object):

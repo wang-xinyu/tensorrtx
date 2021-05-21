@@ -21,7 +21,7 @@ This is the trt implementation of detection model [ctdet_coco_dla_2x](https://dr
 cd sample
 python test.py ${ENGINE_PATH}
 ```
-![trt_out](sample/trt_out.jpg)
+![trt_out](https://user-images.githubusercontent.com/47047345/119128637-7a878900-ba68-11eb-91ff-5dcc10f01b77.jpg)
 
 ## TODO
 
