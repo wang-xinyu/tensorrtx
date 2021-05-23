@@ -35,5 +35,17 @@ target_link_libraries(arcface-r50 cudart)
 target_link_libraries(arcface-r50 myplugins)
 target_link_libraries(arcface-r50 ${OpenCV_LIBS})
 
+add_executable(arcface-mobilefacenet ${PROJECT_SOURCE_DIR}/arcface-mobilefacenet.cpp)
+target_link_libraries(arcface-mobilefacenet nvinfer)
+target_link_libraries(arcface-mobilefacenet cudart)
+target_link_libraries(arcface-mobilefacenet myplugins)
+target_link_libraries(arcface-mobilefacenet ${OpenCV_LIBS})
+
+add_executable(arcface-r100 ${PROJECT_SOURCE_DIR}/arcface-r100.cpp)
+target_link_libraries(arcface-r100 nvinfer)
+target_link_libraries(arcface-r100 cudart)
+target_link_libraries(arcface-r100 myplugins)
+target_link_libraries(arcface-r100 ${OpenCV_LIBS})
+
 add_definitions(-O2 -pthread)
 
