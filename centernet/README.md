@@ -18,8 +18,9 @@ This is the trt implementation of detection model [ctdet_coco_dla_2x](https://dr
 
 ```
 // Download ctdet_coco_dla_2x.pth and transfer it into trt engine first
+// Download the test img from https://raw.githubusercontent.com/tensorflow/models/master/research/deeplab/g3doc/img/image2.jpg or choose your own one
 cd sample
-python test.py ${ENGINE_PATH}
+python test.py ${ENGINE_PATH} ${IMG_PATH}
 ```
 ![trt_out](https://user-images.githubusercontent.com/47047345/119128637-7a878900-ba68-11eb-91ff-5dcc10f01b77.jpg)
 

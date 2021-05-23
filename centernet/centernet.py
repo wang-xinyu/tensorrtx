@@ -3,7 +3,7 @@ import numpy as np
 import tensorrt as trt
 import torch
 
-import sample.common
+from sample import common
 import argparse
 import time
 

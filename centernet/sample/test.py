@@ -32,11 +32,13 @@ def _transpose_and_gather_feat(feat, ind):
 
 
 def pre_process(image):
-    img = np.zeros((512, 512, 3))
-    img[:358, :500, :] = image[:]
+    long_size = max(image.shape)
+    img = np.zeros((long_size, long_size, 3))
+    img[:image.shape[0], :img.shape[1], :] = image[:]
+    img = cv.resize(img, (512,512))
     inp_image = ((img / 255. - 0.5) / 0.5).astype(np.float32)
     images = inp_image.transpose(2, 0, 1)
-    return images
+    return images, long_size/512
 
 
 def _nms(heat, kernel=3):
@@ -103,15 +105,16 @@ def ctdet_decode(heat, wh, reg=None, cat_spec_wh=False, K=100):
 if __name__ == '__main__':
     try:
         engine_path = argv[1]
+        img_path = argv[2]
     except:
-        print('engine path is needed!')
+        print('engine path and image path are needed!')
         exit()
     with open(engine_path, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime, runtime.deserialize_cuda_engine(f.read()) as engine:
         inputs, outputs, bindings, stream = common.allocate_buffers(engine)
         with engine.create_execution_context() as context:
             img = cv.imread('test.jpg')
             dis = img.copy()
-            img = pre_process(img)
+            img, s = pre_process(img)
             # Copy to the pagelocked input buffer
             np.copyto(inputs[0].host, img.ravel())
             [hm, wh, reg] = common.do_inference(
@@ -122,7 +125,7 @@ if __name__ == '__main__':
 
             for i in dets:
                 if i[-2] > 0.5:
-                    i[:4] *= 4
+                    i[:4] *= 4*s
                     cv.rectangle(dis, (int(i[0]), int(
                         i[1])), (int(i[2]), int(i[3])), 255, 1)
                     cv.putText(dis, '%d' %
