@@ -153,7 +153,7 @@ ILayer* conv_bn_relu(INetworkDefinition *network, std::map<std::string, Weights>
     conv1->setStrideNd(DimsHW{s, s});
     conv1->setPaddingNd(DimsHW{p, p});
     conv1->setNbGroups(groups);
-    auto bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "_batchnorm", 2e-5);
+    auto bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "_batchnorm", 1e-3);
     assert(bn1);
     auto act1 = addPRelu(network, weightMap, *bn1->getOutput(0), lname + "_relu");
     assert(act1);
@@ -167,7 +167,7 @@ ILayer* conv_bn(INetworkDefinition *network, std::map<std::string, Weights>& wei
     conv1->setStrideNd(DimsHW{s, s});
     conv1->setPaddingNd(DimsHW{p, p});
     conv1->setNbGroups(groups);
-    auto bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "_batchnorm", 2e-5);
+    auto bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "_batchnorm", 1e-3);
     assert(bn1);
     return bn1;
 }
@@ -179,7 +179,7 @@ ILayer* DepthWise(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv1->setStrideNd(DimsHW{1, 1});
     conv1->setPaddingNd(DimsHW{0, 0});
     conv1->setNbGroups(1);
-    auto bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "_conv_sep_batchnorm", 2e-5);
+    auto bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "_conv_sep_batchnorm", 1e-3);
     assert(bn1);
     auto act1 = addPRelu(network, weightMap, *bn1->getOutput(0), lname + "_conv_sep_relu");
     assert(act1);
@@ -189,7 +189,7 @@ ILayer* DepthWise(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv2->setStrideNd(DimsHW{s, s});
     conv2->setPaddingNd(DimsHW{1, 1});
     conv2->setNbGroups(groups);
-    auto bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "_conv_dw_batchnorm", 2e-5);
+    auto bn2 = addBatchNorm2d(network, weightMap, *conv2->getOutput(0), lname + "_conv_dw_batchnorm", 1e-3);
     assert(bn2);
     auto act2 = addPRelu(network, weightMap, *bn2->getOutput(0), lname + "_conv_dw_relu");
     assert(act2);
@@ -199,7 +199,7 @@ ILayer* DepthWise(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv3->setStrideNd(DimsHW{1, 1});
     conv3->setPaddingNd(DimsHW{0, 0});
     conv3->setNbGroups(1);
-    auto bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "_conv_proj_batchnorm", 2e-5);
+    auto bn3 = addBatchNorm2d(network, weightMap, *conv3->getOutput(0), lname + "_conv_proj_batchnorm", 1e-3);
     assert(bn3);
     return bn3;
 }
