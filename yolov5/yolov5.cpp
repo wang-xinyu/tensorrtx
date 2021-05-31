@@ -12,6 +12,15 @@
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
 #define BATCH_SIZE 1
+#define EXPORT_COCO_JSON 0
+#define WRITE_IMG 1
+
+#if EXPORT_COCO_JSON
+#include "json.hpp"
+using json = nlohmann::json;
+#define CONF_THRESH 0.1
+#define WRITE_IMG 0
+#endif
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
@@ -377,6 +386,11 @@ int main(int argc, char** argv) {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
+#if EXPORT_COCO_JSON
+    json coco_det_json = json::array();
+    auto coco_class_mapping = getCoco80ToCoco91Class();
+#endif
+
     int fcount = 0;
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
@@ -411,16 +425,41 @@ int main(int argc, char** argv) {
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
             //std::cout << res.size() << std::endl;
-            cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
+            std::string img_name = file_names[f - fcount + 1 + b];
+#if EXPORT_COCO_JSON
+            int image_id = stoi(img_name.substr(0, img_name.find_last_of(".")));
+#endif
+            cv::Mat img = cv::imread(img_dir + "/" + img_name);
             for (size_t j = 0; j < res.size(); j++) {
                 cv::Rect r = get_rect(img, res[j].bbox);
                 cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-                cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+                cv::putText(img, std::to_string((int) res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+
+#if EXPORT_COCO_JSON
+                json current_det;
+                current_det["image_id"] = image_id;
+                current_det["score"] = res[j].conf;
+                current_det["category_id"] = coco_class_mapping[(int) res[j].class_id];
+                current_det["bbox"] = {r.tl().x, r.tl().y, r.width, r.height};
+                coco_det_json.push_back(current_det);
+#endif
             }
+#if WRITE_IMG
             cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
+#endif
         }
         fcount = 0;
     }
+
+#if EXPORT_COCO_JSON
+    std::string path("yolov5_coco_eval.json");
+    std::ofstream coco_filepath(path);
+    if (coco_filepath.is_open()) {
+        coco_filepath << std::setw(2) << coco_det_json << std::endl;
+        std::cout << "***** " + path + " written *****\n" << std::endl;
+    }
+    coco_filepath.close();
+#endif
 
     // Release stream and buffers
     cudaStreamDestroy(stream);

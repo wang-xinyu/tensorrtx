@@ -90,3 +90,17 @@ python yolov5_trt.py
 
 See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
 
+## COCO AP evaluation
+
+1. Download COCO validation set images (http://images.cocodataset.org/zips/val2017.zip) and annotations (http://images.cocodataset.org/annotations/annotations_trainval2017.zip), unzip them.
+
+2. Compile and run yolov5 with `EXPORT_COCO_JSON` flag enabled
+
+3. Install the COCO python API, then run `coco_eval.py` (make sure the path in the script are correct)
+
+```
+python -m pip install pycocotools
+python coco_eval.py
+```
+
+Custom dataset following the COCO format can also be supported, make sure to change the class id mapping in the extraction loop (`current_det["category_id"] = coco_class_mapping[(int) res[j].class_id];` -> `current_det["category_id"] = (int) res[j].class_id;`)
