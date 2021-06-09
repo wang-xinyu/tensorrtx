@@ -26,7 +26,8 @@ TensorRT7.2 is recomended because Resize layer in 7.0 with kLINEAR mode is a lit
 // go to facebookresearch/detectron2
 python setup.py build develop // more install information see https://github.com/facebookresearch/detectron2/blob/master/INSTALL.md
 // download https://dl.fbaipublicfiles.com/detectron2/COCO-Detection/faster_rcnn_R_50_C4_1x/137257644/model_final_721ade.pkl
-// copy tensorrtx/rcnn/(gen_wts.py,demo.jpg) into facebookresearch/detectron2
+// download https://raw.githubusercontent.com/freedenS/TestImage/main/demo.jpg
+// copy tensorrtx/rcnn/gen_wts.py and demo.jpg into facebookresearch/detectron2
 // ensure cfg.MODEL.WEIGHTS in gen_wts.py is correct
 // go to facebookresearch/detectron2
 python gen_wts.py
@@ -52,33 +53,39 @@ sudo ./rcnn -d faster.engine ../samples
 // sudo ./rcnn -d mask.engine ../samples m
 ```
 
-3. check the images generated, as follows. _zidane.jpg and _bus.jpg
+3. check the images generated, as follows. _demo.jpg and so on.
 
 ## Backbone
 
 #### R18, R34, R152
 
 ```
+// python
 1.download pretrained model
   R18: https://download.pytorch.org/models/resnet18-f37072fd.pth
   R34: https://download.pytorch.org/models/resnet34-b627a593.pth
+  R50: https://download.pytorch.org/models/resnet50-0676ba61.pth
+  R101: https://download.pytorch.org/models/resnet101-63fe2227.pth
   R152: https://download.pytorch.org/models/resnet152-394f9c45.pth
 2.convert pth to pkl by facebookresearch/detectron2/tools/convert-torchvision-to-d2.py
 3.set merge_from_file in gen_wts.py
   ./configs/COCO-Detections/faster_rcnn_R_50_C4_1x.yaml for fasterRcnn
   ./configs/COCO-InstanceSegmentation/mask_rcnn_R_50_C4_1x.yaml for maskRcnn
-4.set cfg.MODEL.RESNETS.DEPTH = 18(34,152),
+4.set cfg.MODEL.RESNETS.DEPTH = 18(34,50,101,152),
       cfg.MODEL.RESNETS.STRIDE_IN_1X1 = False,
-      cfg.MODEL.RESNETS.RES2_OUT_CHANNELS = 64, // for R18, R34
+      cfg.MODEL.RESNETS.RES2_OUT_CHANNELS = 64, // for R18, R34; 256 for others
       cfg.MODEL.PIXEL_MEAN = [123.675, 116.280, 103.530],
       cfg.MODEL.PIXEL_STD = [58.395, 57.120, 57.375],
       cfg.INPUT.FORMAT = "RGB"
   and then train your own model
-5.set BACKBONE_RESNETTYPE = R18(R34, R152) in rcnn.cpp line 13
-6.modify PIXEL_MEAN and PIXEL_STD in rcnn.cpp
-7.set res2_out_channels=64 in BuildResNet in rcnn.cpp line 239 // for R18, R34
-8.generate wts file from your own model and build your engine, refer to how to run
-9.convert your image to RGB before inference
+5.generate your wts file.
+// c++
+6.set BACKBONE_RESNETTYPE = R18(R34,R50,R101,R152) in rcnn.cpp line 14
+7.modify PIXEL_MEAN and PIXEL_STD in rcnn.cpp
+8.set STRIDE_IN_1X1=false in backbone.hpp line 9
+9.set other parameters if it's not same with default
+10.build your engine, refer to how to run
+11.convert your image to RGB before inference
 ```
 
 #### R50, R101
@@ -95,7 +102,8 @@ sudo ./rcnn -d faster.engine ../samples
   R50-mask: ./configs/COCO-InstanceSegmentation/mask_rcnn_R_50_C4_1x.yaml
   R101-mask: ./configs/COCO-InstanceSegmentation/mask_rcnn_R_101_C4_3x.yaml
 3.set BACKBONE_RESNETTYPE = R50(R101) rcnn.cpp line 13
-4.follow how to run
+4.set STRIDE_IN_1X1=true in backbone.hpp
+5.follow how to run
 ```
 
 ## NOTE
@@ -114,7 +122,7 @@ sudo ./rcnn -d faster.engine ../samples
 
 - if you want to use maskrcnn with cuda10.2, please be sure that you have upgraded cuda to the latest patch. see https://github.com/NVIDIA/TensorRT/issues/1151 for detail.
 
-- you can only build fasterRcnn part with maskRcnn weights file.
+- you can build fasterRcnn with maskRcnn weights file.
 
 ## Quantization
 

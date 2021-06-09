@@ -1,5 +1,6 @@
 #include <iostream>
 #include <chrono>
+#include <cmath>
 #include "cuda_utils.h"
 #include "logging.h"
 #include "common.hpp"
@@ -23,10 +24,8 @@ static Logger gLogger;
 
 static int get_width(int x, float gw, int divisor = 8) {
     //return math.ceil(x / divisor) * divisor
-    if (int(x * gw) % divisor == 0) {
-        return int(x * gw);
-    }
-    return (int(x * gw / divisor) + 1) * divisor;
+
+    return  int(ceil((x * gw) / divisor)) * divisor;
 }
 
 static int get_depth(int x, float gd) {

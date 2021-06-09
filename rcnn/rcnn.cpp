@@ -22,6 +22,9 @@ static constexpr int INPUT_H = 480;
 static constexpr int INPUT_W = 640;
 static int IMAGE_HEIGHT = 800;
 static int IMAGE_WIDTH = 1333;
+// backbone
+static const int RES2_OUT_CHANNELS = (BACKBONE_RESNETTYPE == R18 ||
+BACKBONE_RESNETTYPE == R34) ? 64 : 256;
 // rpn
 static const std::vector<float> ANCHOR_SIZES = { 32, 64, 128, 256, 512 };
 static const std::vector<float> ASPECT_RATIOS = { 0.5, 1.0, 2.0 };
@@ -132,14 +135,13 @@ void calculateRatio() {
 }
 
 ITensor* RPN(INetworkDefinition *network,
-std::map<std::string, Weights>& weightMap, ITensor& features,
-    int out_channels = 256) {
+std::map<std::string, Weights>& weightMap, ITensor& features) {
     int num_anchors = ANCHOR_SIZES.size() * ASPECT_RATIOS.size();
     int box_dim = 4;
 
     // rpn head conv
-    auto rpn_head_conv = network->addConvolutionNd(features, out_channels,
-    DimsHW{ 3, 3 }, weightMap["proposal_generator.rpn_head.conv.weight"],
+    auto rpn_head_conv = network->addConvolutionNd(features, features.getDimensions().d[0], DimsHW{ 3, 3 },
+    weightMap["proposal_generator.rpn_head.conv.weight"],
     weightMap["proposal_generator.rpn_head.conv.bias"]);
     assert(rpn_head_conv);
     rpn_head_conv->setStrideNd(DimsHW{ 1, 1 });
@@ -185,8 +187,13 @@ ITensor* proposals, ITensor* features, int num_proposals) {
     auto roiAlignLayer = network->addPluginV2(roi_inputs.data(), roi_inputs.size(), roiAlignPlugin);
 
     // res5
+    /* same with https://github.com/facebookresearch/detectron2/
+    blob/9246ebc3af1c023cfbdae77e5d976edbcf9a2933/detectron2/modeling/roi_heads/roi_heads.py#L430,
+    use bottleneck here, so pass R50*/
     auto box_features = MakeStage(network, weightMap, "roi_heads.res5",
-    *roiAlignLayer->getOutput(0), 3, 1024, 512, 2048, 2);
+    *roiAlignLayer->getOutput(0), 3, R50,
+    roiAlignLayer->getOutput(0)->getDimensions().d[1],
+    512, RES2_OUT_CHANNELS * 8, 2);
     return box_features;
 }
 
@@ -293,9 +300,9 @@ ICudaEngine* createEngine_rcnn(unsigned int maxBatchSize,
     loadWeights(wtsfile, weightMap);
 
     // backbone
-    ITensor* features = BuildResNet(network, weightMap, *data, BACKBONE_RESNETTYPE, 64, 64, 256);
+    ITensor* features = BuildResNet(network, weightMap, *data, BACKBONE_RESNETTYPE, 64, 64, RES2_OUT_CHANNELS);
 
-    auto proposals = RPN(network, weightMap, *features, 1024);
+    auto proposals = RPN(network, weightMap, *features);
     auto results = ROIHeads(network, weightMap, proposals, features);
 
     // build output
