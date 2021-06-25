@@ -28,7 +28,7 @@ class RpnNmsPlugin : public IPluginV2Ext {
     float _nms_thresh;
     int _post_nms_topk;
 
-    size_t _pre_nms_topk;
+    size_t _pre_nms_topk = 1;
     mutable int size = -1;
 
  protected:
