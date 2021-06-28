@@ -30,7 +30,7 @@ class BatchedNmsPlugin : public IPluginV2Ext {
     float _nms_thresh;
     int _detections_per_im;
 
-    size_t _count;
+    size_t _count = 1;
 
  protected:
     void deserialize(void const* data, size_t length) {
