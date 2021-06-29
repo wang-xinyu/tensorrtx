@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `10 Jun 2021`. [upczww](https://github.com/upczww): EfficientNet b0-b8 and l2.
 - `23 May 2021`. [SsisyphusTao](https://github.com/SsisyphusTao): CenterNet DLA-34 with DCNv2 plugin.
 - `17 May 2021`. [ybw108](https://github.com/ybw108): arcface LResNet100E-IR and MobileFaceNet.
 - `6 May 2021`. [makaveli10](https://github.com/makaveli10): scaled-yolov4 yolov4-csp.
@@ -24,7 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `17 Mar 2021`. [wuzuowuyou](https://github.com/wuzuowuyou) added refinedet, which utilized libtorch to do postprocessing.
 - `5 Mar 2021`. [chgit0214](https://github.com/chgit0214) added the LPRNet.
 - `31 Jan 2021`. RepVGG added by [upczww](https://github.com/upczww).
-- `29 Jan 2021`. U-Net added by [YuzhouPeng](https://github.com/YuzhouPeng).
 
 ## Tutorials
 
@@ -87,6 +87,7 @@ Following models are implemented.
 |[tsm](./tsm)| TSM: Temporal Shift Module for Efficient Video Understanding, ICCV2019 |
 |[scaled-yolov4](./scaled-yolov4)| yolov4-csp, pytorch from [WongKinYiu/ScaledYOLOv4](https://github.com/WongKinYiu/ScaledYOLOv4) |
 |[centernet](./centernet)| CenterNet DLA-34, pytorch from [xingyizhou/CenterNet](https://github.com/xingyizhou/CenterNet) |
+|[efficientnet](./efficientnet)| EfficientNet b0-b8 and l2, pytorch from [lukemelas/EfficientNet-PyTorch](https://github.com/lukemelas/EfficientNet-PyTorch) |
 
 ## Model Zoo
 
