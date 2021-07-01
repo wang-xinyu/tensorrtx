@@ -33,8 +33,8 @@ mkdir build
 cd build
 cmake ..
 make
-sudo ./rcnn -s [.wts] // serialize model to plan file
-sudo ./rcnn -d [.engine] [image folder] // deserialize and run inference, the images in [image folder] will be processed
+sudo ./detr -s [.wts] // serialize model to plan file
+sudo ./detr -d [.engine] [image folder] // deserialize and run inference, the images in [image folder] will be processed
 // For example
 sudo ./detr -s ../detr.wts detr.engine
 sudo ./detr -d detr.engine ../samples
@@ -50,7 +50,7 @@ sudo ./detr -d detr.engine ../samples
 
 ## Latency
 
-average cost of doInference(in detr.cpp) from second time with batch=1 under the ubuntu environment
+average cost of doInference(in detr.cpp) from second time with batch=1 under the ubuntu environment above
 
 |      | fp32    | fp16    | int8 |
 | ---- | ------- | ------- | ---- |
