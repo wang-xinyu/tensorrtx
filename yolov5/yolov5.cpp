@@ -23,17 +23,16 @@ const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
 
 static int get_width(int x, float gw, int divisor = 8) {
-    //return math.ceil(x / divisor) * divisor
-
-    return  int(ceil((x * gw) / divisor)) * divisor;
+    return int(ceil((x * gw) / divisor)) * divisor;
 }
 
 static int get_depth(int x, float gd) {
-    if (x == 1) {
-        return 1;
-    } else {
-        return round(x * gd) > 1 ? round(x * gd) : 1;
+    if (x == 1) return 1;
+    int r = round(x * gd);
+    if (x * gd - int(x * gd) == 0.5 && (int(x * gd) % 2) == 0) {
+        --r;
     }
+    return std::max(r, 1);
 }
 
 ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
