@@ -44,7 +44,7 @@ namespace trtx {
         builder -> destroy();
 
         // write serialized engine to file
-        std::ofstream trtFile(mParams.trtEngineFile);
+        std::ofstream trtFile(mParams.trtEngineFile, std::ios::binary);
         if(!trtFile){
             std::cerr << "Unable to open engine file." << std::endl;
             return false;
@@ -193,26 +193,26 @@ namespace trtx {
         // Engine requires exactly IEngine::getNbBindings() number of buffers.
         assert(mEngine -> getNbBindings() == 2);
         void* buffers[2];
-    
+
         // In order to bind the buffers, we need to know the names of the input and output tensors.
         // Note that indices are guaranteed to be less than IEngine::getNbBindings()
         const int inputIndex = mEngine->getBindingIndex(mParams.inputTensorName);
         const int outputIndex = mEngine->getBindingIndex(mParams.outputTensorName);
-    
+
         // Create GPU buffers on device
         CUDA_CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * mParams.inputH * mParams.inputW * sizeof(float)));
         CUDA_CHECK(cudaMalloc(&buffers[outputIndex], batchSize * 1000 * sizeof(float)));
-    
+
         // Create stream
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
-    
+
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
         CUDA_CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * mParams.inputH * mParams.inputW * sizeof(float), cudaMemcpyHostToDevice, stream));
         mContext->enqueue(batchSize, buffers, stream, nullptr);
         CUDA_CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * 1000 * sizeof(float), cudaMemcpyDeviceToHost, stream));
         cudaStreamSynchronize(stream);
-    
+
         // Release stream and buffers
         cudaStreamDestroy(stream);
         CUDA_CHECK(cudaFree(buffers[inputIndex]));
@@ -233,3 +233,4 @@ namespace trtx {
         return true;
     }
 }
+
