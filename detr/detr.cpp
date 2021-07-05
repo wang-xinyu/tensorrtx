@@ -3,13 +3,13 @@
 #include <unordered_map>
 #include "./logging.h"
 #include "backbone.hpp"
+#include "calibrator.hpp"
 
 #define DEVICE 0
 #define BATCH_SIZE 1
 
 // 1 / math.sqrt(head_dim) https://github.com/pytorch/pytorch/blob/master/torch/csrc/api/include/torch/nn/functional/activation.h#623
 static const float SCALING = 0.17677669529663687;
-static const float MIN_SIZE = 800.0;
 static const int INPUT_H = 800;
 static const int INPUT_W = 1066;
 static const int NUM_CLASS = 92;  // include background
@@ -27,25 +27,6 @@ static const float SCORE_THRESH = 0.5;
 
 const char* INPUT_NODE_NAME = "images";
 const std::vector<std::string> OUTPUT_NAMES = { "scores", "boxes"};
-
-void preprocessImg(cv::Mat& img) {
-    // convert to rgb
-    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
-    float ratio = static_cast<float>(MIN_SIZE) / std::min(img.rows, img.cols);
-    int newh = 0, neww = 0;
-    if (img.rows < img.cols) {
-        newh = MIN_SIZE;
-        neww = ratio * img.cols;
-    } else {
-        newh = ratio * img.rows;
-        neww = MIN_SIZE;
-    }
-    cv::resize(img, img, cv::Size(neww, newh));
-    img.convertTo(img, CV_32FC3);
-    img /= 255;
-    img -= cv::Scalar(0.485, 0.456, 0.406);
-    img /= cv::Scalar(0.229, 0.224, 0.225);
-}
 
 ITensor* PositionEmbeddingSine(
 INetworkDefinition *network,
@@ -555,7 +536,7 @@ const std::string& modelType = "fp16"
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput("data", dt, Dims3{ 3, INPUT_H, INPUT_W });
+    ITensor* data = network->addInput(INPUT_NODE_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
 
     // preprocess
     std::unordered_map<std::string, Weights> weightMap;
@@ -605,7 +586,12 @@ const std::string& modelType = "fp16"
     } else if (modelType == "fp16") {
         config->setFlag(BuilderFlag::kFP16);
     } else if (modelType == "int8") {
-        // TODO: test with int8 quantization
+        std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+        assert(builder->platformHasFastInt8());
+        config->setFlag(BuilderFlag::kINT8);
+        Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(BATCH_SIZE, INPUT_W, INPUT_H, "./coco_calib/",
+        "int8calib.table", INPUT_NODE_NAME);
+        config->setInt8Calibrator(calibrator);
     } else {
         throw("does not support model type");
     }
@@ -761,9 +747,9 @@ int main(int argc, char** argv) {
 
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
-            preprocessImg(img);
-            assert(img.cols * img.rows * 3 == input_size);
             if (img.empty()) continue;
+            preprocessImg(img, INPUT_H, INPUT_W);
+            assert(img.cols * img.rows * 3 == input_size);
             for (int c = 0; c < 3; c++) {
                 for (int h = 0; h < img.rows; h++) {
                     for (int w = 0; w < img.cols; w++) {

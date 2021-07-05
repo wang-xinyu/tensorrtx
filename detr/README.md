@@ -52,7 +52,7 @@ sudo ./detr -d detr.engine ../samples
 
 average cost of doInference(in detr.cpp) from second time with batch=1 under the ubuntu environment above
 
-|      | fp32    | fp16    | int8 |
-| ---- | ------- | ------- | ---- |
-| R50  | 19.57ms | 9.424ms | TODO |
+|      | fp32    | fp16    | int8   |
+| ---- | ------- | ------- | ------ |
+| R50  | 19.57ms | 9.424ms | 8.38ms |
 
