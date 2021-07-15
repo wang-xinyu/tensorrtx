@@ -399,8 +399,19 @@ int main(int argc, char **argv) {
     cv::resize(img, pr_img, cv::Size(INPUT_W, INPUT_H), 0, 0, cv::INTER_CUBIC);
     // For multi-batch, I feed the same image multiple times.
     // If you want to process different images in a batch, you need adapt it.
-   cv::Mat blob = cv::dnn::blobFromImage(pr_img, 0.0078125, pr_img.size(), cv::Scalar(127.5, 127.5, 127.5), true,
-                                          false);
+   //cv::Mat blob = cv::dnn::blobFromImage(pr_img, 0.0078125, pr_img.size(), cv::Scalar(127.5, 127.5, 127.5), true,
+                                          //false);
+    int i = 0;
+    for (int row = 0; row < INPUT_H; ++row) {
+        uchar* uc_pixel = pr_img.data + row * pr_img.step;
+        for (int col = 0; col < INPUT_W; ++col) {
+            data[i + 2 * INPUT_H * INPUT_W] = ((float)uc_pixel[2] - 127.5)*0.0078125;
+            data[i + INPUT_H * INPUT_W] = ((float)uc_pixel[1]-127.5)*0.0078125;
+            data[i] = ((float)uc_pixel[0]-127.5)*0.0078125;
+            uc_pixel += 3;
+            ++i;
+        }
+    }
 
     IRuntime *runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -413,7 +424,7 @@ int main(int argc, char **argv) {
     // Run inference
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
     auto start = std::chrono::system_clock::now();
-    doInference(*context, blob.ptr<float>(0), prob, BATCH_SIZE);
+    doInference(*context, data, prob, BATCH_SIZE);
     auto end = std::chrono::system_clock::now();
     std::cout << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us" << std::endl;
     std::vector<int> preds;
