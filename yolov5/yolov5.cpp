@@ -32,7 +32,7 @@ static int get_depth(int x, float gd) {
     if (x * gd - int(x * gd) == 0.5 && (int(x * gd) % 2) == 0) {
         --r;
     }
-    return std::max(r, 1);
+    return std::max<int>(r, 1);
 }
 
 ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
