@@ -42,10 +42,40 @@ sudo ./detr -d detr.engine ../samples
 
 3. check the images generated, as follows. _demo.jpg and so on.
 
+## Backbone
+
+#### R50
+
+```
+1.download pretrained model
+  https://dl.fbaipublicfiles.com/detr/detr-r50-e632da11.pth
+2.export wts
+  set first parameter in Backbone in gen_wts.py(line 23) to resnet50
+  set path of pretrained model(line 87 in gen_wts.py)
+3.set resnet_type in BuildResNet(line 546 in detr.cpp) to R50
+```
+
+#### R101
+
+```
+1.download pretrained model
+  https://dl.fbaipublicfiles.com/detr/detr-r101-2c7b67e5.pth
+2.export wts
+  set first parameter in Backbone in gen_wts.py(line 23) to resnet101
+  set path of pretrained model(line 87 in gen_wts.py)
+3.set resnet_type in BuildResNet(line 546 in detr.cpp) to R101
+```
+
 ## NOTE
 
 - tensorrt use fixed input size, if the size of your data is different from the engine, you need to adjust your data and the result.
 - image preprocessing with c++ is a little different with python(opencv vs PIL)
+
+## Quantization
+
+1. quantizationType:fp32,fp16,int8. see BuildDETRModel(detr.cpp line 613) for detail.
+
+2. the usage of int8 is same with [tensorrtx/yolov5](../yolov5/README.md).
 
 
 ## Latency
@@ -55,4 +85,5 @@ average cost of doInference(in detr.cpp) from second time with batch=1 under the
 |      | fp32    | fp16    | int8   |
 | ---- | ------- | ------- | ------ |
 | R50  | 19.57ms | 9.424ms | 8.38ms |
+| R101 | 30.82ms | 12.4ms  | 9.59ms |
 
