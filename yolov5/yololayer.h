@@ -1,6 +1,7 @@
 #ifndef _YOLO_LAYER_H
 #define _YOLO_LAYER_H
 
+#include "API.h"
 #include <vector>
 #include <string>
 #include "NvInfer.h"
@@ -40,7 +41,7 @@ namespace Yolo
 
 namespace nvinfer1
 {
-    class YoloLayerPlugin : public IPluginV2IOExt
+    class API YoloLayerPlugin : public IPluginV2IOExt
     {
     public:
         YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel);
@@ -108,7 +109,7 @@ namespace nvinfer1
         void** mAnchor;
     };
 
-    class YoloPluginCreator : public IPluginCreator
+    class API YoloPluginCreator : public IPluginCreator
     {
     public:
         YoloPluginCreator();
