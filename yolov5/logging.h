@@ -26,6 +26,12 @@
 #include <sstream>
 #include <string>
 
+#if NV_TENSORRT_MAJOR >= 8
+#define TRT_NOEXCEPT noexcept
+#else
+#define TRT_NOEXCEPT
+#endif
+
 using Severity = nvinfer1::ILogger::Severity;
 
 class LogStreamConsumerBuffer : public std::stringbuf
@@ -236,7 +242,7 @@ public:
     //! Note samples should not be calling this function directly; it will eventually go away once we eliminate the
     //! inheritance from nvinfer1::ILogger
     //!
-    void log(Severity severity, const char* msg) override
+    void log(Severity severity, const char* msg) TRT_NOEXCEPT override 
     {
         LogStreamConsumer(mReportableSeverity, severity) << "[TRT] " << std::string(msg) << std::endl;
     }
