@@ -128,7 +128,7 @@ sudo ./rcnn -d faster.engine ../samples
 
 ## Quantization
 
-1. quantizationType:fp32,fp16,int8. see BuildRcnnModel(rcnn.cpp line 276) for detail.
+1. quantizationType:fp32,fp16,int8. see BuildRcnnModel(rcnn.cpp line 345) for detail.
 
 2. the usage of int8 is same with [tensorrtx/yolov5](../yolov5/README.md), but it has no improvement comparing to fp16.
 
