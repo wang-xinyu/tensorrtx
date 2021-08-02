@@ -47,6 +47,7 @@ Clone the wang-xinyu/tensorrtx in your machine. Enter lenet folder, copy lenet5.
 And of course you should install cuda/cudnn/tensorrt first.
 
 ```
+cd ../..
 git clone https://github.com/wang-xinyu/tensorrtx
 cd tensorrtx/lenet
 cp [PATH-OF-pytorchx]/pytorchx/lenet/lenet5.wts .
