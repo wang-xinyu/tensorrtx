@@ -1,19 +1,10 @@
 #ifndef _YOLO_LAYER_H
 #define _YOLO_LAYER_H
 
-#include "API.h"
 #include <vector>
 #include <string>
-#include "NvInfer.h"
-
-
-#if NV_TENSORRT_MAJOR >= 8
-#define TRT_NOEXCEPT noexcept
-#define TRT_CONST_ENQUEUE const
-#else
-#define TRT_NOEXCEPT
-#define TRT_CONST_ENQUEUE
-#endif
+#include <NvInfer.h>
+#include "macros.h"
 
 namespace Yolo
 {
@@ -144,4 +135,4 @@ namespace nvinfer1
     REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 };
 
-#endif 
+#endif  // _YOLO_LAYER_H
