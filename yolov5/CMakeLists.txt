@@ -11,7 +11,7 @@ set(CMAKE_BUILD_TYPE Debug)
 find_package(CUDA REQUIRED)
 
 if(WIN32)
-enable_language(CUDA) 
+enable_language(CUDA)
 endif(WIN32)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
