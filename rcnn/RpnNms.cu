@@ -16,31 +16,29 @@
 namespace nvinfer1 {
 
     __global__ void rpn_nms_kernel(
-        const int num_per_thread, const float threshold, const int num_detections,
+        const float threshold, const int num_detections,
         const int *indices, float *scores, const float4 *boxes) {
         // Go through detections by descending score
         for (int m = 0; m < num_detections; m++) {
-            for (int n = 0; n < num_per_thread; n++) {
-                int i = threadIdx.x * num_per_thread + n;
-                if (i < num_detections && m < i && scores[m] > -FLT_MAX) {
-                    int idx = indices[i];
-                    int max_idx = indices[m];
+            int i = blockIdx.x * blockDim.x + threadIdx.x;
+            if (i < num_detections && m < i && scores[m] > -FLT_MAX) {
+                int idx = indices[i];
+                int max_idx = indices[m];
 
-                    float4 ibox = boxes[idx];
-                    float4 mbox = boxes[max_idx];
-                    float x1 = max(ibox.x, mbox.x);
-                    float y1 = max(ibox.y, mbox.y);
-                    float x2 = min(ibox.z, mbox.z);
-                    float y2 = min(ibox.w, mbox.w);
-                    float w = max(0.0f, x2 - x1);
-                    float h = max(0.0f, y2 - y1);
-                    float iarea = (ibox.z - ibox.x) * (ibox.w - ibox.y);
-                    float marea = (mbox.z - mbox.x) * (mbox.w - mbox.y);
-                    float inter = w * h;
-                    float overlap = inter / (iarea + marea - inter);
-                    if (overlap > threshold) {
-                        scores[i] = -FLT_MAX;
-                    }
+                float4 ibox = boxes[idx];
+                float4 mbox = boxes[max_idx];
+                float x1 = max(ibox.x, mbox.x);
+                float y1 = max(ibox.y, mbox.y);
+                float x2 = min(ibox.z, mbox.z);
+                float y2 = min(ibox.w, mbox.w);
+                float w = max(0.0f, x2 - x1);
+                float h = max(0.0f, y2 - y1);
+                float iarea = (ibox.z - ibox.x) * (ibox.w - ibox.y);
+                float marea = (mbox.z - mbox.x) * (mbox.w - mbox.y);
+                float inter = w * h;
+                float overlap = inter / (iarea + marea - inter);
+                if (overlap > threshold) {
+                    scores[i] = -FLT_MAX;
                 }
             }
 
@@ -98,7 +96,7 @@ namespace nvinfer1 {
             // TODO: different device has differnet max threads
             const int max_threads = 1024;
             int num_per_thread = ceil(static_cast<float>(num_detections) / max_threads);
-            rpn_nms_kernel << <1, max_threads, 0, stream >> > (num_per_thread, nms_thresh, num_detections,
+            rpn_nms_kernel << <num_per_thread, max_threads, 0, stream >> > (nms_thresh, num_detections,
                 indices_sorted, scores_sorted, in_boxes);
 
             // Re-sort with updated scores

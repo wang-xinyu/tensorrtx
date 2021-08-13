@@ -101,7 +101,7 @@ sudo ./rcnn -d faster.engine ../samples
   R101-faster: ./configs/COCO-Detection/faster_rcnn_R_101_C4_3x.yaml
   R50-mask: ./configs/COCO-InstanceSegmentation/mask_rcnn_R_50_C4_1x.yaml
   R101-mask: ./configs/COCO-InstanceSegmentation/mask_rcnn_R_101_C4_3x.yaml
-3.set BACKBONE_RESNETTYPE = R50(R101) rcnn.cpp line 13
+3.set BACKBONE_RESNETTYPE = R50(R101) rcnn.cpp line 14
 4.set STRIDE_IN_1X1=true in backbone.hpp
 5.follow how to run
 ```
@@ -130,7 +130,18 @@ sudo ./rcnn -d faster.engine ../samples
 
 1. quantizationType:fp32,fp16,int8. see BuildRcnnModel(rcnn.cpp line 345) for detail.
 
-2. the usage of int8 is same with [tensorrtx/yolov5](../yolov5/README.md), but it has no improvement comparing to fp16.
+2. the usage of int8 is same with [tensorrtx/yolov5](../yolov5/README.md).
+
+## Latency
+
+average cost of doInference(in rcnn.cpp) from second time with batch=1 under the ubuntu environment above, input size: 640(w)*480(h)
+
+|               | fp32  | fp16 | int8 |
+| ------------- | ----- | ---- | ---- |
+| Faster-R50C4  | 138ms | 36ms | 30ms |
+| Faster-R101C4 | 146ms | 38ms | 32ms |
+| Mask-R50C4    | 153ms | 44ms | 33ms |
+| Mask-R101C4   | 168ms | 45ms | 35ms |
 
 ## Plugins
 
