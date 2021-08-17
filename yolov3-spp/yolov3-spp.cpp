@@ -215,7 +215,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{1, 3, -1, -1});
     assert(data);
 
-    std::map<std::string, Weights> weightMap = loadWeights("../yolov3-spp_ultralytics68.wts");
+    std::map<std::string, Weights> weightMap = loadWeights("../yolov3-spp.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     // Yeah I am stupid, I just want to expand the complete arch of darknet..
