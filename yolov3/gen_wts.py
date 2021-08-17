@@ -25,6 +25,7 @@ if len(sys.argv) > 2:
 else:
     wts_file = os.path.splitext(weights_file)[0] + '.wts'
 
+
 with open(wts_file, 'w') as f:
     f.write('{}\n'.format(len(model.state_dict().keys())))
     for k, v in model.state_dict().items():
