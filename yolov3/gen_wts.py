@@ -1,8 +1,10 @@
 import struct
 import sys
 import os
-from models import *
-from utils.utils import *
+import torch
+from models import Darknet, load_darknet_weights
+from utils import torch_utils
+
 
 model = Darknet('cfg/yolov3.cfg', (608, 608))
 weights_file = sys.argv[1]
@@ -12,7 +14,16 @@ if weights_file.endswith('.pt'):  # pytorch format
 else:  # darknet format
     load_darknet_weights(model, weights_file)
 model = model.eval()
-wts_file = sys.argv[2] if len(sys.argv) > 2 else os.path.splitext(weights_file)[0] + '.wts'
+
+if len(sys.argv) > 2:
+    if os.path.isdir(sys.argv[2]):
+        wts_file = os.path.join(
+            sys.argv[2],
+            os.path.splitext(os.path.basename(weights_file))[0] + '.wts')
+    else:
+        wts_file = sys.argv[2]
+else:
+    wts_file = os.path.splitext(weights_file)[0] + '.wts'
 
 with open(wts_file, 'w') as f:
     f.write('{}\n'.format(len(model.state_dict().keys())))
