@@ -1,7 +1,9 @@
 import struct
 import sys
-from models import *
-from utils.utils import *
+import torch
+from models import Darknet
+from utils.utils import torch_utils
+
 
 model = Darknet('cfg/yolov3-spp.cfg', (416, 416))
 weights = sys.argv[1]
