@@ -1,7 +1,9 @@
 import struct
 import sys
-from models import *
-from utils.utils import *
+import torch
+from models import Darknet, load_darknet_weights
+from utils.utils import torch_utils
+
 
 model = Darknet('cfg/yolov3-tiny.cfg', (608, 608))
 weights = sys.argv[1]
@@ -11,6 +13,7 @@ if weights.endswith('.pt'):  # pytorch format
 else:  # darknet format
     load_darknet_weights(model, weights)
 model = model.eval()
+
 
 with open('yolov3-tiny.wts', 'w') as f:
     f.write('{}\n'.format(len(model.state_dict().keys())))
