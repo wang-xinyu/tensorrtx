@@ -13,7 +13,7 @@ def parse_args():
     args = parser.parse_args()
     if not os.path.isfile(args.weights):
         raise SystemExit('Invalid input file')
-    if args.output is None:
+    if not args.output:
         args.output = os.path.splitext(args.weights)[0] + '.wts'
     elif os.path.isdir(args.output):
         args.output = os.path.join(
