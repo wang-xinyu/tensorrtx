@@ -13,8 +13,6 @@ import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
-import torch
-import torchvision
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
@@ -368,6 +366,7 @@ class YoLov5TRT(object):
             boxes = boxes[~invalid]
         boxes = np.stack(keep_boxes, 0) if len(keep_boxes) else np.array([])
         return boxes
+
 
 class inferThread(threading.Thread):
     def __init__(self, yolov5_wrapper, image_path_batch):
