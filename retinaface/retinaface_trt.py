@@ -192,8 +192,29 @@ class Retinaface_trt(object):
         """
         image_raw = cv2.imread(input_image_path)
         h, w, c = image_raw.shape
-        image = cv2.resize(image_raw, (INPUT_W, INPUT_H))
 
+        # Calculate widht and height and paddings
+        r_w = INPUT_W / w
+        r_h = INPUT_H / h
+        if r_h > r_w:
+            tw = INPUT_W
+            th = int(r_w * h)
+            tx1 = tx2 = 0
+            ty1 = int((INPUT_H - th) / 2)
+            ty2 = INPUT_H - th - ty1
+        else:
+            tw = int(r_h * w)
+            th = INPUT_H
+            tx1 = int((INPUT_W - tw) / 2)
+            tx2 = INPUT_W - tw - tx1
+            ty1 = ty2 = 0
+
+        # Resize the image with long side while maintaining ratio
+        image = cv2.resize(image_raw, (tw, th))
+        # Pad the short side with (128,128,128)
+        image = cv2.copyMakeBorder(
+            image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, (128, 128, 128)
+        )
         image = image.astype(np.float32)
 
         # HWC to CHW format:
@@ -212,21 +233,38 @@ class Retinaface_trt(object):
         r_w = INPUT_W / origin_w
         r_h = INPUT_H / origin_h
 
-        y[:, 0] = x[:, 0]/r_w
-        y[:, 2] = x[:, 2] /r_w
-        y[:, 1] = x[:, 1]/ r_h
-        y[:, 3] = x[:, 3]  /r_h
+        if r_h > r_w:
+            y[:, 0] = x[:, 0] / r_w
+            y[:, 2] = x[:, 2] / r_w
+            y[:, 1] = (x[:, 1] - (INPUT_H - r_w * origin_h) / 2) / r_w
+            y[:, 3] = (x[:, 3] - (INPUT_H - r_w * origin_h) / 2) / r_w
+            
+            landmark[:,0] = landmark[:,0]/r_w
+            landmark[:,1] = (landmark[:,1] - (INPUT_H - r_w * origin_h) / 2)/r_w
+            landmark[:,2] = landmark[:,2]/r_w
+            landmark[:,3] = (landmark[:,3] - (INPUT_H - r_w * origin_h) / 2)/r_w
+            landmark[:,4] = landmark[:,4]/r_w
+            landmark[:,5] = (landmark[:,5] - (INPUT_H - r_w * origin_h) / 2)/r_w
+            landmark[:,6] = landmark[:,6]/r_w
+            landmark[:,7] = (landmark[:,7] - (INPUT_H - r_w * origin_h) / 2)/r_w
+            landmark[:,8] = landmark[:,8]/r_w
+            landmark[:,9] = (landmark[:,9] - (INPUT_H - r_w * origin_h) / 2)/r_w
+        else:
+            y[:, 0] = (x[:, 0] - (INPUT_W - r_h * origin_w) / 2) / r_h
+            y[:, 2] = (x[:, 2] - (INPUT_W - r_h * origin_w) / 2) / r_h
+            y[:, 1] = x[:, 1] /r_h
+            y[:, 3] = x[:, 3] /r_h
 
-        landmark[:,0] = landmark[:,0]/r_w
-        landmark[:,1] = landmark[:,1]/ r_h
-        landmark[:,2] = landmark[:,2]/r_w
-        landmark[:,3] = landmark[:,3]/ r_h
-        landmark[:,4] = landmark[:,4]/r_w
-        landmark[:,5] = landmark[:,5]/ r_h
-        landmark[:,6] = landmark[:,6]/r_w
-        landmark[:,7] = landmark[:,7]/ r_h
-        landmark[:,8] = landmark[:,8]/r_w
-        landmark[:,9] = landmark[:,9]/ r_h
+            landmark[:,0] = (landmark[:,0] - (INPUT_W - r_h * origin_w) / 2)/r_h
+            landmark[:,1] = landmark[:,1]/ r_h
+            landmark[:,2] = (landmark[:,2] - (INPUT_W - r_h * origin_w) / 2)/r_h
+            landmark[:,3] = landmark[:,3]/ r_h
+            landmark[:,4] = (landmark[:,4] - (INPUT_W - r_h * origin_w) / 2)/r_h
+            landmark[:,5] = landmark[:,5]/ r_h
+            landmark[:,6] = (landmark[:,6] - (INPUT_W - r_h * origin_w) / 2)/r_h
+            landmark[:,7] = landmark[:,7]/ r_h
+            landmark[:,8] = (landmark[:,8] - (INPUT_W - r_h * origin_w) / 2)/r_h
+            landmark[:,9] = landmark[:,9]/ r_h
 
         return y, landmark
 
