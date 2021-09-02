@@ -351,6 +351,11 @@ class YoLov5TRT(object):
         boxes = prediction[prediction[:, 4] >= conf_thres]
         # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
         boxes[:, :4] = self.xywh2xyxy(origin_h, origin_w, boxes[:, :4])
+        # clip the coordinates
+        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w -1)
+        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w -1)
+        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h -1)
+        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h -1)
         # Object confidence
         confs = boxes[:, 4]
         # Sort by the confs
