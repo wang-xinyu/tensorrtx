@@ -352,10 +352,10 @@ class YoLov5TRT(object):
         # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
         boxes[:, :4] = self.xywh2xyxy(origin_h, origin_w, boxes[:, :4])
         # clip the coordinates
-        boxes[:, 0] = torch.clamp(boxes[:, 0], 0, origin_w -1)
-        boxes[:, 2] = torch.clamp(boxes[:, 2], 0, origin_w -1)
-        boxes[:, 1] = torch.clamp(boxes[:, 1], 0, origin_h -1)
-        boxes[:, 3] = torch.clamp(boxes[:, 3], 0, origin_h -1)
+        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w -1)
+        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w -1)
+        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h -1)
+        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h -1)
         # Object confidence
         confs = boxes[:, 4]
         # Sort by the confs
@@ -402,8 +402,8 @@ class warmUpThread(threading.Thread):
 
 if __name__ == "__main__":
     # load custom plugin and engine
-    PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "build/yolov5s.engine"
+    PLUGIN_LIBRARY = "/home/uisee/phy/tensorrtx/yolov5/build5/libmyplugins.so"
+    engine_file_path = "/home/uisee/phy/tensorrtx/yolov5/build5/best.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
@@ -414,15 +414,7 @@ if __name__ == "__main__":
 
     # load coco labels
 
-    categories = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-            "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-            "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-            "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-            "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-            "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-            "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
-            "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
-            "hair drier", "toothbrush"]
+    categories = ["person", "bicycle", "car", "motorcycle"]
 
     if os.path.exists('output/'):
         shutil.rmtree('output/')
@@ -432,7 +424,7 @@ if __name__ == "__main__":
     try:
         print('batch size is', yolov5_wrapper.batch_size)
         
-        image_dir = "samples/"
+        image_dir = "/home/uisee/phy/YOLOv3-model-pruning-master/yolov5dataset720/image2/"
         image_path_batches = get_img_path_batches(yolov5_wrapper.batch_size, image_dir)
 
         for i in range(10):
