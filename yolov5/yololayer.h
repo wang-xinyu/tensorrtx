@@ -9,6 +9,7 @@
 namespace Yolo
 {
     static constexpr int CHECK_COUNT = 3;
+    static constexpr int ANCHOR_NUMS = 4; // set anchor numbers
     static constexpr float IGNORE_THRESH = 0.1f;
     struct YoloKernel
     {
