@@ -3,3 +3,6 @@
 */*.wts
 */*.ppm
 *idea*
+
+# clion stuff
+*/cmake*/
