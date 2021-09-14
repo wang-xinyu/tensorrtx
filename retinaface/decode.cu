@@ -16,21 +16,21 @@ namespace nvinfer1
     {
     }
 
-    void DecodePlugin::serialize(void* buffer) const
+    void DecodePlugin::serialize(void* buffer) const TRT_NOEXCEPT
     {
     }
 
-    size_t DecodePlugin::getSerializationSize() const
-    {  
+    size_t DecodePlugin::getSerializationSize() const TRT_NOEXCEPT
+    {
         return 0;
     }
 
-    int DecodePlugin::initialize()
+    int DecodePlugin::initialize() TRT_NOEXCEPT
     { 
         return 0;
     }
 
-    Dims DecodePlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+    Dims DecodePlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) TRT_NOEXCEPT
     {
         //output the result to channel
         int totalCount = 0;
@@ -42,63 +42,63 @@ namespace nvinfer1
     }
 
     // Set plugin namespace
-    void DecodePlugin::setPluginNamespace(const char* pluginNamespace)
+    void DecodePlugin::setPluginNamespace(const char* pluginNamespace) TRT_NOEXCEPT
     {
         mPluginNamespace = pluginNamespace;
     }
 
-    const char* DecodePlugin::getPluginNamespace() const
+    const char* DecodePlugin::getPluginNamespace() const TRT_NOEXCEPT
     {
         return mPluginNamespace;
     }
 
     // Return the DataType of the plugin output at the requested index
-    DataType DecodePlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+    DataType DecodePlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const TRT_NOEXCEPT
     {
         return DataType::kFLOAT;
     }
 
     // Return true if output tensor is broadcast across a batch.
-    bool DecodePlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+    bool DecodePlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const TRT_NOEXCEPT
     {
         return false;
     }
 
     // Return true if plugin can use input that is broadcast across batch without replication.
-    bool DecodePlugin::canBroadcastInputAcrossBatch(int inputIndex) const
+    bool DecodePlugin::canBroadcastInputAcrossBatch(int inputIndex) const TRT_NOEXCEPT
     {
         return false;
     }
 
-    void DecodePlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput)
+    void DecodePlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) TRT_NOEXCEPT
     {
     }
 
     // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-    void DecodePlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+    void DecodePlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) TRT_NOEXCEPT
     {
     }
 
     // Detach the plugin object from its execution context.
-    void DecodePlugin::detachFromContext() {}
+    void DecodePlugin::detachFromContext() TRT_NOEXCEPT {}
 
-    const char* DecodePlugin::getPluginType() const
+    const char* DecodePlugin::getPluginType() const TRT_NOEXCEPT
     {
         return "Decode_TRT";
     }
 
-    const char* DecodePlugin::getPluginVersion() const
+    const char* DecodePlugin::getPluginVersion() const TRT_NOEXCEPT
     {
         return "1";
     }
 
-    void DecodePlugin::destroy()
+    void DecodePlugin::destroy() TRT_NOEXCEPT
     {
         delete this;
     }
 
     // Clone the plugin
-    IPluginV2IOExt* DecodePlugin::clone() const
+    IPluginV2IOExt* DecodePlugin::clone() const TRT_NOEXCEPT
     {
         DecodePlugin *p = new DecodePlugin();
         p->setPluginNamespace(mPluginNamespace);
@@ -190,7 +190,7 @@ namespace nvinfer1
         }
     }
 
-    int DecodePlugin::enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream)
+    int DecodePlugin::enqueue(int batchSize, const void*const * inputs, void*TRT_CONST_ENQUEUE* outputs, void* workspace, cudaStream_t stream) TRT_NOEXCEPT
     {
         //GPU
         //CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -209,29 +209,29 @@ namespace nvinfer1
         mFC.fields = mPluginAttributes.data();
     }
 
-    const char* DecodePluginCreator::getPluginName() const
+    const char* DecodePluginCreator::getPluginName() const TRT_NOEXCEPT
     {
         return "Decode_TRT";
     }
 
-    const char* DecodePluginCreator::getPluginVersion() const
+    const char* DecodePluginCreator::getPluginVersion() const TRT_NOEXCEPT
     {
         return "1";
     }
 
-    const PluginFieldCollection* DecodePluginCreator::getFieldNames()
+    const PluginFieldCollection* DecodePluginCreator::getFieldNames() TRT_NOEXCEPT
     {
         return &mFC;
     }
 
-    IPluginV2IOExt* DecodePluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+    IPluginV2IOExt* DecodePluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) TRT_NOEXCEPT
     {
         DecodePlugin* obj = new DecodePlugin();
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }
 
-    IPluginV2IOExt* DecodePluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
+    IPluginV2IOExt* DecodePluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) TRT_NOEXCEPT
     {
         // This object will be deleted when the network is destroyed, which will
         // call PReluPlugin::destroy()

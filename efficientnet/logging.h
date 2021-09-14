@@ -25,7 +25,6 @@
 #include <ostream>
 #include <sstream>
 #include <string>
-#include "macros.h"
 
 using Severity = nvinfer1::ILogger::Severity;
 
@@ -237,7 +236,7 @@ public:
     //! Note samples should not be calling this function directly; it will eventually go away once we eliminate the
     //! inheritance from nvinfer1::ILogger
     //!
-    void log(Severity severity, const char* msg) TRT_NOEXCEPT override 
+    void log(Severity severity, const char* msg) override
     {
         LogStreamConsumer(mReportableSeverity, severity) << "[TRT] " << std::string(msg) << std::endl;
     }

@@ -34,7 +34,7 @@ git clone https://github.com/wang-xinyu/tensorrtx.git
 // download https://github.com/ultralytics/yolov5/releases/download/v5.0/yolov5s.pt
 cp {tensorrtx}/yolov5/gen_wts.py {ultralytics}/yolov5
 cd {ultralytics}/yolov5
-python gen_wts.py yolov5s.pt
+python gen_wts.py -w yolov5s.pt -o yolov5s.wts
 // a file 'yolov5s.wts' will be generated.
 ```
 
