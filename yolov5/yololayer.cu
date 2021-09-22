@@ -237,7 +237,7 @@ namespace nvinfer1
     {
         int outputElem = 1 + mMaxOutObject * sizeof(Detection) / sizeof(float);
         for (int idx = 0; idx < batchSize; ++idx) {
-            CUDA_CHECK(cudaMemset(output + idx * outputElem, 0, sizeof(float)));
+            CUDA_CHECK(cudaMemsetAsync(output + idx * outputElem, 0, sizeof(float), stream));
         }
         int numElem = 0;
         for (unsigned int i = 0; i < mYoloKernel.size(); ++i) {
