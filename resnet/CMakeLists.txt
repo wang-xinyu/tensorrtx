@@ -21,6 +21,10 @@ add_executable(resnet18 ${PROJECT_SOURCE_DIR}/resnet18.cpp)
 target_link_libraries(resnet18 nvinfer)
 target_link_libraries(resnet18 cudart)
 
+add_executable(resnet34 ${PROJECT_SOURCE_DIR}/resnet34.cpp)
+target_link_libraries(resnet34 nvinfer)
+target_link_libraries(resnet34 cudart)
+
 add_executable(resnet50 ${PROJECT_SOURCE_DIR}/resnet50.cpp)
 target_link_libraries(resnet50 nvinfer)
 target_link_libraries(resnet50 cudart)
