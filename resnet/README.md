@@ -55,7 +55,7 @@ sudo ./wide_resnet50 -d   // deserialize plan file and run inference
 
 
 // 4. see if the output is same as 
-- [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet) - for resnet18, resnet50, resnext50
+- [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet) - for resnet18, resnet34, resnet50, resnext50
 - [BlueMirrors/torchtrtz](https://github.com/BlueMirrors/torchtrtz) - for wide_resnet50
 ```
 
