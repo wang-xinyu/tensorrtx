@@ -25,7 +25,7 @@ int maskRcnnInference(int batchSize,
 class MaskRcnnInferencePlugin : public IPluginV2Ext {
     int _detections_per_im;
     int _output_size;
-    int _num_classes;
+    int _num_classes = 1;
 
  protected:
     void deserialize(void const* data, size_t length) {
