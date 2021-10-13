@@ -124,7 +124,7 @@ sudo ./rcnn -d faster.engine ../samples
 
 - you can build fasterRcnn with maskRcnn weights file.
 
-- do initializing for _pre_nms_topk in RpnNmsPlugin and _count in BatchedNmsPlugin inside class to prevent error assert, because the configurePlugin function is implemented after clone() and before serialize(). one can also set it through constructor.
+- do initializing for _pre_nms_topk in RpnNmsPlugin,  _count in BatchedNmsPlugin and _num_classes in MaskRcnnInferencePlugin inside class to prevent error assert, because the configurePlugin function is implemented after clone() and before serialize(). one can also set it through constructor.
 
 ## Quantization
 
