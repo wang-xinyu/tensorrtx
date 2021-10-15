@@ -131,45 +131,21 @@ ICudaEngine* build_engine_v6(unsigned int maxBatchSize, IBuilder* builder, IBuil
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
-    // std::cout <<"one-----"<<std::endl;
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
-    // std::cout <<"TWO-----" <<std::endl;
-    /* ------ yolov5 backbone------ */
-    // Dims dim = *data->getOutput(0)->getDimensions();
- 
     auto conv0 = convBlock(network, weightMap, *data,  get_width(64, gw), 6, 2, 1,  "model.0");
     assert(conv0);
-    // std::int aa=get_width(64, gw);
-    // std::cout <<"width----"<<get_width(64, gw)<<std::endl;
-    // Dims dim = conv0->getOutput(0)->getDimensions();
-    // std::cout <<"test-----"<< dim.d[0] << " --" << dim.d[1] << "-- " << dim.d[2] << "-- " << dim.d[3] << std::endl; 
-    // std::cout <<"test-----"<< dim <<std::endl;
-    // typeid(d).name()
-    //6.0
-    // auto focus0 = focus(network, weightMap, *data, 3, get_width(64, gw), 3, "model.0");
-    //
-
     auto conv1 = convBlock(network, weightMap, *conv0->getOutput(0), get_width(128, gw), 3, 2, 1, "model.1");
-
     auto bottleneck_CSP2 = C3(network, weightMap, *conv1->getOutput(0), get_width(128, gw), get_width(128, gw), get_depth(3, gd), true, 1, 0.5, "model.2");
-
- 
     auto conv3 = convBlock(network, weightMap, *bottleneck_CSP2->getOutput(0), get_width(256, gw), 3, 2, 1, "model.3");
-
     auto bottleneck_csp4 = C3(network, weightMap, *conv3->getOutput(0), get_width(256, gw), get_width(256, gw), get_depth(6, gd), true, 1, 0.5, "model.4");
-    // std::cout <<"senev-----" <<std::endl;
-    // std::cout <<"depth-6----" <<get_depth(6, gd)<<std::endl;
     auto conv5 = convBlock(network, weightMap, *bottleneck_csp4->getOutput(0), get_width(512, gw), 3, 2, 1, "model.5");
     auto bottleneck_csp6 = C3(network, weightMap, *conv5->getOutput(0), get_width(512, gw), get_width(512, gw), get_depth(9, gd), true, 1, 0.5, "model.6");
-    // std::cout <<"depth-9----" <<get_depth(9, gd)<<std::endl;
     auto conv7 = convBlock(network, weightMap, *bottleneck_csp6->getOutput(0), get_width(1024, gw), 3, 2, 1, "model.7");
-    // std::cout <<"ten-----" <<std::endl;
     auto bottleneck_csp8 = C3(network, weightMap, *conv7->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.8");
     auto spp9 = SPPF(network, weightMap, *bottleneck_csp8->getOutput(0), get_width(1024, gw), get_width(1024, gw), 5, "model.9");
  // 
         /* ------ yolov5 head ------ */
     auto conv10 = convBlock(network, weightMap, *spp9->getOutput(0), get_width(512, gw), 1, 1, 1, "model.10");
-
     auto upsample11 = network->addResize(*conv10->getOutput(0));
     assert(upsample11);
     upsample11->setResizeMode(ResizeMode::kNEAREST);
@@ -355,10 +331,7 @@ ICudaEngine* build_engine_v6_p6(unsigned int maxBatchSize, IBuilder* builder, IB
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
 
     /* ------ yolov5 backbone------ */
-    // auto focus0 = focus(network, weightMap, *data, 3, get_width(64, gw), 3, "model.0");
-
     auto conv0 = convBlock(network, weightMap, *data,  get_width(64, gw), 6, 2, 1,  "model.0");
-
     auto conv1 = convBlock(network, weightMap, *conv0->getOutput(0), get_width(128, gw), 3, 2, 1, "model.1");
     auto c3_2 = C3(network, weightMap, *conv1->getOutput(0), get_width(128, gw), get_width(128, gw), get_depth(3, gd), true, 1, 0.5, "model.2");
     auto conv3 = convBlock(network, weightMap, *c3_2->getOutput(0), get_width(256, gw), 3, 2, 1, "model.3");
@@ -372,10 +345,6 @@ ICudaEngine* build_engine_v6_p6(unsigned int maxBatchSize, IBuilder* builder, IB
     auto c3_10 = C3(network, weightMap, *conv9->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.10");
     auto sppf11 = SPPF(network, weightMap, *c3_10->getOutput(0), get_width(1024, gw), get_width(1024, gw), 5, "model.11");
 // //////////////////////////////////////
-    //
-    // auto spp10 = SPP(network, weightMap, *conv9->getOutput(0), get_width(1024, gw), get_width(1024, gw), 3, 5, 7, "model.10");
-    // auto c3_11 = C3(network, weightMap, *spp10->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.11");
-//
     /* ------ yolov5 head ------ */
     auto conv12 = convBlock(network, weightMap, *sppf11->getOutput(0), get_width(768, gw), 1, 1, 1, "model.12");
     auto upsample13 = network->addResize(*conv12->getOutput(0));

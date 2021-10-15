@@ -278,8 +278,6 @@ ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weight
 
     ITensor* inputTensors[] = { cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0) };
     auto cat = network->addConcatenation(inputTensors, 4);
-    Dims dimscat = cat->getOutput(0)->getDimensions();
-    // std::cout<<"spp---"<<dimscat.d[0]<<"--"<<dimscat.d[1]<<"--"<<dimscat.d[2]<<"--"<<dimscat.d[3]<<std::endl;
 
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
