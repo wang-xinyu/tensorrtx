@@ -166,9 +166,6 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv1->setStrideNd(DimsHW{ s, s });
     conv1->setPaddingNd(DimsHW{ p, p });
     conv1->setNbGroups(g);
-    // Dims dim_conv1 = conv1->getOutput(0)->getDimensions();
-    // std::cout <<"conv1_test-----"<< dim_conv1.d[0] << " --" << dim_conv1.d[1] << "-- " << dim_conv1.d[2] << "-- " << dim_conv1.d[3] << std::endl;
-    // std::cout <<"g---"<<g<<std::endl; 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
     // silu = x * sigmoid
@@ -261,7 +258,6 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
     return cv2;
 }
 // SPPF
-
 ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k,  std::string lname) {
     int c_ = c1 / 2;
     auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
@@ -275,10 +271,8 @@ ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weight
     auto pool3 = network->addPoolingNd(*pool2->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
     pool3->setPaddingNd(DimsHW{ k / 2, k / 2 });
     pool3->setStrideNd(DimsHW{ 1, 1 });
-
     ITensor* inputTensors[] = { cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0) };
     auto cat = network->addConcatenation(inputTensors, 4);
-
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
 }
