@@ -13,11 +13,11 @@ Following tricks are used in this resnet, nothing special, residual connection a
 ## TensorRT C++ API
 
 ```
-// 1a. generate resnet18.wts or resnet50.wts from [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet)
+// 1a. generate resnet18.wts,resnet34.wts or resnet50.wts from [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet)
 
 // 1b. generate wide_resnet50.wts from [BlueMirrors/torchtrtz](https://github.com/BlueMirrors/torchtrtz)
 
-// 2. put resnet18.wts or resnet50.wts into tensorrtx/resnet
+// 2. put resnet18.wts,resnet34 or resnet50.wts into tensorrtx/resnet
 
 // 3. build and run
 
@@ -33,6 +33,10 @@ make
 
 sudo ./resnet18 -s   // serialize model to plan file i.e. 'resnet18.engine'
 sudo ./resnet18 -d   // deserialize plan file and run inference
+
+or
+sudo ./resnet34 -s   // serialize model to plan file i.e. 'resnet34.engine'
+sudo ./resnet34 -d   // deserialize plan file and run inference
 
 or
 
@@ -51,7 +55,7 @@ sudo ./wide_resnet50 -d   // deserialize plan file and run inference
 
 
 // 4. see if the output is same as 
-- [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet) - for resnet18, resnet50, resnext50
+- [pytorchx/resnet](https://github.com/wang-xinyu/pytorchx/tree/master/resnet) - for resnet18, resnet34, resnet50, resnext50
 - [BlueMirrors/torchtrtz](https://github.com/BlueMirrors/torchtrtz) - for wide_resnet50
 ```
 

@@ -10,6 +10,8 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `31 Aug 2021`. [FamousDirector](https://github.com/FamousDirector): update retinaface to support TensorRT 8.0.
+- `27 Aug 2021`. [HaiyangPeng](https://github.com/HaiyangPeng): add a python wrapper for hrnet segmentation.
 - `1 Jul 2021`. [freedenS](https://github.com/freedenS): DE⫶TR: End-to-End Object Detection with Transformers. First Transformer model!
 - `10 Jun 2021`. [upczww](https://github.com/upczww): EfficientNet b0-b8 and l2.
 - `23 May 2021`. [SsisyphusTao](https://github.com/SsisyphusTao): CenterNet DLA-34 with DCNv2 plugin.
@@ -23,8 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `23 Apr 2021`. [freedenS](https://github.com/freedenS) implement MaskRCNN, till now the MOST complicated model in this repo.
 - `16 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) implement lenet and resnet50 with Python API, [freedenS](https://github.com/freedenS) implement FasterRCNN with five plugins, cheers!
 - `2 Apr 2021`. [mingyu6yang](https://github.com/mingyu6yang) added a python wrapper for retinaface, [makaveli10](https://github.com/makaveli10) added DenseNet-121.
-- `17 Mar 2021`. [wuzuowuyou](https://github.com/wuzuowuyou) added refinedet, which utilized libtorch to do postprocessing.
-- `5 Mar 2021`. [chgit0214](https://github.com/chgit0214) added the LPRNet.
 
 ## Tutorials
 
