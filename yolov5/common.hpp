@@ -156,14 +156,19 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
+
+
 ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
-    int p = ksize / 2;
+    int p = ksize / 3;
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ ksize, ksize }, weightMap[lname + ".conv.weight"], emptywts);
     assert(conv1);
     conv1->setStrideNd(DimsHW{ s, s });
     conv1->setPaddingNd(DimsHW{ p, p });
     conv1->setNbGroups(g);
+    // Dims dim_conv1 = conv1->getOutput(0)->getDimensions();
+    // std::cout <<"conv1_test-----"<< dim_conv1.d[0] << " --" << dim_conv1.d[1] << "-- " << dim_conv1.d[2] << "-- " << dim_conv1.d[3] << std::endl;
+    // std::cout <<"g---"<<g<<std::endl; 
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
     // silu = x * sigmoid
@@ -255,6 +260,36 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
 }
+// SPPF
+
+ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k,  std::string lname) {
+    int c_ = c1 / 2;
+    auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
+
+    auto pool1 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
+    pool1->setPaddingNd(DimsHW{ k / 2, k / 2 });
+    pool1->setStrideNd(DimsHW{ 1, 1 });
+    auto pool2 = network->addPoolingNd(*pool1->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
+    pool2->setPaddingNd(DimsHW{ k / 2, k / 2 });
+    pool2->setStrideNd(DimsHW{ 1, 1 });
+    auto pool3 = network->addPoolingNd(*pool2->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
+    pool3->setPaddingNd(DimsHW{ k / 2, k / 2 });
+    pool3->setStrideNd(DimsHW{ 1, 1 });
+
+    ITensor* inputTensors[] = { cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0) };
+    auto cat = network->addConcatenation(inputTensors, 4);
+    Dims dimscat = cat->getOutput(0)->getDimensions();
+    // std::cout<<"spp---"<<dimscat.d[0]<<"--"<<dimscat.d[1]<<"--"<<dimscat.d[2]<<"--"<<dimscat.d[3]<<std::endl;
+
+    auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
+    return cv2;
+}
+
+// 
+
+
+
+
 
 std::vector<std::vector<float>> getAnchors(std::map<std::string, Weights>& weightMap, std::string lname) {
     std::vector<std::vector<float>> anchors;
