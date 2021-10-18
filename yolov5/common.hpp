@@ -156,8 +156,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-
-
 ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
     int p = ksize / 3;
@@ -257,6 +255,7 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
 }
+
 // SPPF
 ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k,  std::string lname) {
     int c_ = c1 / 2;
@@ -276,12 +275,6 @@ ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weight
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
 }
-
-// 
-
-
-
-
 
 std::vector<std::vector<float>> getAnchors(std::map<std::string, Weights>& weightMap, std::string lname) {
     std::vector<std::vector<float>> anchors;
