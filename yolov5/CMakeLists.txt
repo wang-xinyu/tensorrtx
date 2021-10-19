@@ -21,7 +21,7 @@ include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 # tensorrt
 include_directories(/usr/include/x86_64-linux-gnu/)
-link_directories((/usr/lib/x86_64-linux-gnu/)
+link_directories(/usr/lib/x86_64-linux-gnu/)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -g -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
