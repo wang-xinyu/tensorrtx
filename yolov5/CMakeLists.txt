@@ -25,13 +25,21 @@ link_directories(/usr/lib/x86_64-linux-gnu/)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
+## configure the compute capability matched with your nvidia graphics card
+## you need adapt "-gencode" if yours are different
+## reference for the table for GPU Compute Capability: https://developer.nvidia.com/cuda-gpus#compute
+set(CUDA_GEN_CODE "-gencode=arch=compute_86,code=sm_86")
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}  -std=c++11 -O0 -Xcompiler -fPIC -g -w ${CUDA_GEN_CODE}")
+
 cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
 target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(yolov5 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/yolov5.cpp)
+set_source_files_properties(yolov5.cpp PROPERTIES CUDA_SOURCE_PROPERTY_FORMAT OBJ)
+cuda_add_executable(yolov5 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/yolov5.cpp preprocess.cu)
+
 target_link_libraries(yolov5 nvinfer)
 target_link_libraries(yolov5 cudart)
 target_link_libraries(yolov5 myplugins)
