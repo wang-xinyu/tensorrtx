@@ -26,14 +26,14 @@ __global__ void warpaffine_kernel(
 
     if(src_x <= -1 || src_x >= src_width || src_y <= -1 || src_y >= src_height){
     // out of range
-	c0 = const_value_st;
-	c1 = const_value_st;
-	c2 = const_value_st;
+    c0 = const_value_st;
+    c1 = const_value_st;
+    c2 = const_value_st;
     }else{
-	int y_low = floorf(src_y);
-	int x_low = floorf(src_x);
-	int y_high = y_low + 1;
-	int x_high = x_low + 1;
+    int y_low = floorf(src_y);
+    int x_low = floorf(src_x);
+    int y_high = y_low + 1;
+    int x_high = x_low + 1;
 
     uint8_t const_value[] = {const_value_st, const_value_st, const_value_st};
     float ly    = src_y - y_low;
@@ -45,7 +45,7 @@ __global__ void warpaffine_kernel(
     uint8_t* v2 = const_value;
     uint8_t* v3 = const_value;
     uint8_t* v4 = const_value;
-	if(y_low >= 0){
+    if(y_low >= 0){
         if (x_low >= 0)
             v1 = src + y_low * src_line_size + x_low * 3;
 
@@ -59,12 +59,12 @@ __global__ void warpaffine_kernel(
 
         if (x_high < src_width)
             v4 = src + y_high * src_line_size + x_high * 3;
-	}
+    }
 
-        c0 = w1 * v1[0] + w2 * v2[0] + w3 * v3[0] + w4 * v4[0];
-        c1 = w1 * v1[1] + w2 * v2[1] + w3 * v3[1] + w4 * v4[1];
-        c2 = w1 * v1[2] + w2 * v2[2] + w3 * v3[2] + w4 * v4[2];
-	}
+    c0 = w1 * v1[0] + w2 * v2[0] + w3 * v3[0] + w4 * v4[0];
+    c1 = w1 * v1[1] + w2 * v2[1] + w3 * v3[1] + w4 * v4[1];
+    c2 = w1 * v1[2] + w2 * v2[2] + w3 * v3[2] + w4 * v4[2];
+    }
 
     //bgr to rgb 
     float t = c2;
