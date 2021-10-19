@@ -66,7 +66,7 @@ __global__ void warpaffine_kernel(
 		c2 = w1 * v1[2] + w2 * v2[2] + w3 * v3[2] + w4 * v4[2];
 	}
 
-    //bgr to rgb
+    //bgr to rgb 
 	float t = c2;
 	c2 = c0;  c0 = t;
 
