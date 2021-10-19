@@ -8,8 +8,8 @@ __global__ void warpaffine_kernel(
 		int dst_height, uint8_t const_value_st,
 		AffineMatrix d2s, int edge)
 {
-    int position = blockDim.x * blockIdx.x + threadIdx.x;
-    if(position >= edge) return;
+  		int position = blockDim.x * blockIdx.x + threadIdx.x;
+    		if(position >= edge) return;
 
 		float m_x1 = d2s.value[0];
 		float m_y1 = d2s.value[1];
@@ -66,7 +66,7 @@ __global__ void warpaffine_kernel(
 			c2 = w1 * v1[2] + w2 * v2[2] + w3 * v3[2] + w4 * v4[2];
 		}
 
-    //bgr to rgb
+    		//bgr to rgb
 		float t = c2;
 		c2 = c0;  c0 = t;
 
@@ -84,43 +84,43 @@ __global__ void warpaffine_kernel(
 		*pdst_c1 = c1;
 		*pdst_c2 = c2;
 
-	}
+}
 
 
 void preprocess_kernel_img(		
     uint8_t* src, int src_width, int src_height, 
     float* dst, int dst_width, int dst_height,
-		cudaStream_t stream)
+    cudaStream_t stream)
 {
-	AffineMatrix s2d,d2s;
+  AffineMatrix s2d,d2s;
   float scale = std::min(dst_height / (float)src_height, dst_width / (float)src_width);
 
 
   s2d.value[0] = scale;  
-	s2d.value[1] = 0;
-	s2d.value[2] = -scale * src_width  * 0.5  + dst_width * 0.5;
+  s2d.value[1] = 0;
+  s2d.value[2] = -scale * src_width  * 0.5  + dst_width * 0.5;
   s2d.value[3] = 0;  
-	s2d.value[4] = scale;  
-	s2d.value[5] = -scale * src_height * 0.5 + dst_height * 0.5;
+  s2d.value[4] = scale;  
+  s2d.value[5] = -scale * src_height * 0.5 + dst_height * 0.5;
   
-  /*			
-	 			          [src_image.x,		  [dst_image.x,
-		m2x3_s2d *	  src_image.y,	=  	dst_image.y ]	
-		          	  			1		  ] 
+ 	 /*			
+	 			          [src_image.x,		[dst_image.x,
+			m2x3_s2d *	  src_image.y,	 =  	dst_image.y ]	
+		          	  		1    ] 
 	*/
   
-	cv::Mat m2x3_s2d(2, 3, CV_32F, s2d.value);
+  cv::Mat m2x3_s2d(2, 3, CV_32F, s2d.value);
   cv::Mat m2x3_d2s(2, 3, CV_32F, d2s.value);
   cv::invertAffineTransform(m2x3_s2d, m2x3_d2s);	
 
-	memcpy(d2s.value, m2x3_d2s.ptr<float>(0),sizeof(d2s.value));
+  memcpy(d2s.value, m2x3_d2s.ptr<float>(0),sizeof(d2s.value));
 	
-	int jobs = dst_height * dst_width;
-	int threads = 256;
-  int blocks = ceil(jobs / (float)threads); 
-	warpaffine_kernel<<<blocks,threads,0,stream>>>( 
+  int jobs = dst_height * dst_width;
+  int threads = 256;
+  int blocks = ceil(jobs / (float)threads);
+  warpaffine_kernel<<<blocks,threads,0,stream>>>( 
     src, src_width*3, src_width, 
-		src_height, dst, dst_width, 
-		dst_height, 128, d2s, jobs);
+    src_height, dst, dst_width, 
+    dst_height, 128, d2s, jobs);
 
 }
