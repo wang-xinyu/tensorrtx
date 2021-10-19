@@ -20,6 +20,8 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0 and v6.0.
 - Input shape defined in yololayer.h
 - Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
 - INT8/FP16/FP32 can be selected by the macro in yolov5.cpp, **INT8 need more steps, pls follow `How to Run` first and then go the `INT8 Quantization` below**
+- MAX_IMAGE_INPUT_SIZE_THRESH can be changed in yolov5.cpp ,ensure it exceed the maximum size in the input images!!!! **The default is 3000 x 3000**
+- The parameter"-gencode" in CMakeLists.txt should be adapted to the compute capability matched with your nvidia graphics card
 - GPU id can be selected by the macro in yolov5.cpp
 - NMS thresh in yolov5.cpp
 - BBox confidence thresh in yolov5.cpp

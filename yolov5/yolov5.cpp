@@ -6,12 +6,14 @@
 #include "common.hpp"
 #include "utils.h"
 #include "calibrator.h"
+#include "preprocess.h"
 
 #define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
 #define BATCH_SIZE 1
+#define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
@@ -37,7 +39,7 @@ static int get_depth(int x, float gd) {
 
 
 
-ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
+ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, nvinfer1::DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
@@ -124,7 +126,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     return engine;
 }
 
-ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
+ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, nvinfer1::DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
@@ -236,9 +238,9 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, bool& is_p
     // Create model to populate the network, then set the outputs and create an engine
     ICudaEngine *engine = nullptr;
     if (is_p6) {
-        engine = build_engine_p6(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
+        engine = build_engine_p6(maxBatchSize, builder, config, nvinfer1::DataType::kFLOAT, gd, gw, wts_name);
     } else {
-        engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
+        engine = build_engine(maxBatchSize, builder, config, nvinfer1::DataType::kFLOAT, gd, gw, wts_name);
     }
     assert(engine != nullptr);
 
@@ -251,9 +253,8 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, bool& is_p
     config->destroy();
 }
 
-void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* input, float* output, int batchSize) {
-    // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CUDA_CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* output, int batchSize) {
+    // infer on the batch asynchronously, and DMA output back to host
     context.enqueue(batchSize, buffers, stream, nullptr);
     CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
@@ -350,10 +351,6 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    // prepare input data ---------------------------
-    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
-    //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-    //    data[i] = 1.0;
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -363,7 +360,7 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
     delete[] trtModelStream;
     assert(engine->getNbBindings() == 2);
-    void* buffers[2];
+    float* buffers[2];
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
@@ -371,38 +368,41 @@ int main(int argc, char** argv) {
     assert(inputIndex == 0);
     assert(outputIndex == 1);
     // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc(&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CUDA_CHECK(cudaMalloc(&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
+
     // Create stream
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-
+    uint8_t* img_host = nullptr;
+    uint8_t* img_device = nullptr;
+    // prepare input data cache in pinned memory 
+    CUDA_CHECK(cudaMallocHost((void**)&img_host, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
+    // prepare input data cache in device memory
+    CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     int fcount = 0;
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
+        //auto start = std::chrono::system_clock::now();
+        float* buffer_idx = (float*)buffers[inputIndex];
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
-            if (img.empty()) continue;
-            cv::Mat pr_img = preprocess_img(img, INPUT_W, INPUT_H); // letterbox BGR to RGB
-            int i = 0;
-            for (int row = 0; row < INPUT_H; ++row) {
-                uchar* uc_pixel = pr_img.data + row * pr_img.step;
-                for (int col = 0; col < INPUT_W; ++col) {
-                    data[b * 3 * INPUT_H * INPUT_W + i] = (float)uc_pixel[2] / 255.0;
-                    data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = (float)uc_pixel[1] / 255.0;
-                    data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = (float)uc_pixel[0] / 255.0;
-                    uc_pixel += 3;
-                    ++i;
-                }
-            }
+            if (img.empty()) continue;                    
+            size_t  size_image = img.cols * img.rows * 3;
+            size_t  size_image_dst = INPUT_H * INPUT_W * 3;
+            //copy data to pinned memory
+            memcpy(img_host,img.data,size_image);
+            //copy data to device memory
+            CUDA_CHECK(cudaMemcpyAsync(img_device,img_host,size_image,cudaMemcpyHostToDevice,stream));
+            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);       
+            buffer_idx += size_image_dst;
         }
-
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, stream, buffers, data, prob, BATCH_SIZE);
+        doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::cout << "inference time:" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;       
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
@@ -410,7 +410,6 @@ int main(int argc, char** argv) {
         }
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
-            //std::cout << res.size() << std::endl;
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
             for (size_t j = 0; j < res.size(); j++) {
                 cv::Rect r = get_rect(img, res[j].bbox);
@@ -420,16 +419,21 @@ int main(int argc, char** argv) {
             cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
         fcount = 0;
+        //auto end = std::chrono::system_clock::now();
+        //std::cout <<"total time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
+    CUDA_CHECK(cudaFree(img_device));
+    CUDA_CHECK(cudaFreeHost(img_host));
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
     CUDA_CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
     context->destroy();
     engine->destroy();
     runtime->destroy();
+
 
     // Print histogram of the output distribution
     //std::cout << "\nOutput:\n\n";
