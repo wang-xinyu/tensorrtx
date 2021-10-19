@@ -8,10 +8,10 @@ __global__ void warpaffine_kernel(
     int dst_height, uint8_t const_value_st,
     AffineMatrix d2s, int edge)
 {
-  	int position = blockDim.x * blockIdx.x + threadIdx.x;
+    int position = blockDim.x * blockIdx.x + threadIdx.x;
     if(position >= edge) return;
 
-	float m_x1 = d2s.value[0];
+    float m_x1 = d2s.value[0];
 	float m_y1 = d2s.value[1];
 	float m_z1 = d2s.value[2];
 	float m_x2 = d2s.value[3];
