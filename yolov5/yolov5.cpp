@@ -37,9 +37,7 @@ static int get_depth(int x, float gd) {
     return std::max<int>(r, 1);
 }
 
-
-
-ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, nvinfer1::DataType dt, float& gd, float& gw, std::string& wts_name) {
+ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
@@ -126,7 +124,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     return engine;
 }
 
-ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, nvinfer1::DataType dt, float& gd, float& gw, std::string& wts_name) {
+ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
@@ -238,9 +236,9 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, bool& is_p
     // Create model to populate the network, then set the outputs and create an engine
     ICudaEngine *engine = nullptr;
     if (is_p6) {
-        engine = build_engine_p6(maxBatchSize, builder, config, nvinfer1::DataType::kFLOAT, gd, gw, wts_name);
+        engine = build_engine_p6(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
     } else {
-        engine = build_engine(maxBatchSize, builder, config, nvinfer1::DataType::kFLOAT, gd, gw, wts_name);
+        engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
     }
     assert(engine != nullptr);
 
@@ -402,7 +400,7 @@ int main(int argc, char** argv) {
         auto start = std::chrono::system_clock::now();
         doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
-        std::cout << "inference time:" << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;       
+        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
@@ -419,8 +417,6 @@ int main(int argc, char** argv) {
             cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
         fcount = 0;
-        //auto end = std::chrono::system_clock::now();
-        //std::cout <<"total time:"<< std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
 
     // Release stream and buffers
