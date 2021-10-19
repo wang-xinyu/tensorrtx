@@ -362,7 +362,7 @@ int main(int argc, char** argv) {
     assert(engine->getNbBindings() == 2);
     float* buffers[2];
     // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaran teed to be less than IEngine::getNbBindings()
+    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
     const int outputIndex = engine->getBindingIndex(OUTPUT_BLOB_NAME);
     assert(inputIndex == 0);
@@ -424,7 +424,7 @@ int main(int argc, char** argv) {
     }
 
     // Release stream and buffers
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    cudaStreamDestroy(stream);
     CUDA_CHECK(cudaFree(img_device));
     CUDA_CHECK(cudaFreeHost(img_host));
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
