@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `19 Oct 2021`. [liuqi123123](https://github.com/liuqi123123) added cuda preprossing for yolov5, preprocessing + inference is 3x faster when batchsize=8.
 - `18 Oct 2021`. [xupengao](https://github.com/xupengao): YOLOv5 updated to v6.0, supporting n/s/m/l/x/n6/s6/m6/l6/x6.
 - `31 Aug 2021`. [FamousDirector](https://github.com/FamousDirector): update retinaface to support TensorRT 8.0.
 - `27 Aug 2021`. [HaiyangPeng](https://github.com/HaiyangPeng): add a python wrapper for hrnet segmentation.
@@ -24,7 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `25 Apr 2021`. YOLOv5 updated to v5.0, supporting s/m/l/x/s6/m6/l6/x6.
 - `23 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) add TSM: Temporal Shift Module for Efficient Video Understanding, ICCV2019.
 - `23 Apr 2021`. [freedenS](https://github.com/freedenS) implement MaskRCNN, till now the MOST complicated model in this repo.
-- `16 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) implement lenet and resnet50 with Python API, [freedenS](https://github.com/freedenS) implement FasterRCNN with five plugins, cheers!
 
 ## Tutorials
 
