@@ -12,7 +12,7 @@
 using namespace nvinfer1;
 
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
-    int l, r, t, b;
+    float l, r, t, b;
     float r_w = Yolo::INPUT_W / (img.cols * 1.0);
     float r_h = Yolo::INPUT_H / (img.rows * 1.0);
     if (r_h > r_w) {
@@ -34,7 +34,7 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
         t = t / r_h;
         b = b / r_h;
     }
-    return cv::Rect(l, t, r - l, b - t);
+    return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
 float iou(float lbox[4], float rbox[4]) {
