@@ -7,11 +7,13 @@ from utils.torch_utils import select_device
 import numpy as np
 
 anchor_grid={
+    # n/s/m/l/x
     'model.24.anchor_grid':[
         [10,13, 16,30, 33,23],      # P3/8
         [30,61, 62,45, 59,119],     # P4/16
         [116,90, 156,198, 373,326]  # P5/32
     ],
+    # n6/s6/m6/l6/x6
     'model.33.anchor_grid':[
         [19,27,  44,40,  38,94],       # P3/8
         [96,68,  86,152,  180,137],    # P4/16
