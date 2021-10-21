@@ -379,6 +379,7 @@ int main(int argc, char** argv) {
     // prepare input data cache in device memory
     CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     int fcount = 0;
+    std::vector<cv::Mat> imgs_buffer(BATCH_SIZE);
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
@@ -386,7 +387,8 @@ int main(int argc, char** argv) {
         float* buffer_idx = (float*)buffers[inputIndex];
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
-            if (img.empty()) continue;                    
+            if (img.empty()) continue;
+            imgs_buffer[b] = img;
             size_t  size_image = img.cols * img.rows * 3;
             size_t  size_image_dst = INPUT_H * INPUT_W * 3;
             //copy data to pinned memory
@@ -408,7 +410,7 @@ int main(int argc, char** argv) {
         }
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
-            cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
+            cv::Mat img = imgs_buffer[b];
             for (size_t j = 0; j < res.size(); j++) {
                 cv::Rect r = get_rect(img, res[j].bbox);
                 cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
