@@ -35,7 +35,7 @@ official_model = torch.load(str(official_pt_file), map_location=device)['model']
 model = torch.load(str(pt_file), map_location=device)['model'].float()  # load to FP32
 model.to(device).eval()
 
-with wts_file.open(mode = w+) as f:
+with wts_file.open(mode = "w+") as f:
     f.write('{}\n'.format(len(official_model.state_dict().keys())))
     for k, v in official_model.state_dict().items():
         if k in model.state_dict():
