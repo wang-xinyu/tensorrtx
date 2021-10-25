@@ -28,6 +28,8 @@ pt_file, wts_file = parse_args()
 device = select_device('cpu')
 # Load model
 model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
+delattr(model.model[-1], 'anchor_grid')  # model.model[-1] is detect layer
+model.model[-1].register_buffer("anchor_grid",torch.Tensor(model.yaml['anchors'])) #The parameters are saved in the OrderDict through the "register_buffer" method, and then saved to the weight.
 model.to(device).eval()
 
 with open(wts_file, 'w') as f:
