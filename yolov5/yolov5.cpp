@@ -380,6 +380,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     int fcount = 0;
     std::vector<cv::Mat> imgs_buffer(BATCH_SIZE);
+    std::vector<AffineMatrix> matrix_buffer(BATCH_SIZE);
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
@@ -395,7 +396,7 @@ int main(int argc, char** argv) {
             memcpy(img_host,img.data,size_image);
             //copy data to device memory
             CUDA_CHECK(cudaMemcpyAsync(img_device,img_host,size_image,cudaMemcpyHostToDevice,stream));
-            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);       
+            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, matrix_buffer[b], INPUT_W, INPUT_H, stream);       
             buffer_idx += size_image_dst;
         }
         // Run inference
@@ -410,9 +411,10 @@ int main(int argc, char** argv) {
         }
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
+            auto& bbox_affine_matrix = matrix_buffer[b];
             cv::Mat img = imgs_buffer[b];
             for (size_t j = 0; j < res.size(); j++) {
-                cv::Rect r = get_rect(img, res[j].bbox);
+                cv::Rect r = get_rect(res[j].bbox, bbox_affine_matrix);
                 cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
                 cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
             }
