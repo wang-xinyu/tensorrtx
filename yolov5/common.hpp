@@ -8,33 +8,23 @@
 #include <opencv2/opencv.hpp>
 #include "NvInfer.h"
 #include "yololayer.h"
+#include "preprocess.h"
 
 using namespace nvinfer1;
 
-cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
-    float l, r, t, b;
-    float r_w = Yolo::INPUT_W / (img.cols * 1.0);
-    float r_h = Yolo::INPUT_H / (img.rows * 1.0);
-    if (r_h > r_w) {
-        l = bbox[0] - bbox[2] / 2.f;
-        r = bbox[0] + bbox[2] / 2.f;
-        t = bbox[1] - bbox[3] / 2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
-        b = bbox[1] + bbox[3] / 2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
-        l = l / r_w;
-        r = r / r_w;
-        t = t / r_w;
-        b = b / r_w;
-    } else {
-        l = bbox[0] - bbox[2] / 2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
-        r = bbox[0] + bbox[2] / 2.f - (Yolo::INPUT_W - r_h * img.cols) / 2;
-        t = bbox[1] - bbox[3] / 2.f;
-        b = bbox[1] + bbox[3] / 2.f;
-        l = l / r_h;
-        r = r / r_h;
-        t = t / r_h;
-        b = b / r_h;
-    }
-    return cv::Rect(round(l), round(t), round(r - l), round(b - t));
+cv::Rect get_rect(float bbox[4], AffineMatrix bbox_affine_matrix) {
+    float dl = bbox[0] - bbox[2] * 0.5f;
+    float dt = bbox[1] - bbox[3] * 0.5f;
+    float dr = bbox[0] + bbox[2] * 0.5f;
+    float db = bbox[1] + bbox[3] * 0.5f;
+
+    float sl = bbox_affine_matrix.value[0] * dl + bbox_affine_matrix.value[1] * dt + bbox_affine_matrix.value[2];
+    float st = bbox_affine_matrix.value[3] * dl + bbox_affine_matrix.value[4] * dt + bbox_affine_matrix.value[5];
+
+    float sr = bbox_affine_matrix.value[0] * dr + bbox_affine_matrix.value[1] * db + bbox_affine_matrix.value[2];
+    float sb = bbox_affine_matrix.value[3] * dr + bbox_affine_matrix.value[4] * db + bbox_affine_matrix.value[5]; 
+    
+    return cv::Rect(sl, st, sr - sl, sb - st);
 }
 
 float iou(float lbox[4], float rbox[4]) {
