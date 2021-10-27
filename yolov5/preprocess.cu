@@ -87,8 +87,9 @@ __global__ void warpaffine_kernel(
 
 void preprocess_kernel_img(
     uint8_t* src, int src_width, int src_height,
-    float* dst, int dst_width, int dst_height,
-    cudaStream_t stream) {
+    float* dst, AffineMatrix& bbox_affine_matrix,
+    int dst_width, int dst_height, cudaStream_t stream) {
+    
     AffineMatrix s2d,d2s;
     float scale = std::min(dst_height / (float)src_height, dst_width / (float)src_width);
 
@@ -104,7 +105,8 @@ void preprocess_kernel_img(
     cv::invertAffineTransform(m2x3_s2d, m2x3_d2s);
 
     memcpy(d2s.value, m2x3_d2s.ptr<float>(0), sizeof(d2s.value));
-
+    bbox_affine_matrix = d2s;
+    
     int jobs = dst_height * dst_width;
     int threads = 256;
     int blocks = ceil(jobs / (float)threads);
