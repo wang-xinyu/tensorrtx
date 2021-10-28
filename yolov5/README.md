@@ -52,18 +52,19 @@ cd build
 cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
 ```
 
-either:
-```
-// update CLASS_NUM in {tensorrtx}/yolov5/yololayer.h if your model is trained on custom dataset
-cmake ..
-```
+- either (regular way):
 
-or - with no file modifiction (for a model with a batch size of 4, and trained on custom dataset with 20 classes):
+    ```
+    // update CLASS_NUM in {tensorrtx}/yolov5/yololayer.h if your model is trained on custom dataset
+    cmake ..
+    ```
 
-```
-// instead of modifying constants and macros in files, define corresponding EXT_ macros on the command line (if necessary) like below
-CXXFLAGS="-DEXT_BATCH_SIZE=4 -DEXT_CLASS_NUM=20" cmake ..
-```
+- or - with no file modifiction (for a model with a batch size of 4, and trained on custom dataset with 20 classes):
+
+    ```
+    // instead of modifying constants and macros in files, define corresponding EXT_ macros on the command line (if necessary) like below
+    CXXFLAGS="-DEXT_BATCH_SIZE=4 -DEXT_CLASS_NUM=20" cmake ..
+    ```
 
 ```
 make
