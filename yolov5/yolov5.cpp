@@ -9,10 +9,31 @@
 #include "preprocess.h"
 
 #define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
-#define DEVICE 0  // GPU id
-#define NMS_THRESH 0.4
-#define CONF_THRESH 0.5
-#define BATCH_SIZE 1
+
+#if defined(EXT_DEVICE)
+#  define DEVICE EXT_DEVICE  // GPU id
+#else
+#  define DEVICE 0  // GPU id
+#endif
+
+#if defined(EXT_NMS_THRESH)
+#  define NMS_THRESH EXT_NMS_THRESH
+#else
+#  define NMS_THRESH 0.4
+#endif
+
+#if defined(EXT_CONF_THRESH)
+#  define CONF_THRESH EXT_CONF_THRESH
+#else
+#  define CONF_THRESH 0.5
+#endif
+
+#if defined(EXT_BATCH_SIZE)
+#  define BATCH_SIZE EXT_BATCH_SIZE
+#else
+#  define BATCH_SIZE 1
+#endif
+
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
