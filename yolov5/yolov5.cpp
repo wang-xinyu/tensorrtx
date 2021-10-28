@@ -34,7 +34,7 @@
 #  define BATCH_SIZE 1
 #endif
 
-#define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
+#define MAX_IMAGE_INPUT_SIZE_THRESH (3000 * 3000) // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
