@@ -8,20 +8,55 @@
 
 namespace Yolo
 {
+#if defined(EXT_CHECK_COUNT)
+    static constexpr int CHECK_COUNT = EXT_CHECK_COUNT;
+#else
     static constexpr int CHECK_COUNT = 3;
+#endif
+
+#if defined(EXT_IGNORE_THRESH)
+    static constexpr float IGNORE_THRESH = EXT_IGNORE_THRESH;
+#else
     static constexpr float IGNORE_THRESH = 0.1f;
+#endif
+
     struct YoloKernel
     {
         int width;
         int height;
         float anchors[CHECK_COUNT * 2];
     };
-    static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
-    static constexpr int CLASS_NUM = 80;
-    static constexpr int INPUT_H = 640;  // yolov5's input height and width must be divisible by 32.
-    static constexpr int INPUT_W = 640;
 
+#if defined(EXT_MAX_OUTPUT_BBOX_COUNT)
+    static constexpr int MAX_OUTPUT_BBOX_COUNT = EXT_MAX_OUTPUT_BBOX_COUNT;
+#else
+    static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
+#endif
+
+#if defined(EXT_CLASS_NUM)
+    static constexpr int CLASS_NUM = EXT_CLASS_NUM;
+#else
+    static constexpr int CLASS_NUM = 80;
+#endif
+
+#if defined(EXT_INPUT_H)
+    static constexpr int INPUT_H = EXT_INPUT_H;  // yolov5's input height and width must be divisible by 32.
+#else
+    static constexpr int INPUT_H = 640;  // yolov5's input height and width must be divisible by 32.
+#endif
+
+#if defined(EXT_INPUT_W)
+    static constexpr int INPUT_W = EXT_INPUT_W;
+#else
+    static constexpr int INPUT_W = 640;
+#endif
+
+#if defined(EXT_LOCATIONS)
+    static constexpr int LOCATIONS = EXT_LOCATIONS;
+#else
     static constexpr int LOCATIONS = 4;
+#endif
+
     struct alignas(float) Detection {
         //center_x center_y w h
         float bbox[LOCATIONS];
