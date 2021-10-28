@@ -25,6 +25,11 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0 and v6.0.
 - BBox confidence thresh in yolov5.cpp
 - Batch size in yolov5.cpp
 
+An alternative to manually modifying source files, is define precompiler macros on the command line in order for cmake to pick them up.
+For example, instead of changing the number of classes (CLASS\_NUM from yololayer.h) to let's say 20, one can use `CXXFLAGS="-DEXT_CLASS_NUM=20" cmake ..`.
+This applies to (a bunch of) constants and macros from yololayer.h and yolov5.cpp. Multiple EXT\_\* macro definitions (-D) can be added to CXXFLAGS, separated by spaces.
+
+
 ## How to Run, yolov5s as example
 
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
