@@ -93,7 +93,7 @@ python yolov5_trt.py
 
 2. unzip it in yolov5/build
 
-3. set the macro `USE_INT8` in yolov5.cpp (or pass in commandline `CXXFLAGS="-DUSE_INT8"`) and make
+3. set the macro `USE_INT8` in yolov5.cpp (or pass in commandline `CXXFLAGS="-DEXT_USE_INT8"`) and make
 
 4. serialize the model and test
 
