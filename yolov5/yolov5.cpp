@@ -8,10 +8,16 @@
 #include "calibrator.h"
 #include "preprocess.h"
 
-#define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
+#if defined(EXT_USE_INT8)
+#  define USE_INT8
+#elif defined(EXT_USE_FP32)
+#  define USE_FP32
+#else  // default (if not controlled from outside)
+#  define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
+#endif
 
 #if defined(EXT_DEVICE)
-#  define DEVICE EXT_DEVICE  // GPU id
+#  define DEVICE EXT_DEVICE
 #else
 #  define DEVICE 0  // GPU id
 #endif
