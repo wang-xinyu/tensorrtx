@@ -26,8 +26,8 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0 and v6.0.
 - Batch size in yolov5.cpp
 
 An alternative to manually modifying source files, is define precompiler macros on the command line in order for cmake to pick them up.
-For example, instead of changing the number of classes (CLASS\_NUM from yololayer.h) to let's say 20, one can use `CXXFLAGS="-DEXT_CLASS_NUM=20" cmake ..`.
-This applies to (a bunch of) constants and macros from yololayer.h and yolov5.cpp. Multiple EXT\_\* macro definitions (-D) can be added to CXXFLAGS, separated by spaces.
+For example, instead of changing the number of classes (`CLASS_NUM` from yololayer.h) to let's say 20, one can use `CXXFLAGS="-DEXT_CLASS_NUM=20" cmake ..`.
+This applies to (a bunch of) constants and macros from yololayer.h and yolov5.cpp. Multiple EXT\_\* macro definitions (-D) can be added to `CXXFLAGS`, separated by spaces.
 
 
 ## How to Run, yolov5s as example
@@ -47,11 +47,25 @@ python gen_wts.py -w yolov5s.pt -o yolov5s.wts
 
 ```
 cd {tensorrtx}/yolov5/
-// update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
 cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
+```
+
+either:
+```
+// update CLASS_NUM in {tensorrtx}/yolov5/yololayer.h if your model is trained on custom dataset
 cmake ..
+```
+
+or - with no file modifiction (for a model with a batch size of 4, and trained on custom dataset with 20 classes):
+
+```
+// instead of modifying constants and macros in files, define corresponding EXT_ macros on the command line (if necessary) like below
+CXXFLAGS="-DEXT_BATCH_SIZE=4 -DEXT_CLASS_NUM=20" cmake ..
+```
+
+```
 make
 sudo ./yolov5 -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
 sudo ./yolov5 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
@@ -79,7 +93,7 @@ python yolov5_trt.py
 
 2. unzip it in yolov5/build
 
-3. set the macro `USE_INT8` in yolov5.cpp and make
+3. set the macro `USE_INT8` in yolov5.cpp (or pass in commandline `CXXFLAGS="-DUSE_INT8"`) and make
 
 4. serialize the model and test
 
