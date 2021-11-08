@@ -12,7 +12,7 @@
 using namespace nvinfer1;
 
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
-    int l, r, t, b;
+    float l, r, t, b;
     float r_w = Yolo::INPUT_W / (img.cols * 1.0);
     float r_h = Yolo::INPUT_H / (img.rows * 1.0);
     if (r_h > r_w) {
@@ -34,7 +34,7 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
         t = t / r_h;
         b = b / r_h;
     }
-    return cv::Rect(l, t, r - l, b - t);
+    return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
 float iou(float lbox[4], float rbox[4]) {
@@ -257,34 +257,8 @@ ILayer* SPP(INetworkDefinition *network, std::map<std::string, Weights>& weightM
     auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
     return cv2;
 }
-// SPPF
-ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k,  std::string lname) {
-    int c_ = c1 / 2;
-    auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
 
-    auto pool1 = network->addPoolingNd(*cv1->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
-    pool1->setPaddingNd(DimsHW{ k / 2, k / 2 });
-    pool1->setStrideNd(DimsHW{ 1, 1 });
-    auto pool2 = network->addPoolingNd(*pool1->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
-    pool2->setPaddingNd(DimsHW{ k / 2, k / 2 });
-    pool2->setStrideNd(DimsHW{ 1, 1 });
-    auto pool3 = network->addPoolingNd(*pool2->getOutput(0), PoolingType::kMAX, DimsHW{ k, k });
-    pool3->setPaddingNd(DimsHW{ k / 2, k / 2 });
-    pool3->setStrideNd(DimsHW{ 1, 1 });
-    ITensor* inputTensors[] = { cv1->getOutput(0), pool1->getOutput(0), pool2->getOutput(0), pool3->getOutput(0) };
-    auto cat = network->addConcatenation(inputTensors, 4);
-    auto cv2 = convBlock(network, weightMap, *cat->getOutput(0), c2, 1, 1, 1, lname + ".cv2");
-    return cv2;
-}
-
-// 
-
-
-
-
-
-// SPPF
-ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k,  std::string lname) {
+ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int k, std::string lname) {
     int c_ = c1 / 2;
     auto cv1 = convBlock(network, weightMap, input, c_, 1, 1, 1, lname + ".cv1");
 
