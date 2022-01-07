@@ -7,7 +7,8 @@ TensorRT app from the provided APIs. The process of building a TensorRT engine e
 
 ## Helper Files
 
-`logging.h` : A logger file for using NVIDIA TRT API
+`logging.h` : A logger file for using NVIDIA TRT API (mostly same for all models)
+
 `mlp.wts` : Converted weight file (simple file, you can open and check it)
 
 ## TensorRT C++ API
