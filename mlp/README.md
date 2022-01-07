@@ -3,7 +3,7 @@
 MLP is the most basic net in this tensorrtx project for starters. You can learn the basic procedures of building
 TensorRT app from the provided APIs. The process of building a TensorRT engine explained in the chart below.
 
-![TensorRT Image](./imgs/model_creation.jpg?raw=true "")
+![TensorRT Image](https://user-images.githubusercontent.com/33795294/148565279-795b12da-5243-4e7e-881b-263eb7658683.jpg)
 
 ## Helper Files
 
