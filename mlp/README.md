@@ -19,21 +19,19 @@ TensorRT app from the provided APIs. The process of building a TensorRT engine e
 
 // 3. build and run
 
-cd tensorrtx/mlp
+    cd tensorrtx/mlp
 
-mkdir build
+    mkdir build
 
-cd build
+    cd build
 
-cmake ..
+    cmake ..
 
-make
+    make
 
-sudo ./mlp -s   // serialize model to plan file i.e. 'mlp.engine'
+    sudo ./mlp -s   // serialize model to plan file i.e. 'mlp.engine'
 
-sudo ./mlp -d   // deserialize plan file and run inference
-
-// 4. see if the output is same as pytorchx/mlp
+    sudo ./mlp -d   // deserialize plan file and run inference
 ```
 
 ## TensorRT Python API
@@ -52,8 +50,6 @@ sudo ./mlp -d   // deserialize plan file and run inference
     python mlp.py -s   # serialize model to plan file, i.e. 'mlp.engine'
     
     python mlp.py -d   # deserialize plan file and run inference
-
-# 5. See if the output is same as pytorchx/mlp
 ```
 
 ## Note
