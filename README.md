@@ -53,6 +53,7 @@ Following models are implemented.
 
 |Name | Description |
 |-|-|
+|[mlp](./mlp) | the very basic model for starters, properly documented |
 |[lenet](./lenet) | the simplest, as a "hello world" of this project |
 |[alexnet](./alexnet)| easy to implement, all layers are supported in tensorrt |
 |[googlenet](./googlenet)| GoogLeNet (Inception v1) |
