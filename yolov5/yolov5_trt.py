@@ -233,7 +233,7 @@ class YoLov5TRT(object):
         image = cv2.resize(image, (tw, th))
         # Pad the short side with (128,128,128)
         image = cv2.copyMakeBorder(
-            image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, (128, 128, 128)
+            image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, None, (128, 128, 128)
         )
         image = image.astype(np.float32)
         # Normalize to [0,1]
