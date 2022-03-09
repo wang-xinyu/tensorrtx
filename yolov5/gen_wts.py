@@ -27,7 +27,8 @@ pt_file, wts_file = parse_args()
 # Initialize
 device = select_device('cpu')
 # Load model
-model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
+model = torch.load(pt_file, map_location=device)  # load to FP32
+model = model['ema' if model.get('ema') else 'model'].float()
 
 # update anchor_grid info
 anchor_grid = model.model[-1].anchors * model.model[-1].stride[...,None,None]
