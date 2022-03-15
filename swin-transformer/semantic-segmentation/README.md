@@ -2,6 +2,7 @@
 
 The Pytorch implementation is [microsoft/Swin-Transformer](https://github.com/microsoft/Swin-Transformer.git).
 
+Only support Swin-T, welcome the PR for other backbones.
 
 ## How to Run
 
@@ -11,17 +12,17 @@ The Pytorch implementation is [microsoft/Swin-Transformer](https://github.com/mi
 git clone https://github.com/microsoft/Swin-Transformer.git
 git clone https://github.com/wang-xinyu/tensorrtx.git
 
-python gen_wts.py best.pt
+python gen_wts.py Swin-Transform.pt
 // a file 'Swin-Transform.wts' will be generated.
 ```
 
-2. build tensorrtx/Swin-Transform and run
+2. build tensorrtx/swin-transform and run
 
 ```
-cd {tensorrtx}/Swin-Transform/
+cd {tensorrtx}/swin-transform/semantic-segmentation/
 mkdir build
 cd build
-cp {microsoft}/Swin-Transformer/Swin-Transform.wts {tensorrtx}/swin-transformer/build
+cp {microsoft}/Swin-Transformer/Swin-Transform.wts {tensorrtx}/swin-transformer/semantic-segmentation/build
 cmake ..
 make
 sudo ./swintransformer -s [.wts] [.engine]   // serialize model to plan file

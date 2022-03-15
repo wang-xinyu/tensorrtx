@@ -1,13 +1,11 @@
 import torch
 import struct
 import sys
-from utils.torch_utils import select_device
 
 # Initialize
-device = select_device('cpu')
 pt_file = sys.argv[1]
 # Load model
-model = torch.load('./best.pt', map_location=device)['model'].float()  # load to FP32
+model = torch.load(pt_file, map_location=torch.device('cpu'))['model'].float()  # load to FP32
 model.to(device).eval()
 
 with open(pt_file.split('.')[0] + '.wts', 'w') as f:
