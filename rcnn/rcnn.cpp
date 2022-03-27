@@ -18,10 +18,16 @@ static const std::vector<float> PIXEL_STD = {1.0, 1.0, 1.0};
 static constexpr float MIN_SIZE = 800.0;
 static constexpr float MAX_SIZE = 1333.0;
 static constexpr int NUM_CLASSES = 80;
-static constexpr int INPUT_H = 480;
-static constexpr int INPUT_W = 640;
-static int IMAGE_HEIGHT = 800;
-static int IMAGE_WIDTH = 1333;
+static int INPUT_H;  // size of model input
+static int INPUT_W;
+static constexpr int INPUT_H_ = 480;  // size of original image
+static constexpr int INPUT_W_ = 640;
+static int IMAGE_HEIGHT;  // size of model input
+static int IMAGE_WIDTH;
+static int X_PAD;  // pad in preprocessImg_
+static int Y_PAD;
+static int h_ori;  // used when h_ori is not equal to INPUT_H_
+static int w_ori;
 // backbone
 static const int RES2_OUT_CHANNELS = (BACKBONE_RESNETTYPE == R18 ||
 BACKBONE_RESNETTYPE == R34) ? 64 : 256;
@@ -63,40 +69,39 @@ const std::vector<float>& aspect_ratios) {
     return res;
 }
 
+cv::Mat preprocessImg_(cv::Mat& img, int input_w, int input_h) {
+    int w, h, x, y;
+    float r_w = input_w / (img.cols*1.0);
+    float r_h = input_h / (img.rows*1.0);
+    if (r_h > r_w) {
+        w = input_w;
+        h = r_w * img.rows;
+        x = 0;
+        y = (input_h - h) / 2;
+    } else {
+        w = r_h * img.cols;
+        h = input_h;
+        x = (input_w - w) / 2;
+        y = 0;
+    }
+    cv::Mat re(h, w, CV_8UC3);
+    cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
+    cv::Mat out(input_h, input_w, CV_8UC3, cv::Scalar(128, 128, 128));
+    re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
+    X_PAD = x;
+    Y_PAD = y;
+    std::cout << x << std::endl;
+    std::cout << y << std::endl;
+    std::cout << img.rows << std::endl;
+    std::cout << input_h << std::endl;
+    return out;
+}
+
 // transpose && resize && normalization && padding
 ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input) {
-    // get h and w
-    auto input_hw = input.getDimensions();
-    int c = input_hw.d[2];
-    int height = input_hw.d[0];
-    int width = input_hw.d[1];
-
-    // resize
-    float ratio = MIN_SIZE / static_cast<float>(std::min(height, width));
-    float newh = 0, neww = 0;
-    if (height < width) {
-        newh = MIN_SIZE;
-        neww = ratio * width;
-    } else {
-        newh = ratio * height;
-        neww = MIN_SIZE;
-    }
-    if (std::max(newh, neww) > MAX_SIZE) {
-        ratio = MAX_SIZE / static_cast<float>(std::max(newh, neww));
-        newh = newh * ratio;
-        neww = neww * ratio;
-    }
-    height = static_cast<int>(newh + 0.5);
-    width = static_cast<int>(neww + 0.5);
-    auto resize_layer = network->addResize(input);
-    assert(resize_layer);
-    resize_layer->setResizeMode(ResizeMode::kLINEAR);
-    resize_layer->setOutputDimensions(Dims3{ height, width, c });
-    IMAGE_HEIGHT = height;
-    IMAGE_WIDTH = width;
 
     // HWC->CHW
-    auto channel_permute = network->addShuffle(*resize_layer->getOutput(0));
+    auto channel_permute = network->addShuffle(input);
     assert(channel_permute);
     channel_permute->setFirstTranspose(Permutation{ 2, 0, 1 });
 
@@ -113,25 +118,6 @@ ITensor* DataPreprocess(INetworkDefinition *network, ITensor& input) {
     assert(div);
 
     return div->getOutput(0);
-}
-
-void calculateRatio() {
-    float ratio = MIN_SIZE / static_cast<float>(std::min(INPUT_H, INPUT_W));
-    float newh = 0, neww = 0;
-    if (INPUT_H < INPUT_W) {
-        newh = MIN_SIZE;
-        neww = ratio * INPUT_W;
-    } else {
-        newh = ratio * INPUT_H;
-        neww = MIN_SIZE;
-    }
-    if (std::max(newh, neww) > MAX_SIZE) {
-        ratio = MAX_SIZE / static_cast<float>(std::max(newh, neww));
-        newh = newh * ratio;
-        neww = neww * ratio;
-    }
-    IMAGE_HEIGHT = static_cast<int>(newh + 0.5);
-    IMAGE_WIDTH = static_cast<int>(neww + 0.5);
 }
 
 ITensor* RPN(INetworkDefinition *network,
@@ -381,6 +367,28 @@ std::vector<float>& input, std::vector<float*>& output) {
     cudaStreamSynchronize(stream);
 }
 
+void calculateSize() {
+    float ratio = MIN_SIZE / static_cast<float>(std::min(INPUT_H_, INPUT_W_));
+    float newh = 0, neww = 0;
+    if (INPUT_H_ < INPUT_W_) {
+        newh = MIN_SIZE;
+        neww = ratio * INPUT_W_;
+    } else {
+        newh = ratio * INPUT_H_;
+        neww = MIN_SIZE;
+    }
+    if (std::max(newh, neww) > MAX_SIZE) {
+        ratio = MAX_SIZE / static_cast<float>(std::max(newh, neww));
+        newh = newh * ratio;
+        neww = neww * ratio;
+    }
+    INPUT_H = static_cast<int>(newh + 0.5);
+    INPUT_W = static_cast<int>(neww + 0.5);
+    IMAGE_HEIGHT = INPUT_H;
+    IMAGE_WIDTH = INPUT_W;
+}
+
+
 bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engineFile, std::string& imgDir) {
     if (argc < 4) return false;
     if (std::string(argv[1]) == "-s") {
@@ -397,6 +405,10 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
 }
 
 int main(int argc, char** argv) {
+
+    // calculate size
+    calculateSize();
+
     cudaSetDevice(DEVICE);
 
     std::string wtsFile = "";
@@ -423,9 +435,6 @@ int main(int argc, char** argv) {
         modelStream->destroy();
         return 0;
     }
-
-    // calculate ratio
-    calculateRatio();
 
     // deserialize the .engine and run inference
     std::ifstream file(engineFile, std::ios::binary);
@@ -496,7 +505,12 @@ int main(int argc, char** argv) {
 
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
-            img = preprocessImg(img, INPUT_W, INPUT_H);
+            h_ori = img.rows;
+            w_ori = img.cols;
+            img = preprocessImg_(img, INPUT_W, INPUT_H);
+            std::cout << img.rows << std::endl;
+            std::cout << img.cols << std::endl;
+
             if (img.empty()) continue;
             for (int i = 0; i < INPUT_H * INPUT_W * 3; i++)
                 data[b*INPUT_H * INPUT_W * 3 + i] = static_cast<float>(*(img.data + i));
@@ -510,18 +524,29 @@ int main(int argc, char** argv) {
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-        float h_ratio = static_cast<float>(INPUT_H) / IMAGE_HEIGHT;
-        float w_ratio = static_cast<float>(INPUT_W) / IMAGE_WIDTH;
+        float h_ratio = static_cast<float>(h_ori) / (INPUT_H - Y_PAD * 2);  // ratio of original image size to model input size
+        float w_ratio = static_cast<float>(w_ori) / (INPUT_W - X_PAD * 2);
+
+        std::cout << X_PAD << std::endl;
+        std::cout << Y_PAD << std::endl;
+
+        std::cout << h_ratio << std::endl;
+        std::cout << w_ratio << std::endl;
+
+        std::cout << h_ori << std::endl;
+        std::cout << w_ori << std::endl;
+
+        std::cout << INPUT_H << std::endl;
+        std::cout << INPUT_W << std::endl;
 
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
-            img = preprocessImg(img, INPUT_W, INPUT_H);
             for (int i = 0; i < DETECTIONS_PER_IMAGE; i++) {
                 if (scores_h[b * DETECTIONS_PER_IMAGE + i] > SCORE_THRESH) {
-                    float x1 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 0] * w_ratio;
-                    float y1 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 1] * h_ratio;
-                    float x2 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 2] * w_ratio;
-                    float y2 = boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 3] * h_ratio;
+                    float x1 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 0] - X_PAD) * w_ratio;
+                    float y1 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 1] - Y_PAD) * h_ratio;
+                    float x2 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 2] - X_PAD) * w_ratio;
+                    float y2 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 3] - Y_PAD) * h_ratio;
                     int label = classes_h[b * DETECTIONS_PER_IMAGE + i];
                     float score = scores_h[b * DETECTIONS_PER_IMAGE + i];
                     printf("boxes:[%.6f, %.6f, %.6f, %.6f] scores: %.4f label: %d \n", x1, y1, x2, y2, score, label);
@@ -530,6 +555,7 @@ int main(int argc, char** argv) {
                     cv::putText(img, std::to_string(label), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
                     cv::Scalar(0xFF, 0xFF, 0xFF), 2);
 
+                    
                     if (MASK_ON) {
                         cv::Mat maskPart = cv::Mat::zeros(cv::Size(POOLER_RESOLUTION, POOLER_RESOLUTION), CV_32FC1);
                         memcpy(maskPart.data,
@@ -539,10 +565,10 @@ int main(int argc, char** argv) {
 
                         cv::Rect r(cv::Point(floor(x1) - 1 < 0 ? 0 : floor(x1) - 1,
                                              floor(y1) - 1 < 0 ? 0 : floor(y1) - 1),
-                                   cv::Point(ceil(x2) + 1 > INPUT_W ? INPUT_W : ceil(x2) + 1,
-                                             ceil(y2) + 1 > INPUT_H ? INPUT_H : ceil(y2) + 1));
+                                   cv::Point(ceil(x2) + 1 > w_ori ? w_ori : ceil(x2) + 1,
+                                             ceil(y2) + 1 > h_ori ? h_ori : ceil(y2) + 1));
                         cv::resize(maskPart, maskPart, cv::Size(r.width, r.height));
-                        cv::Mat curMask = cv::Mat::zeros(cv::Size(INPUT_W, INPUT_H), CV_8UC1);
+                        cv::Mat curMask = cv::Mat::zeros(cv::Size(w_ori, h_ori), CV_8UC1);
                         cv::threshold(maskPart, maskPart, 0.5, 255, cv::THRESH_BINARY);
                         curMask(r) += maskPart;
                         std::vector<std::vector<cv::Point>> contours;
