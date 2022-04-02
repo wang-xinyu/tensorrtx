@@ -29,9 +29,9 @@ __global__ void warpaffine_kernel(
         c2 = const_value_st;
     } else {
         int y_low = floorf(src_y);
-		int x_low = floorf(src_x);
-		int y_high = ceil(src_y);
-		int x_high = ceil(src_x);
+	int x_low = floorf(src_x);
+	int y_high = ceil(src_y);
+	int x_high = ceil(src_x);
 
         uint8_t const_value[] = {const_value_st, const_value_st, const_value_st};
         float ly = src_y - y_low;
