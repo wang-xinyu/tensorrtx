@@ -18,8 +18,8 @@ __global__ void warpaffine_kernel(
 
     int dx = position % dst_width;
     int dy = position / dst_width;
-    float src_x = m_x1 * dx + m_y1 * dy + m_z1 + 0.5f;
-    float src_y = m_x2 * dx + m_y2 * dy + m_z2 + 0.5f;
+    float src_x = m_x1 * dx + m_y1 * dy + m_z1;
+    float src_y = m_x2 * dx + m_y2 * dy + m_z2;
     float c0, c1, c2;
 
     if (src_x <= -1 || src_x >= src_width || src_y <= -1 || src_y >= src_height) {
@@ -29,9 +29,9 @@ __global__ void warpaffine_kernel(
         c2 = const_value_st;
     } else {
         int y_low = floorf(src_y);
-        int x_low = floorf(src_x);
-        int y_high = y_low + 1;
-        int x_high = x_low + 1;
+		int x_low = floorf(src_x);
+		int y_high = ceil(src_y);
+		int x_high = ceil(src_x);
 
         uint8_t const_value[] = {const_value_st, const_value_st, const_value_st};
         float ly = src_y - y_low;
