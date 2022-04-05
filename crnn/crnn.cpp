@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <chrono>
 #include <map>
 #include <opencv2/opencv.hpp>
@@ -373,7 +374,7 @@ int main(int argc, char** argv) {
         std::cerr << "demo.png not found !!!" << std::endl;
         return -1;
     }
-    cv::cvtColor(img, img, CV_BGR2GRAY);
+    cv::cvtColor(img, img, cv::COLOR_BGRA2GRAY);
     cv::resize(img, img, cv::Size(INPUT_W, INPUT_H));
     for (int i = 0; i < INPUT_H * INPUT_W; i++) {
         data[i] = ((float)img.at<uchar>(i) / 255.0 - 0.5) * 2.0;
