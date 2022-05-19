@@ -10,6 +10,15 @@ The Pytorch implementation is [real-esrgan](https://github.com/xinntao/Real-ESRG
 
 ## How to Run, real-esrgan as example
 
+0. prepare test image  
+- download : [OST_009.png](https://drive.google.com/file/d/1KAyAiQ8qHc5jSBkk2Uft2LfIhzi9XSyH/view?usp=sharing)   
+
+```
+cd {tensorrtx}/real-esrgan/
+mkdir sample   
+cp ~/Download/OST_009.png {tensorrtx}/real-esrgan/sample
+```
+
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
 ```
