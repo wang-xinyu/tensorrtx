@@ -1,117 +1,118 @@
 #include "cuda_utils.h"
-#include "common.hpp"		
-#include "preprocess.hpp"	// preprocess plugin 
-#include "postprocess.hpp"	// postprocess plugin 
+#include "common.hpp"
+#include "preprocess.hpp"// preprocess plugin 
+#include "postprocess.hpp"// postprocess plugin 
 #include "logging.h"
 #include "utils.h"
-#include <unistd.h>	//access()
+#include <unistd.h>//access()
 
-#define DEVICE 0  // GPU id
+#define DEVICE 0 // GPU id
 #define BATCH_SIZE 1
 
 // stuff we know about the network and the input/output blobs
 static const int PRECISION_MODE = 32; // fp32 : 32, fp16 : 16
-static const bool VISUALIZATION = true; 
+static const bool VISUALIZATION = true;
 static const int INPUT_H = 640;
 static const int INPUT_W = 448;
 static const int INPUT_C = 3;
 static const int OUT_SCALE = 4;
-static const int OUTPUT_SIZE = INPUT_C * INPUT_H * OUT_SCALE * INPUT_W * OUT_SCALE ;
+static const int OUTPUT_SIZE = INPUT_C * INPUT_H * OUT_SCALE * INPUT_W * OUT_SCALE;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
 
 // Creat the engine using only the API and not any parser.
 ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
-	INetworkDefinition* network = builder->createNetworkV2(0U);
+    INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {INPUT_H, INPUT_W, INPUT_C} with name INPUT_BLOB_NAME
-	ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ INPUT_H, INPUT_W, INPUT_C });
-	assert(data);
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ INPUT_H, INPUT_W, INPUT_C });
+    assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
 
-	// Custom preprocess (NHWC->NCHW, BGR->RGB, [0, 255]->[0, 1](Normalize))
-	Preprocess preprocess{ maxBatchSize, INPUT_C, INPUT_H, INPUT_W};
-	IPluginCreator* preprocess_creator = getPluginRegistry()->getPluginCreator("preprocess", "1");
-	IPluginV2 *preprocess_plugin = preprocess_creator->createPlugin("preprocess_plugin", (PluginFieldCollection*)&preprocess);
-	IPluginV2Layer* preprocess_layer = network->addPluginV2(&data, 1, *preprocess_plugin);
-	preprocess_layer->setName("preprocess_layer");
-	ITensor* prep = preprocess_layer->getOutput(0);
+    // Custom preprocess (NHWC->NCHW, BGR->RGB, [0, 255]->[0, 1](Normalize))
+    Preprocess preprocess{ maxBatchSize, INPUT_C, INPUT_H, INPUT_W };
+    IPluginCreator* preprocess_creator = getPluginRegistry()->getPluginCreator("preprocess", "1");
+    IPluginV2 *preprocess_plugin = preprocess_creator->createPlugin("preprocess_plugin", (PluginFieldCollection*)&preprocess);
+    IPluginV2Layer* preprocess_layer = network->addPluginV2(&data, 1, *preprocess_plugin);
+    preprocess_layer->setName("preprocess_layer");
+    ITensor* prep = preprocess_layer->getOutput(0);
 
-	// conv_first
-	IConvolutionLayer* conv_first = network->addConvolutionNd(*prep, 64, DimsHW{ 3, 3 }, weightMap["conv_first.weight"], weightMap["conv_first.bias"]);
-	conv_first->setStrideNd(DimsHW{ 1, 1 });
-	conv_first->setPaddingNd(DimsHW{ 1, 1 });
-	conv_first->setName("conv_first");
-	ITensor* feat = conv_first->getOutput(0);
+    // conv_first
+    IConvolutionLayer* conv_first = network->addConvolutionNd(*prep, 64, DimsHW{ 3, 3 }, weightMap["conv_first.weight"], weightMap["conv_first.bias"]);
+    conv_first->setStrideNd(DimsHW{ 1, 1 });
+    conv_first->setPaddingNd(DimsHW{ 1, 1 });
+    conv_first->setName("conv_first");
+    ITensor* feat = conv_first->getOutput(0);
 
-	// conv_body
-	ITensor* body_feat = RRDB(network, weightMap, feat, "body.0");
-	for (int idx = 1; idx < 23; idx++) {
-		body_feat = RRDB(network, weightMap, body_feat, "body." + std::to_string(idx));
-	}
+    // conv_body
+    ITensor* body_feat = RRDB(network, weightMap, feat, "body.0");
+    for (int idx = 1; idx < 23; idx++) {
+        body_feat = RRDB(network, weightMap, body_feat, "body." + std::to_string(idx));
+    }
 
-	IConvolutionLayer* conv_body = network->addConvolutionNd(*body_feat, 64, DimsHW{ 3, 3 }, weightMap["conv_body.weight"], weightMap["conv_body.bias"]);
-	conv_body->setStrideNd(DimsHW{ 1, 1 });
-	conv_body->setPaddingNd(DimsHW{ 1, 1 });
-	IElementWiseLayer* ew1 = network->addElementWise(*feat, *conv_body->getOutput(0), ElementWiseOperation::kSUM);
-	feat = ew1->getOutput(0);
+    IConvolutionLayer* conv_body = network->addConvolutionNd(*body_feat, 64, DimsHW{ 3, 3 }, weightMap["conv_body.weight"], weightMap["conv_body.bias"]);
+    conv_body->setStrideNd(DimsHW{ 1, 1 });
+    conv_body->setPaddingNd(DimsHW{ 1, 1 });
+    IElementWiseLayer* ew1 = network->addElementWise(*feat, *conv_body->getOutput(0), ElementWiseOperation::kSUM);
+    feat = ew1->getOutput(0);
 
-	//upsample
-	IResizeLayer* interpolate_nearest = network->addResize(*feat);
-	float sclaes1[] = { 1, 2, 2 };
-	interpolate_nearest->setScales(sclaes1, 3);
-	interpolate_nearest->setResizeMode(ResizeMode::kNEAREST);
+    //upsample
+    IResizeLayer* interpolate_nearest = network->addResize(*feat);
+    float sclaes1[] = { 1, 2, 2 };
+    interpolate_nearest->setScales(sclaes1, 3);
+    interpolate_nearest->setResizeMode(ResizeMode::kNEAREST);
 
-	IConvolutionLayer* conv_up1 = network->addConvolutionNd(*interpolate_nearest->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_up1.weight"], weightMap["conv_up1.bias"]);
-	conv_up1->setStrideNd(DimsHW{ 1, 1 });
-	conv_up1->setPaddingNd(DimsHW{ 1, 1 });
-	IActivationLayer* leaky_relu_1 = network->addActivation(*conv_up1->getOutput(0), ActivationType::kLEAKY_RELU);
-	leaky_relu_1->setAlpha(0.2);
+    IConvolutionLayer* conv_up1 = network->addConvolutionNd(*interpolate_nearest->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_up1.weight"], weightMap["conv_up1.bias"]);
+    conv_up1->setStrideNd(DimsHW{ 1, 1 });
+    conv_up1->setPaddingNd(DimsHW{ 1, 1 });
+    IActivationLayer* leaky_relu_1 = network->addActivation(*conv_up1->getOutput(0), ActivationType::kLEAKY_RELU);
+    leaky_relu_1->setAlpha(0.2);
 
-	IResizeLayer* interpolate_nearest2 = network->addResize(*leaky_relu_1->getOutput(0)); 
-	float sclaes2[] = { 1, 2, 2 };
-	interpolate_nearest2->setScales(sclaes2, 3);
-	interpolate_nearest2->setResizeMode(ResizeMode::kNEAREST);
-	IConvolutionLayer* conv_up2 = network->addConvolutionNd(*interpolate_nearest2->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_up2.weight"], weightMap["conv_up2.bias"]);
-	conv_up2->setStrideNd(DimsHW{ 1, 1 });
-	conv_up2->setPaddingNd(DimsHW{ 1, 1 });
-	IActivationLayer* leaky_relu_2 = network->addActivation(*conv_up2->getOutput(0), ActivationType::kLEAKY_RELU);
-	leaky_relu_2->setAlpha(0.2);
+    IResizeLayer* interpolate_nearest2 = network->addResize(*leaky_relu_1->getOutput(0));
+    float sclaes2[] = { 1, 2, 2 };
+    interpolate_nearest2->setScales(sclaes2, 3);
+    interpolate_nearest2->setResizeMode(ResizeMode::kNEAREST);
+    IConvolutionLayer* conv_up2 = network->addConvolutionNd(*interpolate_nearest2->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_up2.weight"], weightMap["conv_up2.bias"]);
+    conv_up2->setStrideNd(DimsHW{ 1, 1 });
+    conv_up2->setPaddingNd(DimsHW{ 1, 1 });
+    IActivationLayer* leaky_relu_2 = network->addActivation(*conv_up2->getOutput(0), ActivationType::kLEAKY_RELU);
+    leaky_relu_2->setAlpha(0.2);
 
-	IConvolutionLayer* conv_hr = network->addConvolutionNd(*leaky_relu_2->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_hr.weight"], weightMap["conv_hr.bias"]);
-	conv_hr->setStrideNd(DimsHW{ 1, 1 });
-	conv_hr->setPaddingNd(DimsHW{ 1, 1 });
-	IActivationLayer* leaky_relu_hr = network->addActivation(*conv_hr->getOutput(0), ActivationType::kLEAKY_RELU);
-	leaky_relu_hr->setAlpha(0.2);
-	IConvolutionLayer* conv_last = network->addConvolutionNd(*leaky_relu_hr->getOutput(0), 3, DimsHW{ 3, 3 }, weightMap["conv_last.weight"], weightMap["conv_last.bias"]);
-	conv_last->setStrideNd(DimsHW{ 1, 1 });
-	conv_last->setPaddingNd(DimsHW{ 1, 1 });
-	ITensor* out = conv_last->getOutput(0);
+    IConvolutionLayer* conv_hr = network->addConvolutionNd(*leaky_relu_2->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_hr.weight"], weightMap["conv_hr.bias"]);
+    conv_hr->setStrideNd(DimsHW{ 1, 1 });
+    conv_hr->setPaddingNd(DimsHW{ 1, 1 });
+    IActivationLayer* leaky_relu_hr = network->addActivation(*conv_hr->getOutput(0), ActivationType::kLEAKY_RELU);
+    leaky_relu_hr->setAlpha(0.2);
+    IConvolutionLayer* conv_last = network->addConvolutionNd(*leaky_relu_hr->getOutput(0), 3, DimsHW{ 3, 3 }, weightMap["conv_last.weight"], weightMap["conv_last.bias"]);
+    conv_last->setStrideNd(DimsHW{ 1, 1 });
+    conv_last->setPaddingNd(DimsHW{ 1, 1 });
+    ITensor* out = conv_last->getOutput(0);
 
-	//	Custom postprocess (RGB -> BGR, NCHW->NHWC, *255, ROUND, uint8)
-	Postprocess postprocess{ maxBatchSize, out->getDimensions().d[0], out->getDimensions().d[1], out->getDimensions().d[2] };
-	IPluginCreator* postprocess_creator = getPluginRegistry()->getPluginCreator("postprocess", "1");
-	IPluginV2 *postprocess_plugin = postprocess_creator->createPlugin("postprocess_plugin", (PluginFieldCollection*)&postprocess);
-	IPluginV2Layer* postprocess_layer = network->addPluginV2(&out, 1, *postprocess_plugin);
-	postprocess_layer->setName("postprocess_layer"); 
+    // Custom postprocess (RGB -> BGR, NCHW->NHWC, *255, ROUND, uint8)
+    Postprocess postprocess{ maxBatchSize, out->getDimensions().d[0], out->getDimensions().d[1], out->getDimensions().d[2] };
+    IPluginCreator* postprocess_creator = getPluginRegistry()->getPluginCreator("postprocess", "1");
+    IPluginV2 *postprocess_plugin = postprocess_creator->createPlugin("postprocess_plugin", (PluginFieldCollection*)&postprocess);
+    IPluginV2Layer* postprocess_layer = network->addPluginV2(&out, 1, *postprocess_plugin);
+    postprocess_layer->setName("postprocess_layer");
 
-	ITensor* final_tensor = postprocess_layer->getOutput(0);
-	final_tensor->setName(OUTPUT_BLOB_NAME);
-	network->markOutput(*final_tensor);
+    ITensor* final_tensor = postprocess_layer->getOutput(0);
+    final_tensor->setName(OUTPUT_BLOB_NAME);
+    network->markOutput(*final_tensor);
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 
-	if (PRECISION_MODE == 16) {
-		std::cout << "==== precision f16 ====" << std::endl << std::endl;
-		config->setFlag(BuilderFlag::kFP16);
-	}else {
-		std::cout << "==== precision f32 ====" << std::endl << std::endl;
-	}
+    if (PRECISION_MODE == 16) {
+        std::cout << "==== precision f16 ====" << std::endl << std::endl;
+        config->setFlag(BuilderFlag::kFP16);
+    }
+    else {
+        std::cout << "==== precision f32 ====" << std::endl << std::endl;
+    }
 
-	std::cout << "Building engine, please wait for a while..." << std::endl;
+    std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
@@ -134,7 +135,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, std::strin
 
     // Create model to populate the network, then set the outputs and create an engine
     ICudaEngine *engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    
+
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -158,10 +159,12 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, st
     if (std::string(argv[1]) == "-s" && argc == 4) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
-    } else if (std::string(argv[1]) == "-d" && argc == 4) {
+    }
+    else if (std::string(argv[1]) == "-d" && argc == 4) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
-    } else {
+    }
+    else {
         return false;
     }
     return true;
@@ -181,7 +184,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-	// create a model using the API directly and serialize it to a stream
+    // create a model using the API directly and serialize it to a stream
     if (!wts_name.empty()) {
         IHostMemory* modelStream{ nullptr };
         APIToModel(BATCH_SIZE, &modelStream, wts_name);
@@ -196,7 +199,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-	// deserialize the .engine and run inference
+    // deserialize the .engine and run inference
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
         std::cerr << "read " << engine_name << " error!" << std::endl;
@@ -226,7 +229,7 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
     delete[] trtModelStream;
     assert(engine->getNbBindings() == 2);
-	void* buffers[2];
+    void* buffers[2];
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
@@ -235,11 +238,11 @@ int main(int argc, char** argv) {
     assert(outputIndex == 1);
 
     // Create GPU buffers on device	
-	CUDA_CHECK(cudaMalloc(&buffers[inputIndex], BATCH_SIZE * INPUT_C * INPUT_H * INPUT_W * sizeof(uint8_t)));
-	CUDA_CHECK(cudaMalloc(&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(uint8_t)));
+    CUDA_CHECK(cudaMalloc(&buffers[inputIndex], BATCH_SIZE * INPUT_C * INPUT_H * INPUT_W * sizeof(uint8_t)));
+    CUDA_CHECK(cudaMalloc(&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(uint8_t)));
 
-	std::vector<uint8_t> input(BATCH_SIZE * INPUT_H * INPUT_W * INPUT_C);	
-	std::vector<uint8_t> outputs(BATCH_SIZE * OUTPUT_SIZE);
+    std::vector<uint8_t> input(BATCH_SIZE * INPUT_H * INPUT_W * INPUT_C);
+    std::vector<uint8_t> outputs(BATCH_SIZE * OUTPUT_SIZE);
 
     // Create stream
     cudaStream_t stream;
@@ -251,10 +254,10 @@ int main(int argc, char** argv) {
         for (int b = 0; b < BATCH_SIZE; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f]);
             if (img.empty()) continue;
-			memcpy(input.data() + b * INPUT_H * INPUT_W * INPUT_C, img.data, INPUT_H * INPUT_W * INPUT_C);
+            memcpy(input.data() + b * INPUT_H * INPUT_W * INPUT_C, img.data, INPUT_H * INPUT_W * INPUT_C);
         }
 
-		CUDA_CHECK(cudaMemcpyAsync(buffers[inputIndex], input.data(), BATCH_SIZE * INPUT_C * INPUT_H * INPUT_W * sizeof(uint8_t), cudaMemcpyHostToDevice, stream));
+        CUDA_CHECK(cudaMemcpyAsync(buffers[inputIndex], input.data(), BATCH_SIZE * INPUT_C * INPUT_H * INPUT_W * sizeof(uint8_t), cudaMemcpyHostToDevice, stream));
 
         // Run inference
         auto start = std::chrono::system_clock::now();
@@ -264,9 +267,9 @@ int main(int argc, char** argv) {
     }
 
     cv::Mat frame = cv::Mat(INPUT_H * OUT_SCALE, INPUT_W * OUT_SCALE, CV_8UC3, outputs.data());
-	cv::imwrite("../_" + file_names[0] + ".png", frame);
+    cv::imwrite("../_" + file_names[0] + ".png", frame);
 
-    if(VISUALIZATION){
+    if (VISUALIZATION) {
         cv::imshow("result : " + file_names[0], frame);
         cv::waitKey(0);
     }
@@ -276,7 +279,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
     CUDA_CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
-	delete context;
-	delete engine;
-	delete runtime;
+    delete context;
+    delete engine;
+    delete runtime;
 }

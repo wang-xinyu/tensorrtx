@@ -3,32 +3,32 @@
 using namespace std;
 
 // preprocess (NHWC->NCHW, BGR->RGB, [0, 255]->[0, 1](Normalize))
-__global__ void preprocess_kernel( float* output, uint8_t* input, 
-	const int batchSize, const int height, const int width, const int channel,
-	const int thread_count)
+__global__ void preprocess_kernel(float* output, uint8_t* input,
+    const int batchSize, const int height, const int width, const int channel,
+    const int thread_count)
 {
-	int index = threadIdx.x + blockIdx.x * blockDim.x;
-	if (index >= thread_count) return;
+    int index = threadIdx.x + blockIdx.x * blockDim.x;
+    if (index >= thread_count) return;
 
-	const int w_idx = index % width;
-	int idx = index / width;
-	const int h_idx = idx % height;
-	idx /= height;
-	const int c_idx = idx % channel;
-	const int b_idx = idx / channel;
+    const int w_idx = index % width;
+    int idx = index / width;
+    const int h_idx = idx % height;
+    idx /= height;
+    const int c_idx = idx % channel;
+    const int b_idx = idx / channel;
 
-	int g_idx = b_idx * height * width * channel + h_idx * width * channel + w_idx * channel + 2 - c_idx;
+    int g_idx = b_idx * height * width * channel + h_idx * width * channel + w_idx * channel + 2 - c_idx;
 
-	output[index] = input[g_idx] / 255.f;
+    output[index] = input[g_idx] / 255.f;
 }
 
 void preprocess(float* output, uint8_t*input, int batchSize, int height, int width, int channel, cudaStream_t stream)
 {
-	int thread_count = batchSize * height * width * channel;
-	int block = 512;
-	int grid = (thread_count - 1) / block + 1;
+    int thread_count = batchSize * height * width * channel;
+    int block = 512;
+    int grid = (thread_count - 1) / block + 1;
 
-	preprocess_kernel << <grid, block, 0, stream >> > (output, input, batchSize, height, width, channel, thread_count);
+    preprocess_kernel << <grid, block, 0, stream >> > (output, input, batchSize, height, width, channel, thread_count);
 }
 
 #include "preprocess.hpp"
