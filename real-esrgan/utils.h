@@ -26,5 +26,5 @@ static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::str
     return 0;
 }
 
-#endif  // TRTX_YOLOV5_UTILS_H_
+#endif  // TRTX_REAL_ESRGAN_UTILS_H_
 
