@@ -1,6 +1,10 @@
 # Real-ESRGAN
 The Pytorch implementation is [real-esrgan](https://github.com/xinntao/Real-ESRGAN).
 
+<p align="center">
+<img src="https://user-images.githubusercontent.com/40158321/170728105-0a1429e8-d117-4844-9c4b-a2d9db4a4ada.png">
+</p>
+
 ## Config
 - Input shape(**INPUT_H**, **INPUT_W**, **INPUT_C**) defined in real-esrgan.cpp
 - GPU id(**DEVICE**) can be selected by the macro in real-esrgan.cpp
