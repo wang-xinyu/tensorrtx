@@ -66,6 +66,9 @@ sudo ./yolov5 -d yolov5.engine ../samples
 // install python-tensorrt, pycuda, etc.
 // ensure the yolov5s.engine and libmyplugins.so have been built
 python yolov5_trt.py
+
+// Another version of python script, which is using CUDA Python instead of pycuda.
+python yolov5_trt_cuda_python.py
 ```
 
 # INT8 Quantization
