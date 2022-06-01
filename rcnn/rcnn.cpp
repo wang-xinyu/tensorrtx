@@ -17,15 +17,15 @@ static const std::vector<float> PIXEL_MEAN = { 103.53, 116.28, 123.675 };
 static const std::vector<float> PIXEL_STD = {1.0, 1.0, 1.0};
 static constexpr float MIN_SIZE = 800.0;
 static constexpr float MAX_SIZE = 1333.0;
-static constexpr int NUM_CLASSES = 80;
+static constexpr int NUM_CLASSES = 1;
 static int INPUT_H;  // size of model input
 static int INPUT_W;
-static constexpr int INPUT_H_ = 480;  // size of original image
-static constexpr int INPUT_W_ = 640;
-static int IMAGE_HEIGHT;  // size of model input
-static int IMAGE_WIDTH;
-static int X_PAD;  // pad in preprocessImg_
-static int Y_PAD;
+static constexpr int INPUT_H_ = 1024;  // size of original image
+static constexpr int INPUT_W_ = 2048;
+static int X_LEFT_PAD;  // pad in preprocessImg_
+static int X_RIGHT_PAD;
+static int Y_TOP_PAD;
+static int Y_BOTTOM_PAD;
 static int h_ori;  // used when h_ori is not equal to INPUT_H_
 static int w_ori;
 // backbone
@@ -70,28 +70,37 @@ const std::vector<float>& aspect_ratios) {
 }
 
 cv::Mat preprocessImg_(cv::Mat& img, int input_w, int input_h) {
-    int w, h, x, y;
+    int w, h;
+    float x, y;
     float r_w = input_w / (img.cols*1.0);
     float r_h = input_h / (img.rows*1.0);
     if (r_h > r_w) {
         w = input_w;
         h = r_w * img.rows;
-        x = 0;
+        x = 0.0;
         y = (input_h - h) / 2;
     } else {
         w = r_h * img.cols;
         h = input_h;
         x = (input_w - w) / 2;
-        y = 0;
+        y = 0.0;
     }
+
+    // support both odd and even cases
+    X_LEFT_PAD = (int)(round(x - 0.1));
+    X_RIGHT_PAD = (int)(round(x + 0.1));
+    Y_TOP_PAD = (int)(round(y - 0.1));
+    Y_BOTTOM_PAD = (int)(round(y + 0.1));
+
     cv::Mat re(h, w, CV_8UC3);
     cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
     cv::Mat out(input_h, input_w, CV_8UC3, cv::Scalar(128, 128, 128));
-    re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
-    X_PAD = x;
-    Y_PAD = y;
-    std::cout << x << std::endl;
-    std::cout << y << std::endl;
+    re.copyTo(out(cv::Rect(X_LEFT_PAD, Y_TOP_PAD, re.cols, re.rows)));
+
+    std::cout << X_LEFT_PAD << std::endl;
+    std::cout << X_RIGHT_PAD << std::endl;
+    std::cout << Y_TOP_PAD << std::endl;
+    std::cout << Y_BOTTOM_PAD << std::endl;
     std::cout << img.rows << std::endl;
     std::cout << input_h << std::endl;
     return out;
@@ -152,7 +161,7 @@ std::map<std::string, Weights>& weightMap, ITensor& features) {
     rpn_head_deltas->setStrideNd(DimsHW{ 1, 1 });
 
     auto anchors = GenerateAnchors(ANCHOR_SIZES, ASPECT_RATIOS);
-    auto rpnDecodePlugin = RpnDecodePlugin(PRE_NMS_TOP_K_TEST, anchors, STRIDES, IMAGE_HEIGHT, IMAGE_WIDTH);
+    auto rpnDecodePlugin = RpnDecodePlugin(PRE_NMS_TOP_K_TEST, anchors, STRIDES, INPUT_H, INPUT_W);
     std::vector<ITensor*> faster_decode_inputs = { rpn_head_logits->getOutput(0), rpn_head_deltas->getOutput(0) };
     auto rpnDecodeLayer = network->addPluginV2(faster_decode_inputs.data(), faster_decode_inputs.size(),
     rpnDecodePlugin);
@@ -206,7 +215,7 @@ void BoxHead(INetworkDefinition *network, std::map<std::string, Weights>& weight
     // decode
     std::vector<ITensor*> predictorDecodeInput = { score_slice->getOutput(0),
     proposal_deltas->getOutput(0), proposals };
-    auto predictorDecodePlugin = PredictorDecodePlugin(probs_dim.d[0], IMAGE_HEIGHT, IMAGE_WIDTH, BBOX_REG_WEIGHTS);
+    auto predictorDecodePlugin = PredictorDecodePlugin(probs_dim.d[0], INPUT_H, INPUT_W, BBOX_REG_WEIGHTS);
     auto predictorDecodeLayer = network->addPluginV2(predictorDecodeInput.data(),
     predictorDecodeInput.size(), predictorDecodePlugin);
 
@@ -384,8 +393,6 @@ void calculateSize() {
     }
     INPUT_H = static_cast<int>(newh + 0.5);
     INPUT_W = static_cast<int>(neww + 0.5);
-    IMAGE_HEIGHT = INPUT_H;
-    IMAGE_WIDTH = INPUT_W;
 }
 
 
@@ -405,9 +412,12 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
 }
 
 int main(int argc, char** argv) {
-
+    
     // calculate size
     calculateSize();
+
+    std::cout << INPUT_H << std::endl;
+    std::cout << INPUT_W << std::endl;
 
     cudaSetDevice(DEVICE);
 
@@ -524,11 +534,11 @@ int main(int argc, char** argv) {
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-        float h_ratio = static_cast<float>(h_ori) / (INPUT_H - Y_PAD * 2);  // ratio of original image size to model input size
-        float w_ratio = static_cast<float>(w_ori) / (INPUT_W - X_PAD * 2);
+        float h_ratio = static_cast<float>(h_ori) / (INPUT_H - (Y_TOP_PAD + Y_BOTTOM_PAD));  // ratio of original image size to model input size
+        float w_ratio = static_cast<float>(w_ori) / (INPUT_W - (X_LEFT_PAD + X_RIGHT_PAD));
 
-        std::cout << X_PAD << std::endl;
-        std::cout << Y_PAD << std::endl;
+        std::cout << Y_TOP_PAD + Y_BOTTOM_PAD << std::endl;
+        std::cout << X_LEFT_PAD + X_RIGHT_PAD << std::endl;
 
         std::cout << h_ratio << std::endl;
         std::cout << w_ratio << std::endl;
@@ -543,10 +553,10 @@ int main(int argc, char** argv) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
             for (int i = 0; i < DETECTIONS_PER_IMAGE; i++) {
                 if (scores_h[b * DETECTIONS_PER_IMAGE + i] > SCORE_THRESH) {
-                    float x1 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 0] - X_PAD) * w_ratio;
-                    float y1 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 1] - Y_PAD) * h_ratio;
-                    float x2 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 2] - X_PAD) * w_ratio;
-                    float y2 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 3] - Y_PAD) * h_ratio;
+                    float x1 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 0] - X_LEFT_PAD) * w_ratio;
+                    float y1 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 1] - Y_TOP_PAD) * h_ratio;
+                    float x2 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 2] - X_LEFT_PAD) * w_ratio;
+                    float y2 = (boxes_h[b * DETECTIONS_PER_IMAGE * 4 + i * 4 + 3] - Y_TOP_PAD) * h_ratio;
                     int label = classes_h[b * DETECTIONS_PER_IMAGE + i];
                     float score = scores_h[b * DETECTIONS_PER_IMAGE + i];
                     printf("boxes:[%.6f, %.6f, %.6f, %.6f] scores: %.4f label: %d \n", x1, y1, x2, y2, score, label);
