@@ -78,14 +78,15 @@ cv::Mat preprocessImg_(cv::Mat& img, int input_w, int input_h) {
         w = input_w;
         h = r_w * img.rows;
         x = 0.0;
-        y = (input_h - h) / 2;
+        y = (input_h - h) / 2.f;
     } else {
         w = r_h * img.cols;
         h = input_h;
-        x = (input_w - w) / 2;
+        x = (input_w - w) / 2.f;
         y = 0.0;
     }
-
+    std::cout << x << std::endl;
+    std::cout << y << std::endl;
     // support both odd and even cases
     X_LEFT_PAD = (int)(round(x - 0.1));
     X_RIGHT_PAD = (int)(round(x + 0.1));

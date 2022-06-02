@@ -85,11 +85,11 @@ static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h) {
         w = input_w;
         h = r_w * img.rows;
         x = 0.0;
-        y = (input_h - h) / 2;
+        y = (input_h - h) / 2.f;
     } else {
         w = r_h * img.cols;
         h = input_h;
-        x = (input_w - w) / 2;
+        x = (input_w - w) / 2.f;
         y = 0.0;
     }
 
