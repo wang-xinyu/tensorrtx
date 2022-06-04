@@ -81,6 +81,8 @@ static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h) {
     float x, y;
     float r_w = input_w / (img.cols*1.0);
     float r_h = input_h / (img.rows*1.0);
+
+    // this code can also support left-right and top-bottom padding if you need
     if (r_h > r_w) {
         w = input_w;
         h = r_w * img.rows;

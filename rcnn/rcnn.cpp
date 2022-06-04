@@ -20,9 +20,9 @@ static constexpr float MAX_SIZE = 1333.0;
 static constexpr int NUM_CLASSES = 1;
 static int INPUT_H;  // size of model input
 static int INPUT_W;
-static constexpr int INPUT_H_ = 1024;  // size of original image
+static constexpr int INPUT_H_ = 1024;  // size of original image, you can change it to arbitrary size
 static constexpr int INPUT_W_ = 2048;
-static int X_LEFT_PAD;  // pad in preprocessImg_
+static int X_LEFT_PAD;  // pad in preprocessImg
 static int X_RIGHT_PAD;
 static int Y_TOP_PAD;
 static int Y_BOTTOM_PAD;
@@ -67,44 +67,6 @@ const std::vector<float>& aspect_ratios) {
         }
     }
     return res;
-}
-
-cv::Mat preprocessImg_(cv::Mat& img, int input_w, int input_h) {
-    int w, h;
-    float x, y;
-    float r_w = input_w / (img.cols*1.0);
-    float r_h = input_h / (img.rows*1.0);
-    if (r_h > r_w) {
-        w = input_w;
-        h = r_w * img.rows;
-        x = 0.0;
-        y = (input_h - h) / 2.f;
-    } else {
-        w = r_h * img.cols;
-        h = input_h;
-        x = (input_w - w) / 2.f;
-        y = 0.0;
-    }
-    std::cout << x << std::endl;
-    std::cout << y << std::endl;
-    // support both odd and even cases
-    X_LEFT_PAD = (int)(round(x - 0.1));
-    X_RIGHT_PAD = (int)(round(x + 0.1));
-    Y_TOP_PAD = (int)(round(y - 0.1));
-    Y_BOTTOM_PAD = (int)(round(y + 0.1));
-
-    cv::Mat re(h, w, CV_8UC3);
-    cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
-    cv::Mat out(input_h, input_w, CV_8UC3, cv::Scalar(128, 128, 128));
-    re.copyTo(out(cv::Rect(X_LEFT_PAD, Y_TOP_PAD, re.cols, re.rows)));
-
-    std::cout << X_LEFT_PAD << std::endl;
-    std::cout << X_RIGHT_PAD << std::endl;
-    std::cout << Y_TOP_PAD << std::endl;
-    std::cout << Y_BOTTOM_PAD << std::endl;
-    std::cout << img.rows << std::endl;
-    std::cout << input_h << std::endl;
-    return out;
 }
 
 // transpose && resize && normalization && padding
@@ -417,9 +379,6 @@ int main(int argc, char** argv) {
     // calculate size
     calculateSize();
 
-    std::cout << INPUT_H << std::endl;
-    std::cout << INPUT_W << std::endl;
-
     cudaSetDevice(DEVICE);
 
     std::string wtsFile = "";
@@ -518,9 +477,7 @@ int main(int argc, char** argv) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
             h_ori = img.rows;
             w_ori = img.cols;
-            img = preprocessImg_(img, INPUT_W, INPUT_H);
-            std::cout << img.rows << std::endl;
-            std::cout << img.cols << std::endl;
+            img = preprocessImg(img, INPUT_W, INPUT_H);
 
             if (img.empty()) continue;
             for (int i = 0; i < INPUT_H * INPUT_W * 3; i++)
@@ -537,18 +494,6 @@ int main(int argc, char** argv) {
 
         float h_ratio = static_cast<float>(h_ori) / (INPUT_H - (Y_TOP_PAD + Y_BOTTOM_PAD));  // ratio of original image size to model input size
         float w_ratio = static_cast<float>(w_ori) / (INPUT_W - (X_LEFT_PAD + X_RIGHT_PAD));
-
-        std::cout << Y_TOP_PAD + Y_BOTTOM_PAD << std::endl;
-        std::cout << X_LEFT_PAD + X_RIGHT_PAD << std::endl;
-
-        std::cout << h_ratio << std::endl;
-        std::cout << w_ratio << std::endl;
-
-        std::cout << h_ori << std::endl;
-        std::cout << w_ori << std::endl;
-
-        std::cout << INPUT_H << std::endl;
-        std::cout << INPUT_W << std::endl;
 
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
