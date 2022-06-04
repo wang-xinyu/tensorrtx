@@ -76,7 +76,7 @@ static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::str
     return 0;
 }
 
-static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h) {
+static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h, int& X_LEFT_PAD, int& X_RIGHT_PAD, int& Y_TOP_PAD, int& Y_BOTTOM_PAD) {
     int w, h;
     float x, y;
     float r_w = input_w / (img.cols*1.0);
@@ -96,10 +96,10 @@ static inline cv::Mat preprocessImg(cv::Mat& img, int input_w, int input_h) {
     }
 
     // support both odd and even cases
-    int X_LEFT_PAD = (int)(round(x - 0.1));
-    int X_RIGHT_PAD = (int)(round(x + 0.1));
-    int Y_TOP_PAD = (int)(round(y - 0.1));
-    int Y_BOTTOM_PAD = (int)(round(y + 0.1));
+    X_LEFT_PAD = (int)(round(x - 0.1));
+    X_RIGHT_PAD = (int)(round(x + 0.1));
+    Y_TOP_PAD = (int)(round(y - 0.1));
+    Y_BOTTOM_PAD = (int)(round(y + 0.1));
 
     cv::Mat re(h, w, CV_8UC3);
     cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);

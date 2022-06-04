@@ -375,7 +375,7 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
 }
 
 int main(int argc, char** argv) {
-    
+
     // calculate size
     calculateSize();
 
@@ -477,7 +477,7 @@ int main(int argc, char** argv) {
             cv::Mat img = cv::imread(imgDir + "/" + fileList[f - fcount + 1 + b]);
             h_ori = img.rows;
             w_ori = img.cols;
-            img = preprocessImg(img, INPUT_W, INPUT_H);
+            img = preprocessImg(img, INPUT_W, INPUT_H, X_LEFT_PAD, X_RIGHT_PAD, Y_TOP_PAD, Y_BOTTOM_PAD);
 
             if (img.empty()) continue;
             for (int i = 0; i < INPUT_H * INPUT_W * 3; i++)
@@ -511,7 +511,7 @@ int main(int argc, char** argv) {
                     cv::putText(img, std::to_string(label), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
                     cv::Scalar(0xFF, 0xFF, 0xFF), 2);
 
-                    
+
                     if (MASK_ON) {
                         cv::Mat maskPart = cv::Mat::zeros(cv::Size(POOLER_RESOLUTION, POOLER_RESOLUTION), CV_32FC1);
                         memcpy(maskPart.data,
