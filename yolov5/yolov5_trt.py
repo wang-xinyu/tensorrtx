@@ -16,6 +16,7 @@ import tensorrt as trt
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
+CROP_IMAGE = False # If the image will be resized and padded or simply cropped
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -198,6 +199,48 @@ class YoLov5TRT(object):
         for _ in range(self.batch_size):
             yield np.zeros([self.input_h, self.input_w, 3], dtype=np.uint8)
 
+    def shape_image(self, image):
+        """
+        description: Reshape image to the same shape as input,
+                     whether by resizing or cropping
+        param :
+            image: image to be reshaped
+        return :
+            image: image with the same shape as input
+        """
+        h, w, c = image.shape
+        if CROP_IMAGE :
+            if self.input_h > h or self.input_w > w:
+                raise ValueError("Image is too small for the CROP strategy")
+            w_start, w_end = (w - self.input_w) // 2, (w + self.input_w) // 2
+            h_start, h_end = (h - self.input_h) // 2, (h + self.input_h) // 2
+            image = image[h_start:h_end, w_start:w_end]
+            return image
+        else :
+            # Calculate widht and height and paddings
+            r_w = self.input_w / w
+            r_h = self.input_h / h
+            if r_h > r_w:
+                tw = self.input_w
+                th = int(r_w * h)
+                tx1 = tx2 = 0
+                ty1 = int((self.input_h - th) / 2)
+                ty2 = self.input_h - th - ty1
+            else:
+                tw = int(r_h * w)
+                th = self.input_h
+                tx1 = int((self.input_w - tw) / 2)
+                tx2 = self.input_w - tw - tx1
+                ty1 = ty2 = 0
+            # Resize the image with long side while maintaining ratio
+            image = cv2.resize(image, (tw, th))
+            # Pad the short side with (128,128,128)
+            image = cv2.copyMakeBorder(
+                image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, None, (128, 128, 128)
+            )
+            return image
+
+
     def preprocess_image(self, raw_bgr_image):
         """
         description: Convert BGR image to RGB,
@@ -214,27 +257,10 @@ class YoLov5TRT(object):
         image_raw = raw_bgr_image
         h, w, c = image_raw.shape
         image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
-        # Calculate widht and height and paddings
-        r_w = self.input_w / w
-        r_h = self.input_h / h
-        if r_h > r_w:
-            tw = self.input_w
-            th = int(r_w * h)
-            tx1 = tx2 = 0
-            ty1 = int((self.input_h - th) / 2)
-            ty2 = self.input_h - th - ty1
-        else:
-            tw = int(r_h * w)
-            th = self.input_h
-            tx1 = int((self.input_w - tw) / 2)
-            tx2 = self.input_w - tw - tx1
-            ty1 = ty2 = 0
-        # Resize the image with long side while maintaining ratio
-        image = cv2.resize(image, (tw, th))
-        # Pad the short side with (128,128,128)
-        image = cv2.copyMakeBorder(
-            image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, None, (128, 128, 128)
-        )
+        
+        # Shape the image as the input shape
+        image = self.shape_image(image)
+
         image = image.astype(np.float32)
         # Normalize to [0,1]
         image /= 255.0
