@@ -283,20 +283,30 @@ class YoLov5TRT(object):
             y:          A boxes numpy, each row is a box [x1, y1, x2, y2]
         """
         y = np.zeros_like(x)
-        r_w = self.input_w / origin_w
-        r_h = self.input_h / origin_h
-        if r_h > r_w:
-            y[:, 0] = x[:, 0] - x[:, 2] / 2
-            y[:, 2] = x[:, 0] + x[:, 2] / 2
-            y[:, 1] = x[:, 1] - x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
-            y[:, 3] = x[:, 1] + x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
-            y /= r_w
-        else:
-            y[:, 0] = x[:, 0] - x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
-            y[:, 2] = x[:, 0] + x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
-            y[:, 1] = x[:, 1] - x[:, 3] / 2
-            y[:, 3] = x[:, 1] + x[:, 3] / 2
-            y /= r_h
+
+        if CROP_IMAGE :
+            y_gap = (origin_h - self.input_h) // 2
+            x_gap = (origin_w - self.input_w) // 2
+            
+            y[:, 0] = x[:, 0] - x[:, 2] / 2 + x_gap
+            y[:, 2] = x[:, 0] + x[:, 2] / 2 + x_gap
+            y[:, 1] = x[:, 1] - x[:, 3] / 2 + y_gap 
+            y[:, 3] = x[:, 1] + x[:, 3] / 2 + y_gap 
+        else :
+            r_w = self.input_w / origin_w
+            r_h = self.input_h / origin_h
+            if r_h > r_w:
+                y[:, 0] = x[:, 0] - x[:, 2] / 2
+                y[:, 2] = x[:, 0] + x[:, 2] / 2
+                y[:, 1] = x[:, 1] - x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
+                y[:, 3] = x[:, 1] + x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
+                y /= r_w
+            else:
+                y[:, 0] = x[:, 0] - x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
+                y[:, 2] = x[:, 0] + x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
+                y[:, 1] = x[:, 1] - x[:, 3] / 2
+                y[:, 3] = x[:, 1] + x[:, 3] / 2
+                y /= r_h
 
         return y
 
