@@ -10,6 +10,10 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
+- `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
+- `19 May 2022`. [vjsrinivas](https://github.com/vjsrinivas): YOLOv3 TRT8 support and Python script.
+- `15 Mar 2022`. [sky_hole](https://github.com/wdhao): Swin Transformer - Semantic Segmentation.
 - `19 Oct 2021`. [liuqi123123](https://github.com/liuqi123123) added cuda preprossing for yolov5, preprocessing + inference is 3x faster when batchsize=8.
 - `18 Oct 2021`. [xupengao](https://github.com/xupengao): YOLOv5 updated to v6.0, supporting n/s/m/l/x/n6/s6/m6/l6/x6.
 - `31 Aug 2021`. [FamousDirector](https://github.com/FamousDirector): update retinaface to support TensorRT 8.0.
@@ -21,10 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `6 May 2021`. [makaveli10](https://github.com/makaveli10): scaled-yolov4 yolov4-csp.
 - `29 Apr 2021`. [upczww](https://github.com/upczww): hrnet segmentation w18/w32/w48, ocr branch also.
 - `28 Apr 2021`. [aditya-dl](https://github.com/aditya-dl): mobilenetv2, alexnet, densenet121, mobilenetv3 with python API.
-- `26 Apr 2021`. [makaveli10](https://github.com/makaveli10) add Inceptionv4.
-- `25 Apr 2021`. YOLOv5 updated to v5.0, supporting s/m/l/x/s6/m6/l6/x6.
-- `23 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) add TSM: Temporal Shift Module for Efficient Video Understanding, ICCV2019.
-- `23 Apr 2021`. [freedenS](https://github.com/freedenS) implement MaskRCNN, till now the MOST complicated model in this repo.
 
 ## Tutorials
 
@@ -41,7 +41,8 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## Test Environment
 
-1. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0 / opencv3.3
+1. TensorRT 7.x
+2. TensorRT 8.x(Some of the models support 8.x)
 
 ## How to run
 
@@ -53,6 +54,7 @@ Following models are implemented.
 
 |Name | Description |
 |-|-|
+|[mlp](./mlp) | the very basic model for starters, properly documented |
 |[lenet](./lenet) | the simplest, as a "hello world" of this project |
 |[alexnet](./alexnet)| easy to implement, all layers are supported in tensorrt |
 |[googlenet](./googlenet)| GoogLeNet (Inception v1) |
@@ -89,6 +91,8 @@ Following models are implemented.
 |[centernet](./centernet)| CenterNet DLA-34, pytorch from [xingyizhou/CenterNet](https://github.com/xingyizhou/CenterNet) |
 |[efficientnet](./efficientnet)| EfficientNet b0-b8 and l2, pytorch from [lukemelas/EfficientNet-PyTorch](https://github.com/lukemelas/EfficientNet-PyTorch) |
 |[detr](./detr)| DE⫶TR, pytorch from [facebookresearch/detr](https://github.com/facebookresearch/detr) |
+|[swin-transformer](./swin-transformer)| Swin Transformer - Semantic Segmentation, only support Swin-T. The Pytorch implementation is [microsoft/Swin-Transformer](https://github.com/microsoft/Swin-Transformer.git) |
+|[real-esrgan](./real-esrgan)| Real-ESRGAN. The Pytorch implementation is [real-esrgan](https://github.com/xinntao/Real-ESRGAN) |
 
 ## Model Zoo
 

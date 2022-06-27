@@ -4,6 +4,7 @@
 #include "NvInfer.h"
 #include <string>
 #include <vector>
+#include "macros.h"
 
 //! \class Int8EntropyCalibrator2
 //!
@@ -16,11 +17,11 @@ public:
     Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache = true);
 
     virtual ~Int8EntropyCalibrator2();
-    int getBatchSize() const override;
-    bool getBatch(void* bindings[], const char* names[], int nbBindings) override;
-    const void* readCalibrationCache(size_t& length) override;
-    void writeCalibrationCache(const void* cache, size_t length) override;
-
+    int getBatchSize() const TRT_NOEXCEPT override;
+    bool getBatch(void* bindings[], const char* names[], int nbBindings) TRT_NOEXCEPT override;
+    const void* readCalibrationCache(size_t& length) TRT_NOEXCEPT override;
+    void writeCalibrationCache(const void* cache, size_t length) TRT_NOEXCEPT override;
+    
 private:
     int batchsize_;
     int input_w_;

@@ -301,7 +301,7 @@ int main(int argc, char** argv)
             size = file.tellg();
             file.seekg(0, file.beg);
             trtModelStream = new char[size];
-            assert(trtModelStream, size);
+            assert(trtModelStream);
             file.read(trtModelStream, size);
             file.close();
         }
