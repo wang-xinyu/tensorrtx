@@ -225,7 +225,8 @@ int main(int argc, char** argv)
     cout << "begin" << endl;
     //string wts = "G:/shaj/trainsform/ktn5n6_29.511.21.8.wts";
     //string eng = "G:/shaj/trainsform/trainsform.eng";
-    if (argv[1] = "-s") {
+    std::string argv1 = argv[1];
+    if (argv1 == "-s") {
         string wts = argv[2];
         string eng = argv[3];
         createEng(wts,eng);
