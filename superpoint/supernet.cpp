@@ -7,82 +7,30 @@
 #include <opencv2/opencv.hpp>
 #include <dirent.h>
 #include "NvInfer.h"
+#include "utils.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
-
-#define CHECK(status)                                          \
-    do                                                         \
-    {                                                          \
-        auto ret = (status);                                   \
-        if (ret != 0)                                          \
-        {                                                      \
-            std::cerr << "Cuda failure: " << ret << std::endl; \
-            abort();                                           \
-        }                                                      \
-    } while (0)
 
 //#define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0     // GPU id
 #define BATCH_SIZE 1 // currently, only support BATCH=1
 
-using namespace nvinfer1;
-
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 120;
 static const int INPUT_W = 160;
-static const int OUTPUT_SIZE = 128;
 const char *INPUT_BLOB_NAME = "data";
-const char *OUTPUT_BLOB_NAME = "prob";
+const char *OUTPUT_BLOB_NAME_1 = "semi";
+const char *OUTPUT_BLOB_NAME_2 = "desc";
+
 static Logger gLogger;
 
-// TensorRT weight files have a simple space delimited format:
-// [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file)
-{
-    std::cout << "Loading weights: " << file << std::endl;
-    std::map<std::string, Weights> weightMap;
-
-    // Open weights file
-    std::ifstream input(file);
-    assert(input.is_open() && "Unable to load weight file.");
-
-    // Read number of weight blobs
-    int32_t count;
-    input >> count;
-    assert(count > 0 && "Invalid weight map file.");
-
-    while (count--)
-    {
-        Weights wt{DataType::kFLOAT, nullptr, 0};
-        uint32_t size;
-
-        // Read name and type of blob
-        std::string name;
-        input >> name >> std::dec >> size;
-        wt.type = DataType::kFLOAT;
-
-        // Load blob
-        uint32_t *val = reinterpret_cast<uint32_t *>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
-            input >> std::hex >> val[x];
-        }
-        wt.values = val;
-
-        wt.count = size;
-        weightMap[name] = wt;
-    }
-
-    return weightMap;
-}
-
 // create the engine using only the API and not any parser.
-ICudaEngine createEngine(IBuilder *builder, IBuilderConfig *config, std::string path)
+ICudaEngine* createEngine(IBuilder *builder, IBuilderConfig *config, std::string path, DataType dt)
 {
     INetworkDefinition *network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
-    ITensor *data = network->addInput(INPUT_BLOB_NAME, _dt, Dims3{1, _engineCfg.input_h, _engineCfg.input_w});
+    ITensor *data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{1, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights(path);
@@ -177,16 +125,16 @@ ICudaEngine createEngine(IBuilder *builder, IBuilderConfig *config, std::string 
     assert(convDb);
     convDb->setStrideNd(DimsHW{1, 1});
 
-    convPb->getOutput(0)->setName("semi");
+    convPb->getOutput(0)->setName(OUTPUT_BLOB_NAME_1);
     std::cout << "set name out1" << std::endl;
     network->markOutput(*convPb->getOutput(0));
 
-    convDb->getOutput(0)->setName("desc");
+    convDb->getOutput(0)->setName(OUTPUT_BLOB_NAME_2);
     std::cout << "set name out2" << std::endl;
     network->markOutput(*convDb->getOutput(0));
 
     // Build engine
-    builder->setMaxBatchSize(_engineCfg.max_batch_size);
+    builder->setMaxBatchSize(BATCH_SIZE);
     config->setMaxWorkspaceSize(1 << 20);
 
 #ifdef USE_FP16
@@ -219,14 +167,14 @@ ICudaEngine createEngine(IBuilder *builder, IBuilderConfig *config, std::string 
 
 // Creat the engine using only the API and not any parser.
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory **modelStream)
+void APIToModel(std::string path, IHostMemory **modelStream)
 {
     // Create builder
     IBuilder *builder = createInferBuilder(gLogger);
     IBuilderConfig *config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine *engine = createEngine(builder, config, "");
+    ICudaEngine *engine = createEngine(builder, config, path, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -244,10 +192,10 @@ int main(int argc, char **argv)
     char *trtModelStream{nullptr};
     size_t size{0};
 
-    if (argc == 2 && std::string(argv[1]) == "-s")
+    if (argc == 3 && std::string(argv[1]) == "-s")
     {
         IHostMemory *modelStream{nullptr};
-        APIToModel(BATCH_SIZE, &modelStream);
+        APIToModel(std::string(argv[2]), &modelStream);
         assert(modelStream != nullptr);
         std::ofstream p("supernet.engine", std::ios::binary);
         if (!p)
@@ -259,11 +207,10 @@ int main(int argc, char **argv)
         modelStream->destroy();
         return 0;
     }
-   
     else
     {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./supernet -d  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./supernet -s <path_to_.wts_file>  // serialize model to plan file" << std::endl;
         return -1;
     }
 
