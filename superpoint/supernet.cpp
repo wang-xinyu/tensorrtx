@@ -25,7 +25,7 @@ const char *OUTPUT_BLOB_NAME_2 = "desc";
 static Logger gLogger;
 
 // create the engine using only the API and not any parser.
-ICudaEngine* createEngine(IBuilder *builder, IBuilderConfig *config, std::string path, DataType dt)
+ICudaEngine *createEngine(IBuilder *builder, IBuilderConfig *config, std::string path, DataType dt)
 {
     INetworkDefinition *network = builder->createNetworkV2(0U);
 
@@ -141,15 +141,6 @@ ICudaEngine* createEngine(IBuilder *builder, IBuilderConfig *config, std::string
     config->setFlag(BuilderFlag::kFP16);
 #endif
 
-#ifdef USE_INT8
-    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
-    assert(builder->platformHasFastInt8());
-    config->setFlag(BuilderFlag::kINT8);
-    Int8EntropyCalibrator2 *calibrator = new Int8EntropyCalibrator2(_engineCfg.max_batch_size, _engineCfg.input_w, _engineCfg.input_h,
-                                                                    "/home/swap/dataset/person_reid/pr_256_262/merged/",
-                                                                    "int8calib.table", _engineCfg.input_name);
-    config->setInt8Calibrator(calibrator);
-#endif
     ICudaEngine *engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
