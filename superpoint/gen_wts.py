@@ -2,10 +2,10 @@ import torch
 import struct
 from model import SuperPointNet
 
-model_name = "weights/superpoint_v1"
+model_name = "superpoint_v1"
 
 net = SuperPointNet()
-net.load_state_dict(torch.load("weights/superpoint_v1.pth"))
+net.load_state_dict(torch.load("superpoint_v1.pth"))
 net = net.cuda()
 net.eval()
 
