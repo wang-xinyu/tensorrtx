@@ -42,3 +42,26 @@ python demo_superpoint.py assets/nyu_snippet.mp4 --cuda --weights_path tensorrtx
 python demo_superpoint.py assets/nyu_snippet.mp4 --cuda --weights_path superpoint_v1.pth
 // execute above command to infer using pytorch pre-trained weight files instead of tensorrt engine file.
 ```
+
+## Output
+As from the below result there is no significant difference in the inferred output!
+<table>
+<th>
+PyTorch
+</th>
+<th>
+TensorRT
+</th>
+<tr>
+<td>
+<img src="https://user-images.githubusercontent.com/107029401/177322379-2782ca66-bcac-4cf6-b6d3-e1b4d4a8e171.gif"/>
+</td>
+<td>
+<img src="https://user-images.githubusercontent.com/107029401/177322387-c945b903-f233-4a43-bfd3-530c46f4f4db.gif"/>
+</td>
+</tr>
+</table>
+
+## TODO
+- [ ] Optimizing post-processing using custom TensorRT layer.
+- [ ] Benchmark validation for speed accuracy tradeoff with [hpatches](https://github.com/hpatches/hpatches-benchmark) dataset
