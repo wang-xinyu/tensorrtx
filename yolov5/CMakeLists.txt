@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 2.6)
 
 project(yolov5)
 
+set(YOLO_CLASS_NUM 60 CACHE STRING "(int) Number of classes of objects")
+set(YOLO_INPUT_H 640 CACHE STRING "(int) Input image height. Must be divisible by 32")
+set(YOLO_INPUT_W 640 CACHE STRING "(int) Input image width. Must be divisible by 32")
+
+add_compile_definitions(
+  YOLO_CLASS_NUM=${YOLO_CLASS_NUM} YOLO_INPUT_H=${YOLO_INPUT_H}
+  YOLO_INPUT_W=${YOLO_INPUT_W})
+
 add_definitions(-std=c++11)
 add_definitions(-DAPI_EXPORTS)
 option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)

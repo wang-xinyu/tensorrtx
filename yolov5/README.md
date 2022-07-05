@@ -18,7 +18,9 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0 and v6.0.
 
 - Choose the model n/s/m/l/x/n6/s6/m6/l6/x6 from command line arguments.
 - Input shape defined in yololayer.h
+  - CMake configuration: Set `-DYOLO_INPUT_W=your-input-width` and / or `-DYOLO_INPUT_H=your-input-height`
 - Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
+  - CMake configuration: Set `-DYOLO_CLASS_NUM=your-number-of-classes`
 - INT8/FP16/FP32 can be selected by the macro in yolov5.cpp, **INT8 need more steps, pls follow `How to Run` first and then go the `INT8 Quantization` below**
 - GPU id can be selected by the macro in yolov5.cpp
 - NMS thresh in yolov5.cpp
