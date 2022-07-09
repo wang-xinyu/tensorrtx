@@ -9,7 +9,7 @@ I wrote this project to get familiar with tensorrt API, and also to share and le
 All the models are implemented in pytorch/mxnet/tensorflown first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference. Some pytorch implementations can be found in my repo [Pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from polular open-source implementations.
 
 ## News
-
+-`6 Jul 2022`. Test Github
 - `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
 - `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
 - `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
