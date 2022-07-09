@@ -286,17 +286,35 @@ namespace nvinfer1
 
     IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) TRT_NOEXCEPT
     {
-        assert(fc->nbFields == 2);
-        assert(strcmp(fc->fields[0].name, "netinfo") == 0);
-        assert(strcmp(fc->fields[1].name, "kernels") == 0);
-        int *p_netinfo = (int*)(fc->fields[0].data);
-        int class_count = p_netinfo[0];
-        int input_w = p_netinfo[1];
-        int input_h = p_netinfo[2];
-        int max_output_object_count = p_netinfo[3];
-        std::vector<Yolo::YoloKernel> kernels(fc->fields[1].length);
-        memcpy(&kernels[0], fc->fields[1].data, kernels.size() * sizeof(Yolo::YoloKernel));
-        YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, kernels);
+	int class_count = -1;
+        int input_w = -1;
+        int input_h = -1;
+        int max_output_object_count = -1;
+        std::vector<Yolo::YoloKernel> yolo_kernels(3);
+
+        const PluginField* fields = fc->fields;
+        for (int i = 0; i < fc->nbFields; i++) {
+            if (strcmp(fields[i].name, "netdata") == 0) {
+                assert(fields[i].type == PluginFieldType::kFLOAT32);
+                int *tmp = (int*)(fields[i].data);
+                class_count = tmp[0];
+                input_w = tmp[1];
+                input_h = tmp[2];
+                max_output_object_count = tmp[3];
+            } else if (strstr(fields[i].name, "yolodata") != NULL) {
+                assert(fields[i].type == PluginFieldType::kFLOAT32);
+                int *tmp = (int*)(fields[i].data);
+                YoloKernel kernel;
+                kernel.width = tmp[0];
+                kernel.height = tmp[1];
+                for (int j = 0; j < fields[i].length - 2; j++) {
+                    kernel.anchors[j] = tmp[j + 2];
+                }
+                yolo_kernels[2 - (fields[i].name[8] - '1')] = kernel;
+            }
+        }
+        assert(class_count && input_w && input_h && max_output_object_count);
+        YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, yolo_kernels);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }
