@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <cudnn.h>
+#include "macros.h"
 
 #ifndef CUDA_CHECK
 
@@ -38,7 +39,7 @@ namespace Tn
         typedef std::pair<std::string, float> Record;
         std::vector<Record> mProfile;
 
-        virtual void reportLayerTime(const char* layerName, float ms)
+        virtual void reportLayerTime(const char* layerName, float ms) TRT_NOEXCEPT
         {
             auto record = std::find_if(mProfile.begin(), mProfile.end(), [&](const Record& r){ return r.first == layerName; });
             if (record == mProfile.end())
@@ -57,7 +58,7 @@ namespace Tn
 
         Logger(Severity severity): reportableSeverity(severity) {}
 
-        void log(Severity severity, const char* msg) override
+        void log(Severity severity, const char* msg) TRT_NOEXCEPT override
         {
             // suppress messages with severity enum value greater than the reportable
             if (severity > reportableSeverity) return;

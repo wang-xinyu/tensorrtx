@@ -205,7 +205,7 @@ namespace nvinfer1
     }
 
 
-    int YoloLayerPlugin::enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream) TRT_NOEXCEPT
+    int YoloLayerPlugin::enqueue(int batchSize, const void*const * inputs, void*TRT_CONST_ENQUEUE* outputs, void* workspace, cudaStream_t stream) TRT_NOEXCEPT
     {
         //assert(batchSize == 1);
         //GPU
