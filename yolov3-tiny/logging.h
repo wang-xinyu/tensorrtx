@@ -27,12 +27,6 @@
 #include <string>
 #include "macros.h"
 
-#if NV_TENSORRT_MAJOR >= 8
-#define TRT_NOEXCEPT noexcept
-#else
-#define TRT_NOEXCEPT
-#endif
-
 using Severity = nvinfer1::ILogger::Severity;
 
 class LogStreamConsumerBuffer : public std::stringbuf
