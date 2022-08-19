@@ -8,7 +8,7 @@ import numpy as np
 parser = argparse.ArgumentParser(description='face model test')
 # general
 parser.add_argument('--image-size', default='112,112', help='')
-parser.add_argument('--model', default='model-r50-am-lfw/model,1', help='path to load model.')
+parser.add_argument('--model', default='model-r100-ii/model,0', help='path to load model.')
 parser.add_argument('--ga-model', default='', help='path to load model.')
 parser.add_argument('--gpu', default=0, type=int, help='gpu id')
 parser.add_argument('--det', default=0, type=int, help='mtcnn option, 1 means using R+O, 0 means detect from begining')
@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 model = face_model.FaceModel(args)
 
-f = open('arcface-r50.wts', 'w')
+f = open('arcface-r100.wts', 'w')
 f.write('{}\n'.format(len(model.model.get_params()[0].keys()) + len(model.model.get_params()[1].keys())))
 for k, v in model.model.get_params()[0].items():
     vr = v.reshape(-1).asnumpy()
