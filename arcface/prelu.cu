@@ -23,7 +23,7 @@ namespace nvinfer1
         gamma_.assign((float*)p, (float*)p + (length - sizeof(int)) / sizeof(float));
     }
 
-    void PReluPlugin::serialize(void* buffer) const
+    void PReluPlugin::serialize(void* buffer) const TRT_NOEXCEPT 
     {
         *reinterpret_cast<int*>(buffer) = input_size_;
         char *p = reinterpret_cast<char*>(buffer);
@@ -31,17 +31,17 @@ namespace nvinfer1
         memcpy(p, gamma_.data(), gamma_.size() * sizeof(float));
     }
 
-    size_t PReluPlugin::getSerializationSize() const
+    size_t PReluPlugin::getSerializationSize() const TRT_NOEXCEPT
     {  
         return sizeof(input_size_) + gamma_.size() * sizeof(float);
     }
 
-    int PReluPlugin::initialize()
+    int PReluPlugin::initialize() TRT_NOEXCEPT
     { 
         return 0;
     }
 
-    Dims PReluPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+    Dims PReluPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) TRT_NOEXCEPT
     {
         assert(nbInputDims == 1);
         assert(index == 0);
@@ -51,63 +51,63 @@ namespace nvinfer1
     }
 
     // Set plugin namespace
-    void PReluPlugin::setPluginNamespace(const char* pluginNamespace)
+    void PReluPlugin::setPluginNamespace(const char* pluginNamespace) TRT_NOEXCEPT
     {
         mPluginNamespace = pluginNamespace;
     }
 
-    const char* PReluPlugin::getPluginNamespace() const
+    const char* PReluPlugin::getPluginNamespace() const TRT_NOEXCEPT
     {
         return mPluginNamespace;
     }
 
     // Return the DataType of the plugin output at the requested index
-    DataType PReluPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+    DataType PReluPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const TRT_NOEXCEPT
     {
         return DataType::kFLOAT;
     }
 
     // Return true if output tensor is broadcast across a batch.
-    bool PReluPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+    bool PReluPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const TRT_NOEXCEPT
     {
         return false;
     }
 
     // Return true if plugin can use input that is broadcast across batch without replication.
-    bool PReluPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
+    bool PReluPlugin::canBroadcastInputAcrossBatch(int inputIndex) const TRT_NOEXCEPT
     {
         return false;
     }
 
-    void PReluPlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput)
+    void PReluPlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) TRT_NOEXCEPT
     {
     }
 
     // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-    void PReluPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+    void PReluPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) TRT_NOEXCEPT
     {
     }
 
     // Detach the plugin object from its execution context.
-    void PReluPlugin::detachFromContext() {}
+    void PReluPlugin::detachFromContext() TRT_NOEXCEPT {}
 
-    const char* PReluPlugin::getPluginType() const
+    const char* PReluPlugin::getPluginType() const TRT_NOEXCEPT
     {
         return "PRelu_TRT";
     }
 
-    const char* PReluPlugin::getPluginVersion() const
+    const char* PReluPlugin::getPluginVersion() const TRT_NOEXCEPT
     {
         return "1";
     }
 
-    void PReluPlugin::destroy()
+    void PReluPlugin::destroy() TRT_NOEXCEPT
     {
         delete this;
     }
 
     // Clone the plugin
-    IPluginV2IOExt* PReluPlugin::clone() const
+    IPluginV2IOExt* PReluPlugin::clone() const TRT_NOEXCEPT
     {
         PReluPlugin *p = new PReluPlugin(gamma_);
         p->input_size_ = input_size_;
@@ -138,7 +138,7 @@ namespace nvinfer1
         assert(cudaFree(dev_gamma) == cudaSuccess);
     }
 
-    int PReluPlugin::enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream)
+    int PReluPlugin::enqueue(int batchSize, const void*const * inputs, void* TRT_CONST_ENQUEUE* outputs, void* workspace, cudaStream_t stream) TRT_NOEXCEPT
     {
         //assert(batchSize == 1);
         //GPU
@@ -158,22 +158,22 @@ namespace nvinfer1
         mFC.fields = mPluginAttributes.data();
     }
 
-    const char* PReluPluginCreator::getPluginName() const
+    const char* PReluPluginCreator::getPluginName() const TRT_NOEXCEPT
     {
             return "PRelu_TRT";
     }
 
-    const char* PReluPluginCreator::getPluginVersion() const
+    const char* PReluPluginCreator::getPluginVersion() const TRT_NOEXCEPT
     {
             return "1";
     }
 
-    const PluginFieldCollection* PReluPluginCreator::getFieldNames()
+    const PluginFieldCollection* PReluPluginCreator::getFieldNames() TRT_NOEXCEPT
     {
             return &mFC;
     }
 
-    IPluginV2IOExt* PReluPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+    IPluginV2IOExt* PReluPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) TRT_NOEXCEPT
     {
         std::vector<float> gamma;
         const PluginField* fields = fc->fields;
@@ -197,7 +197,7 @@ namespace nvinfer1
         return obj;
     }
 
-    IPluginV2IOExt* PReluPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
+    IPluginV2IOExt* PReluPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) TRT_NOEXCEPT
     {
         // This object will be deleted when the network is destroyed, which will
         // call PReluPlugin::destroy()
