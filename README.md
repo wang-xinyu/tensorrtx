@@ -10,6 +10,7 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## News
 
+- `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
 - `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
 - `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
 - `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
@@ -24,7 +25,6 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 - `23 May 2021`. [SsisyphusTao](https://github.com/SsisyphusTao): CenterNet DLA-34 with DCNv2 plugin.
 - `17 May 2021`. [ybw108](https://github.com/ybw108): arcface LResNet100E-IR and MobileFaceNet.
 - `6 May 2021`. [makaveli10](https://github.com/makaveli10): scaled-yolov4 yolov4-csp.
-- `29 Apr 2021`. [upczww](https://github.com/upczww): hrnet segmentation w18/w32/w48, ocr branch also.
 
 ## Tutorials
 
