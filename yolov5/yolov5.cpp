@@ -66,7 +66,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
 #if defined(USE_CLASSIFY)
     /* ------ yolov5 classification head ------ */
-    auto conv_class = convBlock(network, weightMap, *bottleneck_csp8->getOutput(0), get_width(2560, gw), 1, 1, 1, "model.9.conv");
+    auto conv_class = convBlock(network, weightMap, *bottleneck_csp8->getOutput(0), 1280, 1, 1, 1, "model.9.conv");
     IPoolingLayer* pool2 = network->addPoolingNd(*conv_class->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
     assert(pool2);
     IFullyConnectedLayer* yolo = network->addFullyConnected(*pool2->getOutput(0), CLASS_NUM, weightMap["model.9.linear.weight"], weightMap["model.9.linear.bias"]);
