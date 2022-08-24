@@ -8,7 +8,8 @@
 #include "calibrator.h"
 #include "preprocess.h"
 
-#define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
+#define USE_FP32  // set USE_INT8 or USE_FP16 or USE_FP32
+#define USE_CLASSIFY // set USE_CLASSIFY or USE_DETECT to serialize with classification or detection network
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
@@ -16,9 +17,16 @@
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = Yolo::INPUT_H;
-static const int INPUT_W = Yolo::INPUT_W;
-static const int CLASS_NUM = Yolo::CLASS_NUM;
+#if defined(USE_CLASSIFY)
+    static const int INPUT_H = 224;
+    static const int INPUT_W = 224;
+    static const int CLASS_NUM = 1000;
+#elif defined(USE_DETECT)
+    static const int INPUT_H = Yolo::INPUT_H;
+    static const int INPUT_W = Yolo::INPUT_W;
+    static const int CLASS_NUM = Yolo::CLASS_NUM;
+#endif
+
 static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
@@ -55,8 +63,18 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto bottleneck_csp6 = C3(network, weightMap, *conv5->getOutput(0), get_width(512, gw), get_width(512, gw), get_depth(9, gd), true, 1, 0.5, "model.6");
     auto conv7 = convBlock(network, weightMap, *bottleneck_csp6->getOutput(0), get_width(1024, gw), 3, 2, 1, "model.7");
     auto bottleneck_csp8 = C3(network, weightMap, *conv7->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), true, 1, 0.5, "model.8");
+
+#if defined(USE_CLASSIFY)
+    /* ------ yolov5 classification head ------ */
+    auto conv_class = convBlock(network, weightMap, *bottleneck_csp8->getOutput(0), get_width(2560, gw), 1, 1, 1, "model.9.conv");
+    IPoolingLayer* pool2 = network->addPoolingNd(*conv_class->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
+    assert(pool2);
+    IFullyConnectedLayer* yolo = network->addFullyConnected(*pool2->getOutput(0), CLASS_NUM, weightMap["model.9.linear.weight"], weightMap["model.9.linear.bias"]);
+    assert(yolo);
+
+#elif defined(USE_DETECT)
     auto spp9 = SPPF(network, weightMap, *bottleneck_csp8->getOutput(0), get_width(1024, gw), get_width(1024, gw), 5, "model.9");
-    /* ------ yolov5 head ------ */
+    /* ------ yolov5 detection head ------ */
     auto conv10 = convBlock(network, weightMap, *spp9->getOutput(0), get_width(512, gw), 1, 1, 1, "model.10");
 
     auto upsample11 = network->addResize(*conv10->getOutput(0));
@@ -93,11 +111,14 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
     auto yolo = addYoLoLayer(network, weightMap, "model.24", std::vector<IConvolutionLayer*>{det0, det1, det2});
+#endif
+
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
