@@ -10,7 +10,6 @@ import threading
 import time
 import cv2
 import numpy as np
-import torch
 import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
@@ -31,11 +30,6 @@ def get_img_path_batches(batch_size, img_dir):
     if len(batch) > 0:
         ret.append(batch)
     return ret
-
-
-with open("imagenet_classes.txt") as f:
-    classes = [line.strip() for line in f.readlines()]
-
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
@@ -96,8 +90,6 @@ class YoLov5TRT(object):
         host_outputs = []
         cuda_outputs = []
         bindings = []
-        self.mean = (0.485, 0.456, 0.406)
-        self.std = (0.229, 0.224, 0.225)
 
         for binding in engine:
             print('bingding:', binding, engine.get_binding_shape(binding))
@@ -130,7 +122,7 @@ class YoLov5TRT(object):
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
 
-    def infer(self, raw_image_generator, m_type):
+    def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
         # Make self the active context, pushing it on top of the context stack.
         self.ctx.push()
@@ -150,15 +142,12 @@ class YoLov5TRT(object):
         batch_input_image = np.empty(
             shape=[self.batch_size, 3, self.input_h, self.input_w])
         for i, image_raw in enumerate(raw_image_generator):
-            input_image = None
             batch_image_raw.append(image_raw)
-            if m_type == "detect":
-                input_image, image_raw, origin_h, origin_w = self.preprocess_image(
+            input_image, image_raw, origin_h, origin_w = self.preprocess_image(
                     image_raw)
-                batch_origin_h.append(origin_h)
-                batch_origin_w.append(origin_w)
-            elif m_type == "classify":
-                input_image = self.preprocess_cls_image(image_raw)
+            batch_origin_h.append(origin_h)
+            batch_origin_w.append(origin_w)
+
             np.copyto(batch_input_image[i], input_image)
         batch_input_image = np.ascontiguousarray(batch_input_image)
 
@@ -181,24 +170,22 @@ class YoLov5TRT(object):
         output = host_outputs[0]
         # Do postprocess
         for i in range(self.batch_size):
-            if m_type == "detect":
-                result_boxes, result_scores, result_classid = self.post_process(
-                    output[i * 6001: (i + 1) *
-                        6001], batch_origin_h[i], batch_origin_w[i]
+            result_boxes, result_scores, result_classid = self.post_process(
+                output[i * 6001: (i + 1) *
+                       6001], batch_origin_h[i], batch_origin_w[i]
+            )
+            # Draw rectangles and labels on the original image
+            for j in range(len(result_boxes)):
+                box = result_boxes[j]
+                plot_one_box(
+                    box,
+                    batch_image_raw[i],
+                    label="{}:{:.2f}".format(
+                        categories[int(result_classid[j])
+                                   ], result_scores[j]
+                    ),
                 )
-                # Draw rectangles and labels on the original image
-                for j in range(len(result_boxes)):
-                    box = result_boxes[j]
-                    plot_one_box(
-                        box,
-                        batch_image_raw[i],
-                        label="{}:{:.2f}".format(
-                            categories[int(result_classid[j])], result_scores[j]
-                        ),
-                    )
-            elif m_type == "classify":
-                classes_ls, predicted_conf_ls, category_id_ls = self.postprocess_cls(output)
-                cv2.putText(batch_image_raw[i], str(classes_ls), (10,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1, cv2.LINE_AA)
+
         return batch_image_raw, end - start
 
     def destroy(self):
@@ -218,34 +205,6 @@ class YoLov5TRT(object):
         """
         for _ in range(self.batch_size):
             yield np.zeros([self.input_h, self.input_w, 3], dtype=np.uint8)
-
-    def preprocess_cls_image(self, input_img):
-        im = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB)
-        im = cv2.resize(im, (self.input_h, self.input_w))
-        im = np.float32(im)
-        im /= 255.0
-        im -= self.mean
-        im /= self.std
-        im = im.transpose(2, 0, 1)
-        # prepare batch
-        batch_data = np.expand_dims(im, axis=0)
-        return batch_data
-
-    def postprocess_cls(self, output_data):
-        classes_ls = []
-        predicted_conf_ls = []
-        category_id_ls = []
-        output_data = output_data.reshape(self.batch_size, -1)
-        output_data = torch.Tensor(output_data)
-        p = torch.nn.functional.softmax(output_data, dim=1)
-        score, index = torch.topk(output_data, 3)
-        for ind in range(index.shape[0]):
-            input_category_id = index[ind][0].item()  # 716
-            category_id_ls.append(input_category_id)
-            predicted_confidence = score[ind][0].item()
-            predicted_conf_ls.append(predicted_confidence)
-            classes_ls.append(classes[input_category_id])
-        return classes_ls, predicted_conf_ls, category_id_ls
 
     def preprocess_image(self, raw_bgr_image):
         """
@@ -436,15 +395,14 @@ class YoLov5TRT(object):
 
 
 class inferThread(threading.Thread):
-    def __init__(self, yolov5_wrapper, image_path_batch, m_type):
+    def __init__(self, yolov5_wrapper, image_path_batch):
         threading.Thread.__init__(self)
         self.yolov5_wrapper = yolov5_wrapper
         self.image_path_batch = image_path_batch
-        self.m_type = m_type
 
     def run(self):
         batch_image_raw, use_time = self.yolov5_wrapper.infer(
-            self.yolov5_wrapper.get_raw_image(self.image_path_batch), self.m_type)
+            self.yolov5_wrapper.get_raw_image(self.image_path_batch))
         for i, img_path in enumerate(self.image_path_batch):
             parent, filename = os.path.split(img_path)
             save_name = os.path.join('output', filename)
@@ -455,14 +413,13 @@ class inferThread(threading.Thread):
 
 
 class warmUpThread(threading.Thread):
-    def __init__(self, yolov5_wrapper, m_type):
+    def __init__(self, yolov5_wrapper):
         threading.Thread.__init__(self)
         self.yolov5_wrapper = yolov5_wrapper
-        self.m_type = m_type
 
     def run(self):
         batch_image_raw, use_time = self.yolov5_wrapper.infer(
-            self.yolov5_wrapper.get_raw_image_zeros(), self.m_type)
+            self.yolov5_wrapper.get_raw_image_zeros())
         print(
             'warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
 
@@ -470,29 +427,25 @@ class warmUpThread(threading.Thread):
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "build/yolov5s_cls.engine"
-    m_type = "classify"
+    engine_file_path = "build/yolov5s.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
     if len(sys.argv) > 2:
         PLUGIN_LIBRARY = sys.argv[2]
-    if len(sys.argv) > 3:
-        m_type = sys.argv[3]
 
-    if m_type == "detect":
-        ctypes.CDLL(PLUGIN_LIBRARY)
+    ctypes.CDLL(PLUGIN_LIBRARY)
 
-        # load coco labels
-        categories = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-                    "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-                    "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-                    "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-                    "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-                    "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-                    "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
-                    "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
-                    "hair drier", "toothbrush"]
+    # load coco labels
+    categories = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+                  "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+                  "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+                  "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+                  "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+                  "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+                  "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
+                  "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+                  "hair drier", "toothbrush"]
 
     if os.path.exists('output/'):
         shutil.rmtree('output/')
@@ -508,12 +461,12 @@ if __name__ == "__main__":
 
         for i in range(10):
             # create a new thread to do warm_up
-            thread1 = warmUpThread(yolov5_wrapper, m_type)
+            thread1 = warmUpThread(yolov5_wrapper)
             thread1.start()
             thread1.join()
         for batch in image_path_batches:
             # create a new thread to do inference
-            thread1 = inferThread(yolov5_wrapper, batch, m_type)
+            thread1 = inferThread(yolov5_wrapper, batch)
             thread1.start()
             thread1.join()
     finally:
