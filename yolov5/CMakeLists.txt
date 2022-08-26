@@ -37,7 +37,7 @@ target_link_libraries(yolov5 cudart)
 target_link_libraries(yolov5 myplugins)
 target_link_libraries(yolov5 ${OpenCV_LIBS})
 
-cuda_add_executable(yolov5-cls calibrator.cpp yolov5_cls.cpp)
+add_executable(yolov5-cls calibrator.cpp yolov5_cls.cpp)
 
 target_link_libraries(yolov5-cls nvinfer)
 target_link_libraries(yolov5-cls cudart)
