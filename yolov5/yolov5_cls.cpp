@@ -211,6 +211,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -250,11 +251,23 @@ int main(int argc, char** argv) {
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
-            imgs_buffer[b] = img;
             size_t  size_image = img.cols * img.rows * 3;
             size_t  size_image_dst = INPUT_H * INPUT_W * 3;
+            cv::Mat pr_img;
+            cv::resize(img, pr_img, cv::Size(INPUT_W, INPUT_H));
+            int i = 0;
+            for (int row = 0; row < INPUT_H; ++row) {
+                uchar* uc_pixel = pr_img.data + row * pr_img.step;
+                for (int col = 0; col < INPUT_W; ++col) {
+                    data[b * 3 * INPUT_H * INPUT_W + i] = ((float)uc_pixel[2] / 255.0 - 0.485) / 0.229; // R-0.485
+                    data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = ((float)uc_pixel[1] / 255.0 - 0.456) / 0.224;
+                    data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = ((float)uc_pixel[0] / 255.0 - 0.406) / 0.225;
+                    uc_pixel += 3;
+                    ++i;
+                }
+            }
             //copy data to pinned memory
-            memcpy(img_host,img.data,size_image);
+            memcpy(img_host,data,size_image);
             //copy data to device memory
             CUDA_CHECK(cudaMemcpyAsync(img_device,img_host,size_image,cudaMemcpyHostToDevice,stream));
             buffer_idx += size_image_dst;
