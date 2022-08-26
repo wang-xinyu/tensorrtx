@@ -264,21 +264,7 @@ int main(int argc, char** argv) {
         doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-        std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
-        for (int b = 0; b < fcount; b++) {
-            auto& res = batch_res[b];
-            nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);
-        }
-        for (int b = 0; b < fcount; b++) {
-            auto& res = batch_res[b];
-            cv::Mat img = imgs_buffer[b];
-            for (size_t j = 0; j < res.size(); j++) {
-                cv::Rect r = get_rect(img, res[j].bbox);
-                cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-                cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-            }
-            cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
-        }
+
         fcount = 0;
     }
 
@@ -292,16 +278,6 @@ int main(int argc, char** argv) {
     context->destroy();
     engine->destroy();
     runtime->destroy();
-
-
-    // Print histogram of the output distribution
-    //std::cout << "\nOutput:\n\n";
-    //for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    //{
-    //    std::cout << prob[i] << ", ";
-    //    if (i % 10 == 0) std::cout << std::endl;
-    //}
-    //std::cout << std::endl;
 
     return 0;
 }
