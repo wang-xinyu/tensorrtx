@@ -98,7 +98,6 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
-
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
