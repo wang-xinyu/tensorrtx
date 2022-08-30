@@ -93,8 +93,7 @@ class YoLov5TRT(object):
 
         for binding in engine:
             print('bingding:', binding, engine.get_binding_shape(binding))
-            size = trt.volume(engine.get_binding_shape(
-                binding)) * engine.max_batch_size
+            size = trt.volume(engine.get_binding_shape(binding)) * engine.max_batch_size
             dtype = trt.nptype(engine.get_binding_dtype(binding))
             # Allocate host and device buffers
             host_mem = cuda.pagelocked_empty(size, dtype)
@@ -139,15 +138,12 @@ class YoLov5TRT(object):
         batch_image_raw = []
         batch_origin_h = []
         batch_origin_w = []
-        batch_input_image = np.empty(
-            shape=[self.batch_size, 3, self.input_h, self.input_w])
+        batch_input_image = np.empty(shape=[self.batch_size, 3, self.input_h, self.input_w])
         for i, image_raw in enumerate(raw_image_generator):
+            input_image, image_raw, origin_h, origin_w = self.preprocess_image(image_raw)
             batch_image_raw.append(image_raw)
-            input_image, image_raw, origin_h, origin_w = self.preprocess_image(
-                    image_raw)
             batch_origin_h.append(origin_h)
             batch_origin_w.append(origin_w)
-
             np.copyto(batch_input_image[i], input_image)
         batch_input_image = np.ascontiguousarray(batch_input_image)
 
@@ -157,8 +153,7 @@ class YoLov5TRT(object):
         # Transfer input data  to the GPU.
         cuda.memcpy_htod_async(cuda_inputs[0], host_inputs[0], stream)
         # Run inference.
-        context.execute_async(batch_size=self.batch_size,
-                              bindings=bindings, stream_handle=stream.handle)
+        context.execute_async(batch_size=self.batch_size, bindings=bindings, stream_handle=stream.handle)
         # Transfer predictions back from the GPU.
         cuda.memcpy_dtoh_async(host_outputs[0], cuda_outputs[0], stream)
         # Synchronize the stream
@@ -171,8 +166,7 @@ class YoLov5TRT(object):
         # Do postprocess
         for i in range(self.batch_size):
             result_boxes, result_scores, result_classid = self.post_process(
-                output[i * 6001: (i + 1) *
-                       6001], batch_origin_h[i], batch_origin_w[i]
+                output[i * 6001: (i + 1) * 6001], batch_origin_h[i], batch_origin_w[i]
             )
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
@@ -181,24 +175,22 @@ class YoLov5TRT(object):
                     box,
                     batch_image_raw[i],
                     label="{}:{:.2f}".format(
-                        categories[int(result_classid[j])
-                                   ], result_scores[j]
+                        categories[int(result_classid[j])], result_scores[j]
                     ),
                 )
-
         return batch_image_raw, end - start
 
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
         self.ctx.pop()
-
+        
     def get_raw_image(self, image_path_batch):
         """
         description: Read an image from image path
         """
         for img_path in image_path_batch:
             yield cv2.imread(img_path)
-
+        
     def get_raw_image_zeros(self, image_path_batch=None):
         """
         description: Ready data for warmup
@@ -241,8 +233,7 @@ class YoLov5TRT(object):
         image = cv2.resize(image, (tw, th))
         # Pad the short side with (128,128,128)
         image = cv2.copyMakeBorder(
-            image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, None, (
-                128, 128, 128)
+            image, ty1, ty2, tx1, tx2, cv2.BORDER_CONSTANT, None, (128, 128, 128)
         )
         image = image.astype(np.float32)
         # Normalize to [0,1]
@@ -271,16 +262,12 @@ class YoLov5TRT(object):
         if r_h > r_w:
             y[:, 0] = x[:, 0] - x[:, 2] / 2
             y[:, 2] = x[:, 0] + x[:, 2] / 2
-            y[:, 1] = x[:, 1] - x[:, 3] / 2 - \
-                (self.input_h - r_w * origin_h) / 2
-            y[:, 3] = x[:, 1] + x[:, 3] / 2 - \
-                (self.input_h - r_w * origin_h) / 2
+            y[:, 1] = x[:, 1] - x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
+            y[:, 3] = x[:, 1] + x[:, 3] / 2 - (self.input_h - r_w * origin_h) / 2
             y /= r_w
         else:
-            y[:, 0] = x[:, 0] - x[:, 2] / 2 - \
-                (self.input_w - r_h * origin_w) / 2
-            y[:, 2] = x[:, 0] + x[:, 2] / 2 - \
-                (self.input_w - r_h * origin_w) / 2
+            y[:, 0] = x[:, 0] - x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
+            y[:, 2] = x[:, 0] + x[:, 2] / 2 - (self.input_w - r_h * origin_w) / 2
             y[:, 1] = x[:, 1] - x[:, 3] / 2
             y[:, 3] = x[:, 1] + x[:, 3] / 2
             y /= r_h
@@ -304,8 +291,7 @@ class YoLov5TRT(object):
         # Reshape to a two dimentional ndarray
         pred = np.reshape(output[1:], (-1, 6))[:num, :]
         # Do nms
-        boxes = self.non_max_suppression(
-            pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
+        boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
         result_scores = boxes[:, 4] if len(boxes) else np.array([])
         result_classid = boxes[:, 5] if len(boxes) else np.array([])
@@ -323,20 +309,14 @@ class YoLov5TRT(object):
         """
         if not x1y1x2y2:
             # Transform from center and width to exact coordinates
-            b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / \
-                2, box1[:, 0] + box1[:, 2] / 2
-            b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / \
-                2, box1[:, 1] + box1[:, 3] / 2
-            b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / \
-                2, box2[:, 0] + box2[:, 2] / 2
-            b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / \
-                2, box2[:, 1] + box2[:, 3] / 2
+            b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
+            b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
+            b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
+            b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
         else:
             # Get the coordinates of bounding boxes
-            b1_x1, b1_y1, b1_x2, b1_y2 = box1[:,
-                                              0], box1[:, 1], box1[:, 2], box1[:, 3]
-            b2_x1, b2_y1, b2_x2, b2_y2 = box2[:,
-                                              0], box2[:, 1], box2[:, 2], box2[:, 3]
+            b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
+            b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
 
         # Get the coordinates of the intersection rectangle
         inter_rect_x1 = np.maximum(b1_x1, b2_x1)
@@ -345,7 +325,7 @@ class YoLov5TRT(object):
         inter_rect_y2 = np.minimum(b1_y2, b2_y2)
         # Intersection area
         inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * \
-            np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
+                     np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
         # Union Area
         b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
         b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
@@ -372,10 +352,10 @@ class YoLov5TRT(object):
         # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
         boxes[:, :4] = self.xywh2xyxy(origin_h, origin_w, boxes[:, :4])
         # clip the coordinates
-        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w - 1)
-        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w - 1)
-        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h - 1)
-        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h - 1)
+        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w -1)
+        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w -1)
+        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h -1)
+        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h -1)
         # Object confidence
         confs = boxes[:, 4]
         # Sort by the confs
@@ -383,8 +363,7 @@ class YoLov5TRT(object):
         # Perform non-maximum suppression
         keep_boxes = []
         while boxes.shape[0]:
-            large_overlap = self.bbox_iou(np.expand_dims(
-                boxes[0, :4], 0), boxes[:, :4]) > nms_thres
+            large_overlap = self.bbox_iou(np.expand_dims(boxes[0, :4], 0), boxes[:, :4]) > nms_thres
             label_match = boxes[0, -1] == boxes[:, -1]
             # Indices of boxes with lower confidence scores, large IOUs and matching labels
             invalid = large_overlap & label_match
@@ -401,15 +380,13 @@ class inferThread(threading.Thread):
         self.image_path_batch = image_path_batch
 
     def run(self):
-        batch_image_raw, use_time = self.yolov5_wrapper.infer(
-            self.yolov5_wrapper.get_raw_image(self.image_path_batch))
+        batch_image_raw, use_time = self.yolov5_wrapper.infer(self.yolov5_wrapper.get_raw_image(self.image_path_batch))
         for i, img_path in enumerate(self.image_path_batch):
             parent, filename = os.path.split(img_path)
             save_name = os.path.join('output', filename)
             # Save image
             cv2.imwrite(save_name, batch_image_raw[i])
-        print('input->{}, time->{:.2f}ms, saving into output/'.format(
-            self.image_path_batch, use_time * 1000))
+        print('input->{}, time->{:.2f}ms, saving into output/'.format(self.image_path_batch, use_time * 1000))
 
 
 class warmUpThread(threading.Thread):
@@ -418,10 +395,9 @@ class warmUpThread(threading.Thread):
         self.yolov5_wrapper = yolov5_wrapper
 
     def run(self):
-        batch_image_raw, use_time = self.yolov5_wrapper.infer(
-            self.yolov5_wrapper.get_raw_image_zeros())
-        print(
-            'warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
+        batch_image_raw, use_time = self.yolov5_wrapper.infer(self.yolov5_wrapper.get_raw_image_zeros())
+        print('warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
+
 
 
 if __name__ == "__main__":
@@ -437,15 +413,16 @@ if __name__ == "__main__":
     ctypes.CDLL(PLUGIN_LIBRARY)
 
     # load coco labels
+
     categories = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-                  "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-                  "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-                  "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-                  "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-                  "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-                  "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
-                  "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
-                  "hair drier", "toothbrush"]
+            "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+            "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+            "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+            "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+            "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+            "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone",
+            "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear",
+            "hair drier", "toothbrush"]
 
     if os.path.exists('output/'):
         shutil.rmtree('output/')
@@ -454,10 +431,9 @@ if __name__ == "__main__":
     yolov5_wrapper = YoLov5TRT(engine_file_path)
     try:
         print('batch size is', yolov5_wrapper.batch_size)
-
+        
         image_dir = "samples/"
-        image_path_batches = get_img_path_batches(
-            yolov5_wrapper.batch_size, image_dir)
+        image_path_batches = get_img_path_batches(yolov5_wrapper.batch_size, image_dir)
 
         for i in range(10):
             # create a new thread to do warm_up
