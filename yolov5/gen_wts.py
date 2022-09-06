@@ -13,7 +13,8 @@ def parse_args():
     parser.add_argument(
         '-o', '--output', help='Output (.wts) file path (optional)')
     parser.add_argument(
-        '-t', '--type', type=str, default='', help='determines the model is detection/classification')
+        '-t', '--type', type=str, default='detect', choices=['detect', 'cls'],
+        help='determines the model is detection/classification')
     args = parser.parse_args()
     if not os.path.isfile(args.weights):
         raise SystemExit('Invalid input file')
