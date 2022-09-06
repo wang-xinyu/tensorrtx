@@ -95,7 +95,6 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     return engine;
 }
 
-
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, float& gd, float& gw, std::string& wts_name) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
@@ -117,8 +116,9 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, float& gd,
     config->destroy();
 }
 
-void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* output, int batchSize) {
+void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* input, float* output, int batchSize) {
     // infer on the batch asynchronously, and DMA output back to host
+    CUDA_CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
     CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
@@ -169,8 +169,8 @@ int main(int argc, char** argv) {
     std::string img_dir;
     if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir)) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5 -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov5-cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov5-cls -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
@@ -221,7 +221,7 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
     delete[] trtModelStream;
     assert(engine->getNbBindings() == 2);
-    float* buffers[2];
+    void* buffers[2];
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
@@ -235,14 +235,8 @@ int main(int argc, char** argv) {
     // Create stream
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    uint8_t* img_host = nullptr;
-    uint8_t* img_device = nullptr;
-    // prepare input data cache in pinned memory 
-    CUDA_CHECK(cudaMallocHost((void**)&img_host, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
-    // prepare input data cache in device memory
-    CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
+
     int fcount = 0;
-    std::vector<cv::Mat> imgs_buffer(BATCH_SIZE);
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
@@ -251,8 +245,6 @@ int main(int argc, char** argv) {
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
-            size_t  size_image = img.cols * img.rows * 3;
-            size_t  size_image_dst = INPUT_H * INPUT_W * 3;
             cv::Mat pr_img;
             cv::resize(img, pr_img, cv::Size(INPUT_W, INPUT_H));
             int i = 0;
@@ -266,15 +258,10 @@ int main(int argc, char** argv) {
                     ++i;
                 }
             }
-            //copy data to pinned memory
-            memcpy(img_host,data,size_image);
-            //copy data to device memory
-            CUDA_CHECK(cudaMemcpyAsync(img_device,img_host,size_image,cudaMemcpyHostToDevice,stream));
-            buffer_idx += size_image_dst;
         }
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
+        doInference(*context, stream, buffers, data, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
@@ -283,8 +270,6 @@ int main(int argc, char** argv) {
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
-    CUDA_CHECK(cudaFree(img_device));
-    CUDA_CHECK(cudaFreeHost(img_host));
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
     CUDA_CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
