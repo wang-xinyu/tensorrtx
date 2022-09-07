@@ -134,6 +134,7 @@ class YoLov5TRT(object):
                 output)
             cv2.putText(batch_image_raw[i], str(
                 classes_ls), (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 1, cv2.LINE_AA)
+            print(classes_ls, predicted_conf_ls)
         return batch_image_raw, end - start
 
     def destroy(self):
@@ -173,7 +174,7 @@ class YoLov5TRT(object):
         output_data = output_data.reshape(self.batch_size, -1)
         output_data = torch.Tensor(output_data)
         p = torch.nn.functional.softmax(output_data, dim=1)
-        score, index = torch.topk(output_data, 3)
+        score, index = torch.topk(p, 3)
         for ind in range(index.shape[0]):
             input_category_id = index[ind][0].item()  # 716
             category_id_ls.append(input_category_id)
@@ -219,8 +220,6 @@ if __name__ == "__main__":
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
-    if len(sys.argv) > 2:
-        PLUGIN_LIBRARY = sys.argv[2]
 
     if os.path.exists('output/'):
         shutil.rmtree('output/')

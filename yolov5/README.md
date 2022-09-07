@@ -4,9 +4,10 @@ The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytic
 
 ## Different versions of yolov5
 
-Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0 and v6.0.
+Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2.
 
-- For yolov5 v6.0, download .pt from [yolov5 release v6.0](https://github.com/ultralytics/yolov5/releases/tag/v6.0), `git clone -b v6.0 https://github.com/ultralytics/yolov5.git` and `git clone https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in current page.
+- For yolov5 v6.2, download .pt from [yolov5 release v6.2](https://github.com/ultralytics/yolov5/releases/tag/v6.2), `git clone -b v6.2 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.2 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in current page.
+- For yolov5 v6.0, download .pt from [yolov5 release v6.0](https://github.com/ultralytics/yolov5/releases/tag/v6.0), `git clone -b v6.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.0/yolov5).
 - For yolov5 v5.0, download .pt from [yolov5 release v5.0](https://github.com/ultralytics/yolov5/releases/tag/v5.0), `git clone -b v5.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v5.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v5.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v5.0/yolov5).
 - For yolov5 v4.0, download .pt from [yolov5 release v4.0](https://github.com/ultralytics/yolov5/releases/tag/v4.0), `git clone -b v4.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v4.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v4.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v4.0/yolov5).
 - For yolov5 v3.1, download .pt from [yolov5 release v3.1](https://github.com/ultralytics/yolov5/releases/tag/v3.1), `git clone -b v3.1 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v3.1 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v3.1](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v3.1/yolov5).
@@ -70,6 +71,8 @@ python yolov5_trt.py
 // Another version of python script, which is using CUDA Python instead of pycuda.
 python yolov5_trt_cuda_python.py
 ```
+
+5. optional, run yolov5 classification models with similar steps
 
 # INT8 Quantization
 

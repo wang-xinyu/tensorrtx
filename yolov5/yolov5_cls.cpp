@@ -1,6 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <cmath>
+#include <numeric>
 #include "cuda_utils.h"
 #include "logging.h"
 #include "common.hpp"
@@ -9,17 +10,14 @@
 
 #define USE_FP32  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
-#define NMS_THRESH 0.4
-#define CONF_THRESH 0.5
 #define BATCH_SIZE 1
-#define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 224;
 static const int INPUT_W = 224;
 static const int CLASS_NUM = 1000;
 
-static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
+static const int OUTPUT_SIZE = CLASS_NUM;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -35,6 +33,49 @@ static int get_depth(int x, float gd) {
         --r;
     }
     return std::max<int>(r, 1);
+}
+
+std::vector<float> softmax(float *prob, int n) {
+    std::vector<float> res;
+    float sum = 0.0f;
+    float t;
+    for (int i = 0; i < n; i++) {
+        t = expf(prob[i]);
+        res.push_back(t);
+        sum += t;
+    }
+    for (int i = 0; i < n; i++) {
+        res[i] /= sum;
+    }
+    return res;
+}
+
+std::vector<int> topk(const std::vector<float>& vec, int k) {
+    std::vector<int> topk_index;
+    std::vector<size_t> vec_index(vec.size());
+    std::iota(vec_index.begin(), vec_index.end(), 0);
+
+    std::sort(vec_index.begin(), vec_index.end(), [&vec](size_t index_1, size_t index_2) { return vec[index_1] > vec[index_2]; });
+
+    int k_num = std::min<int>(vec.size(), k);
+
+    for (int i = 0; i < k_num; ++i) {
+        topk_index.push_back(vec_index[i]);
+    }
+
+    return topk_index;
+}
+
+std::vector<std::string> read_classes(std::string file_name) {
+    std::vector<std::string> classes;
+    std::ifstream ifs(file_name, std::ios::in);
+    assert(ifs.is_open());
+    std::string s;
+    while (std::getline(ifs, s)) {
+        classes.push_back(s);
+    }
+    ifs.close();
+    return classes;
 }
 
 ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
@@ -87,8 +128,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
@@ -210,6 +250,7 @@ int main(int argc, char** argv) {
         std::cerr << "read_files_in_dir failed." << std::endl;
         return -1;
     }
+    auto classes = read_classes("../imagenet_classes.txt");
 
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
@@ -240,8 +281,6 @@ int main(int argc, char** argv) {
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
-        //auto start = std::chrono::system_clock::now();
-        float* buffer_idx = (float*)buffers[inputIndex];
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
@@ -251,7 +290,7 @@ int main(int argc, char** argv) {
             for (int row = 0; row < INPUT_H; ++row) {
                 uchar* uc_pixel = pr_img.data + row * pr_img.step;
                 for (int col = 0; col < INPUT_W; ++col) {
-                    data[b * 3 * INPUT_H * INPUT_W + i] = ((float)uc_pixel[2] / 255.0 - 0.485) / 0.229; // R-0.485
+                    data[b * 3 * INPUT_H * INPUT_W + i] = ((float)uc_pixel[2] / 255.0 - 0.485) / 0.229;  // R - 0.485
                     data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = ((float)uc_pixel[1] / 255.0 - 0.456) / 0.224;
                     data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = ((float)uc_pixel[0] / 255.0 - 0.406) / 0.225;
                     uc_pixel += 3;
@@ -264,6 +303,15 @@ int main(int argc, char** argv) {
         doInference(*context, stream, buffers, data, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        for (int b = 0; b < fcount; b++) {
+            float *p = &prob[b * OUTPUT_SIZE];
+            auto res = softmax(p, OUTPUT_SIZE);
+            auto topk_idx = topk(res, 3);
+            std::cout << file_names[f - fcount + 1 + b] << std::endl;
+            for (auto idx: topk_idx) {
+                std::cout << "  " << classes[idx] << " " << res[idx] << std::endl;
+            }
+        }
 
         fcount = 0;
     }
@@ -279,3 +327,4 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
