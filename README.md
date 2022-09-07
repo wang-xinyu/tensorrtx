@@ -2,11 +2,11 @@
 
 TensorRTx aims to implement popular deep learning networks with tensorrt network definition APIs. As we know, tensorrt has builtin parsers, including caffeparser, uffparser, onnxparser, etc. But when we use these parsers, we often run into some "unsupported operations or layers" problems, especially some state-of-the-art models are using new type of layers.
 
-So why don't we just skip all parsers? We just use TensorRT network definition APIs to build the whole network, it's not so complicated.
+So why don't we just skip all parsers? Instead, build the entire network directly using the tensorrt network definition API, which is not that complicated.
 
 I wrote this project to get familiar with tensorrt API, and also to share and learn from the community.
 
-All the models are implemented in pytorch/mxnet/tensorflown first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference. Some pytorch implementations can be found in my repo [Pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from polular open-source implementations.
+Get the trained models from pytorch, mxnet or tensorflow, etc. Export the weights to [.wts file](./tutorials/getting_started.md#the-wts-content-format). Then load weights in tensorrt, define network and do inference. Some pytorch models can be found in my repo [pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from popular open-source repo.
 
 ## News
 
