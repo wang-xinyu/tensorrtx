@@ -8,9 +8,9 @@ The Pytorch implementation is [WongKinYiu/yolov7](https://github.com/WongKinYiu/
 
 ## Different versions of yolov7
 
-Currently, we support yolov7 v1.0
+Currently, we support yolov7 v0.1
 
-- For yolov7 v1.0, download .pt from [yolov7 release v1.0](https://github.com/WongKinYiu/yolov7/releases/tag/v0.10), then follow how-to-run in current page.
+- For yolov7 v0.1, download .pt from [yolov7 release v0.1](https://github.com/WongKinYiu/yolov7/releases/tag/v0.10), then follow how-to-run in current page.
 
 
 ## Config
