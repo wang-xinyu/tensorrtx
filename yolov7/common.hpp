@@ -12,7 +12,6 @@ using namespace nvinfer1;
 
 
 
-//=========== 将预测信息（相对img_size 640）映射回原图 img0 size,对应scale_coords ============
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     float l, r, t, b; //l:left r:right t:top b:bottom
     float r_w = Yolo::INPUT_W / (img.cols * 1.0); //缩放比
@@ -55,18 +54,14 @@ float iou(float lbox[4], float rbox[4]) {
 }
 
 float giou(float lbox[4], float rbox[4]) {
-    /// <summary>
-    /// GIoU = IoU-|Ac-U| / |Ac|
-    ///先计算两个框的最小闭包区域面积 A c A_c Ac​(通俗理解：同时包含了预测框和真实框的最小框的面积)，再计算出IoU，
-    /// 再计算闭包区域中不属于两个框的区域占闭包区域的比重，最后用IoU减去这个比重得到GIoU。
-    /// <returns></returns>
+
     float interBoxMax[] = {
         (std::min)(lbox[0] - lbox[2] / 2.f , rbox[0] - rbox[2] / 2.f), //left
         (std::max)(lbox[0] + lbox[2] / 2.f , rbox[0] + rbox[2] / 2.f), //right
         (std::min)(lbox[1] - lbox[3] / 2.f , rbox[1] - rbox[3] / 2.f), //top
         (std::max)(lbox[1] + lbox[3] / 2.f , rbox[1] + rbox[3] / 2.f), //bottom
     };
-    //=======两个框的最小闭包区域面积===================
+
     float interBoxMaxS = (interBoxMax[1] - interBoxMax[0]) * (interBoxMax[3] - interBoxMax[2]);
 
 
@@ -79,7 +74,7 @@ float giou(float lbox[4], float rbox[4]) {
 
     if (interBox[2] > interBox[3] || interBox[0] > interBox[1])
         return 0.0f;
-    //==============两个框相交区域的面积===================
+
     float interBoxS = (interBox[1] - interBox[0]) * (interBox[3] - interBox[2]);//
     float iou1 = interBoxS / (lbox[2] * lbox[3] + rbox[2] * rbox[3] - interBoxS);//正常计算IOU
 
@@ -89,7 +84,7 @@ float giou(float lbox[4], float rbox[4]) {
 }
 
 float diou(float lbox[4], float rbox[4]) {
-    //======https://blog.csdn.net/Ray_awakepure/article/details/121594033
+
     float interBox[] = {
         (std::max)(lbox[0] - lbox[2] / 2.f , rbox[0] - rbox[2] / 2.f), //left
         (std::min)(lbox[0] + lbox[2] / 2.f , rbox[0] + rbox[2] / 2.f), //right
@@ -110,9 +105,9 @@ float diou(float lbox[4], float rbox[4]) {
         (std::max)(lbox[1] + lbox[3] / 2.f , rbox[1] + rbox[3] / 2.f), //bottom
     };
 
-    //=============中心点距离的平方=======
+
     float d_center1 = (lbox[0] - rbox[0]) * (lbox[0] - rbox[0]) + (lbox[1] - rbox[1]) * (lbox[1] - rbox[1]);
-    //==========最小闭包矩形对角线长度平方====
+
     float d_center2 = (interBoxMax[0] - interBoxMax[2]) * (interBoxMax[0] - interBoxMax[2])
         + (interBoxMax[1] - interBoxMax[3]) * (interBoxMax[1] - interBoxMax[3]);
 
@@ -140,9 +135,9 @@ float ciou(float lbox[4], float rbox[4]) {
         (std::max)(lbox[1] + lbox[3] / 2.f , rbox[1] + rbox[3] / 2.f), //bottom
     };
 
-    //=============中心点距离的平方=======
+
     float d_center1 = (lbox[0] - rbox[0]) * (lbox[0] - rbox[0]) + (lbox[1] - rbox[1]) * (lbox[1] - rbox[1]);
-    //==========最小闭包矩形对角线长度平方====
+
     float d_center2 = (interBoxMax[0] - interBoxMax[2]) * (interBoxMax[0] - interBoxMax[2])
         + (interBoxMax[1] - interBoxMax[3]) * (interBoxMax[1] - interBoxMax[3]);
 
@@ -156,7 +151,7 @@ float ciou(float lbox[4], float rbox[4]) {
 bool cmp(const Yolo::Detection& a, const Yolo::Detection& b) {
     return a.conf > b.conf;
 }
-//============非极大抑制=============
+
 void nms(std::vector<Yolo::Detection>& res, float *output, float conf_thresh, float nms_thresh = 0.5) {
     int det_size = sizeof(Yolo::Detection) / sizeof(float);
     std::map<float, std::vector<Yolo::Detection>> m;
@@ -168,7 +163,7 @@ void nms(std::vector<Yolo::Detection>& res, float *output, float conf_thresh, fl
         m[det.class_id].push_back(det);
     }
     for (auto it = m.begin(); it != m.end(); it++) {
-        //std::cout << it->second[0].class_id << " --- " << std::endl;
+
         auto& dets = it->second;
         std::sort(dets.begin(), dets.end(), cmp);
         for (size_t m = 0; m < dets.size(); ++m) {

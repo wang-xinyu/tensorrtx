@@ -17,7 +17,7 @@ namespace Yolo
         float anchors[CHECK_COUNT * 2];
     };
     static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
-    static constexpr int CLASS_NUM = 80; //====修改为自己的类别=====
+    static constexpr int CLASS_NUM = 80;
     static constexpr int INPUT_H = 640;  // yolov5's input height and width must be divisible by 32.
     static constexpr int INPUT_W = 640;
 

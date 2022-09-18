@@ -10,8 +10,8 @@
 
 #define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
-#define NMS_THRESH 0.45 //对应yolov7 detect.py iou-thres
-#define CONF_THRESH 0.25 //对应yolov7 detect.py conf-thres
+#define NMS_THRESH 0.45
+#define CONF_THRESH 0.25
 #define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
@@ -41,7 +41,6 @@ static int get_depth(int x, float gd) {
 }
 
 
-//----------------------------yolov7e6e网络模型结构搭建---------------------------------------
 ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
 {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
@@ -50,7 +49,6 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
 
-    /*----------------------------------yolov7e6e backbone-----------------------------------------*/
     auto* conv0 = ReOrg(network, weightMap, *data, 3);
 
 
@@ -223,7 +221,7 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     auto conv112 = SPPCSPC(network, weightMap, *conv111->getOutput(0), 640, "model.112");
     IElementWiseLayer* conv113 = convBnSilu(network, weightMap, *conv112->getOutput(0), 480, 1, 1, 0, "model.113");
 
-    // -------第一个上采样----------
+
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* re114 = network->addResize(*conv113->getOutput(0));
     re114->setResizeMode(ResizeMode::kNEAREST);
@@ -341,7 +339,7 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     IElementWiseLayer* conv186 = convBnSilu(network, weightMap, *concat185->getOutput(0), 160, 1, 1, 0, "model.186");
     auto conv187 = network->addElementWise(*conv186->getOutput(0), *conv176->getOutput(0), ElementWiseOperation::kSUM);
 
-    auto conv188 = DownC(network, weightMap, *conv187->getOutput(0), 160, 320, "model.188");//+++++++++
+    auto conv188 = DownC(network, weightMap, *conv187->getOutput(0), 160, 320, "model.188");
 
 
     ITensor* input_tensor_189[] = { conv188->getOutput(0), conv162->getOutput(0) };
@@ -475,7 +473,6 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
 
 
 
-     /*-----------------四个检测头对应极小，小，中，大物体检测-------------------*/
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.261", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -486,12 +483,11 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #endif
-    /*----------------------生成engine模型-----------------------------*/
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-    /*------------------------销毁-----------------------------------*/
     network->destroy();
 
     // Release host memory
@@ -503,7 +499,6 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     return engine;
 }
 
-//-------------------------------------yolov7d6网络模型结构搭建--------------------------------
 ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
 {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
@@ -613,7 +608,7 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     auto conv67 = SPPCSPC(network, weightMap, *conv66->getOutput(0), 768, "model.67");
     IElementWiseLayer* conv68 = convBnSilu(network, weightMap, *conv67->getOutput(0), 576, 1, 1, 0, "model.68");
 
-    // -------第一个上采样----------
+
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* re69 = network->addResize(*conv68->getOutput(0));
     re69->setResizeMode(ResizeMode::kNEAREST);
@@ -780,7 +775,7 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
 
 
 
-     /*-----------------四个检测头对应极小，小，中，大物体检测-------------------*/
+
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.162", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -791,12 +786,12 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #endif
-    /*----------------------生成engine模型-----------------------------*/
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-    /*------------------------销毁-----------------------------------*/
+
     network->destroy();
 
     // Release host memory
@@ -903,7 +898,7 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     auto conv57 = SPPCSPC(network, weightMap, *conv56->getOutput(0), 640, "model.57");
     IElementWiseLayer* conv58 = convBnSilu(network, weightMap, *conv57->getOutput(0), 480, 1, 1, 0, "model.58");
 
-    // -------第一个上采样----------
+
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* re59 = network->addResize(*conv58->getOutput(0));
     re59->setResizeMode(ResizeMode::kNEAREST);
@@ -1052,7 +1047,7 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 
 
 
-     /*-----------------四个检测头对应极小，小，中，大物体检测-------------------*/
+
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.140", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -1063,12 +1058,12 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #endif
-    /*----------------------生成engine模型-----------------------------*/
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-    /*------------------------销毁-----------------------------------*/
+
     network->destroy();
 
     // Release host memory
@@ -1082,7 +1077,7 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 
 
 
-//-------------------------------yolov7w6网络模型结构搭建--------------------------------
+
 ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
 {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
@@ -1171,7 +1166,7 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     auto conv47 = SPPCSPC(network, weightMap, *conv46->getOutput(0), 512, "model.47");
     IElementWiseLayer* conv48 = convBnSilu(network, weightMap, *conv47->getOutput(0), 384, 1, 1, 0, "model.48");
 
-    // -------第一个上采样----------
+
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* re49 = network->addResize(*conv48->getOutput(0));
     re49->setResizeMode(ResizeMode::kNEAREST);
@@ -1351,7 +1346,7 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv2 = convBnSilu(network, weightMap, *conv1->getOutput(0), 80, 3, 1, 1, "model.2");
     IElementWiseLayer* conv3 = convBnSilu(network, weightMap, *conv2->getOutput(0), 160, 3, 2, 1, "model.3");
 
-    //-------第一个c9_1结构--------------
+
     IElementWiseLayer* conv4 = convBnSilu(network, weightMap, *conv3->getOutput(0), 64, 1, 1, 0, "model.4");
 
     IElementWiseLayer* conv5 = convBnSilu(network, weightMap, *conv3->getOutput(0), 64, 1, 1, 0, "model.5");
@@ -1367,11 +1362,11 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     //concat9->setAxis(0);
     IElementWiseLayer* conv13 = convBnSilu(network, weightMap, *concat12->getOutput(0), 320, 1, 1, 0, "model.13");
 
-    //-------第一个MPC3----------
+
 
     IPoolingLayer* mp1 = network->addPoolingNd(*conv13->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     mp1->setStrideNd(DimsHW{ 2, 2 });
-    IElementWiseLayer* conv15 = convBnSilu(network, weightMap, *mp1->getOutput(0), 160, 1, 1, 0, "model.15"); // 左侧分支
+    IElementWiseLayer* conv15 = convBnSilu(network, weightMap, *mp1->getOutput(0), 160, 1, 1, 0, "model.15");
 
     IElementWiseLayer* conv16 = convBnSilu(network, weightMap, *conv13->getOutput(0), 160, 1, 1, 0, "model.16");
     IElementWiseLayer* conv17 = convBnSilu(network, weightMap, *conv16->getOutput(0), 160, 3, 2, 1, "model.17");
@@ -1380,7 +1375,6 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
     //IConcatenationLayer* mp1 = MPC3(network, weightMap, *conv13->getOutput(0), 160, "model.15", "model.16", "model.17");
 
-    //-------第二个c9_1结构--------------
 
     IElementWiseLayer* conv19 = convBnSilu(network, weightMap, *concat18->getOutput(0), 128, 1, 1, 0, "model.19");
 
@@ -1395,12 +1389,12 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     ITensor* input_tensor_27[] = { conv26->getOutput(0), conv24->getOutput(0), conv22->getOutput(0), conv20->getOutput(0),conv19->getOutput(0) };
     IConcatenationLayer* concat27 = network->addConcatenation(input_tensor_27, 5);
     //concat9->setAxis(0);
-    IElementWiseLayer* conv28 = convBnSilu(network, weightMap, *concat27->getOutput(0), 640, 1, 1, 0, "model.28");//  引出一个分支
+    IElementWiseLayer* conv28 = convBnSilu(network, weightMap, *concat27->getOutput(0), 640, 1, 1, 0, "model.28");
 
-    //-------第二个MPC3----------
+
     IPoolingLayer* mp2 = network->addPoolingNd(*conv28->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     mp1->setStrideNd(DimsHW{ 2, 2 });
-    IElementWiseLayer* conv30 = convBnSilu(network, weightMap, *mp2->getOutput(0), 320, 1, 1, 0, "model.30"); // 左侧分支
+    IElementWiseLayer* conv30 = convBnSilu(network, weightMap, *mp2->getOutput(0), 320, 1, 1, 0, "model.30");
 
     IElementWiseLayer* conv31 = convBnSilu(network, weightMap, *conv28->getOutput(0), 320, 1, 1, 0, "model.31");
     IElementWiseLayer* conv32 = convBnSilu(network, weightMap, *conv31->getOutput(0), 320, 3, 2, 1, "model.32");
@@ -1408,7 +1402,7 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IConcatenationLayer* concat33 = network->addConcatenation(input_tensor_33, 2);
     //IConcatenationLayer* mp2 = MPC3(network, weightMap, *conv28->getOutput(0), 320, "model.30", "model.31", "model.32");
 
-    //-------第三个c9_1结构--------------
+
     IElementWiseLayer* conv34 = convBnSilu(network, weightMap, *concat33->getOutput(0), 256, 1, 1, 0, "model.34");
 
     IElementWiseLayer* conv35 = convBnSilu(network, weightMap, *concat33->getOutput(0), 256, 1, 1, 0, "model.35");
@@ -1422,12 +1416,12 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     ITensor* input_tensor_42[] = { conv41->getOutput(0), conv39->getOutput(0), conv37->getOutput(0), conv35->getOutput(0),conv34->getOutput(0) };
     IConcatenationLayer* concat42 = network->addConcatenation(input_tensor_42, 5);
     //concat9->setAxis(0);
-    IElementWiseLayer* conv43 = convBnSilu(network, weightMap, *concat42->getOutput(0), 1280, 1, 1, 0, "model.43"); // 引出另外一个分支
+    IElementWiseLayer* conv43 = convBnSilu(network, weightMap, *concat42->getOutput(0), 1280, 1, 1, 0, "model.43");
 
-    //-------第三个MPC3----------
+
     IPoolingLayer* mp3 = network->addPoolingNd(*conv43->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     mp1->setStrideNd(DimsHW{ 2, 2 });
-    IElementWiseLayer* conv45 = convBnSilu(network, weightMap, *mp3->getOutput(0), 640, 1, 1, 0, "model.45"); // 左侧分支
+    IElementWiseLayer* conv45 = convBnSilu(network, weightMap, *mp3->getOutput(0), 640, 1, 1, 0, "model.45");
 
     IElementWiseLayer* conv46 = convBnSilu(network, weightMap, *conv43->getOutput(0), 640, 1, 1, 0, "model.46");
     IElementWiseLayer* conv47 = convBnSilu(network, weightMap, *conv46->getOutput(0), 640, 3, 2, 1, "model.47");
@@ -1436,7 +1430,7 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
     //IConcatenationLayer* mp3 = MPC3(network, weightMap, *conv43->getOutput(0), 640, "model.45", "model.46", "model.47");
 
-    //-------第四个c9_1结构--------------
+
     IElementWiseLayer* conv49 = convBnSilu(network, weightMap, *concat48->getOutput(0), 256, 1, 1, 0, "model.49");
 
     IElementWiseLayer* conv50 = convBnSilu(network, weightMap, *concat48->getOutput(0), 256, 1, 1, 0, "model.50");
@@ -1451,15 +1445,15 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IConcatenationLayer* concat57 = network->addConcatenation(input_tensor_57, 5);
     //concat9->setAxis(0);
     IElementWiseLayer* conv58 = convBnSilu(network, weightMap, *concat57->getOutput(0), 1280, 1, 1, 0, "model.58");
-    // 引出另外一个分支
+
 
     //-----------------------yolov7 head---------------------------
     //-----SPPCSPC-----------
-    IElementWiseLayer* conv59 = SPPCSPC(network, weightMap, *conv58->getOutput(0), 640, "model.59"); // 引出一个分支
+    IElementWiseLayer* conv59 = SPPCSPC(network, weightMap, *conv58->getOutput(0), 640, "model.59");
 
     IElementWiseLayer* conv60 = convBnSilu(network, weightMap, *conv59->getOutput(0), 320, 1, 1, 0, "model.60");
 
-    // -------第一个上采样----------
+
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* re61 = network->addResize(*conv60->getOutput(0));
     re61->setResizeMode(ResizeMode::kNEAREST);
@@ -1467,12 +1461,12 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
     IElementWiseLayer* conv62 = convBnSilu(network, weightMap, *conv43->getOutput(0), 320, 1, 1, 0, "model.62");
 
-    // ----------第一个concat-----------
+
     ITensor* input_tensor_63[] = { conv62->getOutput(0), re61->getOutput(0) };
     IConcatenationLayer* concat63 = network->addConcatenation(input_tensor_63, 2);
     //concat63->setAxis(0);
 
-    //-------第五个c9_1结构--------------
+
     IElementWiseLayer* conv64 = convBnSilu(network, weightMap, *concat63->getOutput(0), 256, 1, 1, 0, "model.64");
 
     IElementWiseLayer* conv65 = convBnSilu(network, weightMap, *concat63->getOutput(0), 256, 1, 1, 0, "model.65");
@@ -1489,7 +1483,7 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv73 = convBnSilu(network, weightMap, *concat72->getOutput(0), 320, 1, 1, 0, "model.73");
 
     IElementWiseLayer* conv74 = convBnSilu(network, weightMap, *conv73->getOutput(0), 160, 1, 1, 0, "model.74");
-    // -------第二个上采样----------
+
     IResizeLayer* re75 = network->addResize(*conv74->getOutput(0));
     re75->setResizeMode(ResizeMode::kNEAREST);
     re75->setScales(scale, 3);
@@ -1497,12 +1491,11 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
     IElementWiseLayer* conv76 = convBnSilu(network, weightMap, *conv28->getOutput(0), 160, 1, 1, 0, "model.76");
 
-    // ----------第二个concat-----------
+
     ITensor* input_tensor_77[] = { conv76->getOutput(0), re75->getOutput(0) };
     IConcatenationLayer* concat77 = network->addConcatenation(input_tensor_77, 2);
 
 
-    //-------第六个c9_1结构--------------
 
     IElementWiseLayer* conv78 = convBnSilu(network, weightMap, *concat77->getOutput(0), 128, 1, 1, 0, "model.78");
 
@@ -1528,11 +1521,11 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv90 = convBnSilu(network, weightMap, *conv87->getOutput(0), 160, 1, 1, 0, "model.90");
     IElementWiseLayer* conv91 = convBnSilu(network, weightMap, *conv90->getOutput(0), 160, 3, 2, 1, "model.91");
 
-    // ----------第三个concat-----------
+
     ITensor* input_tensor_92[] = { conv91->getOutput(0), conv89->getOutput(0),conv73->getOutput(0) };
     IConcatenationLayer* concat92 = network->addConcatenation(input_tensor_92, 3);
 
-    //-------第七个c9_1结构--------------
+
     IElementWiseLayer* conv93 = convBnSilu(network, weightMap, *concat92->getOutput(0), 256, 1, 1, 0, "model.93");
 
     IElementWiseLayer* conv94 = convBnSilu(network, weightMap, *concat92->getOutput(0), 256, 1, 1, 0, "model.94");
@@ -1556,12 +1549,12 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv105 = convBnSilu(network, weightMap, *conv102->getOutput(0), 320, 1, 1, 0, "model.105");
     IElementWiseLayer* conv106 = convBnSilu(network, weightMap, *conv105->getOutput(0), 320, 3, 2, 1, "model.106");
 
-    // ----------第四个concat-----------
+
     ITensor* input_tensor_107[] = { conv106->getOutput(0), conv104->getOutput(0),conv59->getOutput(0) };
     IConcatenationLayer* concat107 = network->addConcatenation(input_tensor_107, 3);
 
 
-    //-------第八个c9_1结构--------------
+
     IElementWiseLayer* conv108 = convBnSilu(network, weightMap, *concat107->getOutput(0), 512, 1, 1, 0, "model.108");
 
     IElementWiseLayer* conv109 = convBnSilu(network, weightMap, *concat107->getOutput(0), 512, 1, 1, 0, "model.109");
@@ -1619,7 +1612,6 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
 
 
-//==================================yolov7-0.1-yolov7网络模型结构图============================================
 ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
@@ -1821,7 +1813,7 @@ ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
 }
 
 
-// ===============================yolov7-0.1-tiny模型网络结构搭建============================================
+
 ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
@@ -1839,7 +1831,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     // [-1, 1, Conv, [64, 3, 2, None, 1, nn.LeakyReLU(0.1)]],  # 1-P2/4    
     auto conv1 = convBlockLeakRelu(network, weightMap, *conv0->getOutput(0), 64, 3, 2, 1, "model.1");
     assert(conv1);
-    /*--------------------------下面是第一个C5结构-------------------------*/
+
     //  [-1, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv2 = convBlockLeakRelu(network, weightMap, *conv1->getOutput(0), 32, 1, 1, 0, "model.2");
     assert(conv2);
@@ -1856,7 +1848,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv5 = convBlockLeakRelu(network, weightMap, *conv4->getOutput(0), 32, 3, 1, 1, "model.5");
     assert(conv5);
 
-    //  第一个concant
+
     ITensor* input_tensor_6[] = { conv5->getOutput(0), conv4->getOutput(0), conv3->getOutput(0), conv2->getOutput(0) };
     auto cat6 = network->addConcatenation(input_tensor_6, 4);
     //cat6->setAxis(0);
@@ -1865,12 +1857,12 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv7 = convBlockLeakRelu(network, weightMap, *cat6->getOutput(0), 64, 1, 1, 0, "model.7");
     assert(conv7);
 
-    //  第一个池化
+
     auto* pool8 = network->addPoolingNd(*conv7->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     assert(pool8);
     pool8->setStrideNd(DimsHW{ 2, 2 });
 
-    // 第二个c5结构
+
     //[-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]] ,
     auto conv9 = convBlockLeakRelu(network, weightMap, *pool8->getOutput(0), 64, 1, 1, 0, "model.9");
     assert(conv9);
@@ -1885,23 +1877,22 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv12 = convBlockLeakRelu(network, weightMap, *conv11->getOutput(0), 64, 3, 1, 1, "model.12");
     assert(conv12);
 
-    //  第二个concant
     ITensor* input_tensor_13[] = { conv12->getOutput(0), conv11->getOutput(0), conv10->getOutput(0), conv9->getOutput(0) };
     auto cat13 = network->addConcatenation(input_tensor_13, 4);
     //cat2->setAxis(0);
     
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 14
     auto conv14 = convBlockLeakRelu(network, weightMap, *cat13->getOutput(0), 128, 1, 1, 0, "model.14");
-    assert(conv14); //-----此处会有一个分支
+    assert(conv14);
 
-    //  第二个池化
+
     auto* pool15 = network->addPoolingNd(*conv14->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     assert(pool15);
     pool15->setStrideNd(DimsHW{ 2, 2 });
 
 
 
-    //  第三个c5结构
+
 
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv16 = convBlockLeakRelu(network, weightMap, *pool15->getOutput(0), 128, 1, 1, 0, "model.16");
@@ -1915,21 +1906,21 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     // [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv19 = convBlockLeakRelu(network, weightMap, *conv18->getOutput(0), 128, 3, 1, 1, "model.19");
     assert(conv19);
-    //  第三个concant
+
     ITensor* input_tensor_20[] = { conv19->getOutput(0), conv18->getOutput(0), conv17->getOutput(0), conv16->getOutput(0) };
     auto cat20 = network->addConcatenation(input_tensor_20, 4);
     //cat20->setAxis(0);
     //[-1, 1, Conv, [256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 21
     auto conv21 = convBlockLeakRelu(network, weightMap, *cat20->getOutput(0), 256, 1, 1, 0, "model.21");
-    assert(conv21); //  此处引出一个分支
+    assert(conv21);
 
-    //  第三个池化
+
     auto* pool22 = network->addPoolingNd(*conv21->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     assert(pool22);
     pool22->setStrideNd(DimsHW{ 2, 2 });
 
 
-    // 第四个c5结构
+
     // [-1, 1, Conv, [256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv23 = convBlockLeakRelu(network, weightMap, *pool22->getOutput(0), 256, 1, 1, 0, "model.23");
     assert(conv23);
@@ -1946,7 +1937,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv26 = convBlockLeakRelu(network, weightMap, *conv25->getOutput(0), 256, 3, 1, 1, "model.26");
     assert(conv26);
 
-    //  第四个concant
+
     ITensor* input_tensor_27[] = { conv26->getOutput(0), conv25->getOutput(0), conv24->getOutput(0), conv23->getOutput(0) };
     auto cat27 = network->addConcatenation(input_tensor_27, 4);
     //cat27->setAxis(0);
@@ -1983,7 +1974,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     pool33->setPaddingNd(DimsHW{ 6, 6 });
 
 
-    //  第五个concant
+
     ITensor* input_tensor_34[] = { pool33->getOutput(0), pool32->getOutput(0), pool31->getOutput(0), conv30->getOutput(0) };
     auto cat34 = network->addConcatenation(input_tensor_34, 4);
     //cat34->setAxis(0);
@@ -1995,7 +1986,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
 
 
 
-    //  第六个concant
+
     ITensor* input_tensor_36[] = { conv35->getOutput(0), conv29->getOutput(0) };
     auto cat36 = network->addConcatenation(input_tensor_36, 2);
     //cat36->setAxis(0);
@@ -2019,13 +2010,13 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(conv40);
 
 
-    //  第七个concant
+
     ITensor* input_tensor_41[] = { conv40->getOutput(0), resize39->getOutput(0) };
     auto cat41 = network->addConcatenation(input_tensor_41, 2);
     //cat41->setAxis(0);
 
 
-    // 第五个c5结构
+
     //   [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv42 = convBlockLeakRelu(network, weightMap, *cat41->getOutput(0), 64, 1, 1, 0, "model.42");
     assert(conv42);
@@ -2042,7 +2033,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv45 = convBlockLeakRelu(network, weightMap, *conv44->getOutput(0), 64, 3, 1, 1, "model.45");
     assert(conv45);
 
-    //  第八个concant
+
     ITensor* input_tensor_46[] = { conv45->getOutput(0), conv44->getOutput(0), conv43->getOutput(0), conv42->getOutput(0) };
     auto cat46 = network->addConcatenation(input_tensor_46, 4);
     //cat46->setAxis(0);
@@ -2056,7 +2047,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(conv48);
 
 
-    // ------参考别人的----
+
     IResizeLayer* resize49 = network->addResize(*conv48->getOutput(0));
     resize49->setResizeMode(ResizeMode::kNEAREST);
     resize49->setScales(scale, 3);
@@ -2066,13 +2057,12 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(conv50);
 
     
-    //  第九个concant
+
     ITensor* input_tensor_51[] = { conv50->getOutput(0), resize49->getOutput(0) };
     IConcatenationLayer* cat51 = network->addConcatenation(input_tensor_51, 2);
     //cat51->setAxis(0);
 
 
-    //  第六个C5结构
     //    [-1, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv52 = convBlockLeakRelu(network, weightMap, *cat51->getOutput(0), 32, 1, 1, 0, "model.52");
     assert(conv52);
@@ -2087,7 +2077,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv55 = convBlockLeakRelu(network, weightMap, *conv54->getOutput(0), 32, 3, 1, 1, "model.55");
     assert(conv55);
 
-    // 第十个concant
+
     ITensor* input_tensor_56[] = { conv55->getOutput(0), conv54->getOutput(0), conv53->getOutput(0),conv52->getOutput(0) };
     IConcatenationLayer* cat56 = network->addConcatenation(input_tensor_56, 4);
     //cat56->setAxis(0);
@@ -2102,12 +2092,12 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
 
     // conv32   [[-1, 47], 1, Concat, [1]],
 
-    // 第十一个concant
+
     ITensor* input_tensor_59[] = { conv58->getOutput(0), conv47->getOutput(0) };
     IConcatenationLayer* cat59 = network->addConcatenation(input_tensor_59, 2);
     //cat59->setAxis(0);
 
-    // 第七个C5结构
+
     //    [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv60 = convBlockLeakRelu(network, weightMap, *cat59->getOutput(0), 64, 1, 1, 0, "model.60");
     assert(conv60);
@@ -2122,7 +2112,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv63 = convBlockLeakRelu(network, weightMap, *conv62->getOutput(0), 64, 3, 1, 1, "model.63");
     assert(conv63);
 
-    // 第十二个concant
+
     ITensor* input_tensor_64[] = { conv63->getOutput(0), conv62->getOutput(0), conv61->getOutput(0), conv60->getOutput(0) };
     IConcatenationLayer* cat64 = network->addConcatenation(input_tensor_64, 4);
     //cat64->setAxis(0);
@@ -2136,12 +2126,11 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv66 = convBlockLeakRelu(network, weightMap, *conv65->getOutput(0), 256, 3, 2, 1, "model.66");
     assert(conv66);
 
-    // 第十三个concant    [[-1, 37], 1, Concat, [1]],
+
     ITensor* input_tensor_67[] = { conv66->getOutput(0), conv37->getOutput(0) };
     IConcatenationLayer* cat67 = network->addConcatenation(input_tensor_67, 2);
     //cat67->setAxis(0);
 
-    // 第八个c5
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv68 = convBlockLeakRelu(network, weightMap, *cat67->getOutput(0), 128, 1, 1, 0, "model.68");
     assert(conv68);
@@ -2156,7 +2145,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv71 = convBlockLeakRelu(network, weightMap, *conv70->getOutput(0), 128, 3, 1, 1, "model.71");
     assert(conv71);
 
-    // 第十四个concant    [[-1, 37], 1, Concat, [1]],
+
     ITensor* input_tensor_72[] = { conv71->getOutput(0), conv70->getOutput(0), conv69->getOutput(0), conv68->getOutput(0) };
     IConcatenationLayer* cat72 = network->addConcatenation(input_tensor_72, 4);
     //cat72->setAxis(0);
@@ -2165,7 +2154,7 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv73 = convBlockLeakRelu(network, weightMap, *cat72->getOutput(0), 256, 1, 1, 0, "model.73");
     assert(conv73);
 
-    // 最后三个输出层前面得cbl
+
     // [57, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv74 = convBlockLeakRelu(network, weightMap, *conv57->getOutput(0), 128, 3, 1, 1, "model.74");
     assert(conv74);
