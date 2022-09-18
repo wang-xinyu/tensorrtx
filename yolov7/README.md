@@ -10,7 +10,7 @@ The Pytorch implementation is [WongKinYiu/yolov7](https://github.com/WongKinYiu/
 
 Currently, we support yolov7 v1.0
 
-- For yolov7 v1.0, download .pt from [yolov7 release v1.0](https://github.com/WongKinYiu/yolov7/releases/tag/v0.10), `git clone -b v1.0 https://github.com/WongKinYiu/yolov7` and `https://github.com/QIANXUNZDL123/tensorrtx-yolov7.git`, then follow how-to-run in current page.
+- For yolov7 v1.0, download .pt from [yolov7 release v1.0](https://github.com/WongKinYiu/yolov7/releases/tag/v0.10), then follow how-to-run in current page.
 
 
 ## Config
