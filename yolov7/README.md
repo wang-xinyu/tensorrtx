@@ -61,7 +61,7 @@ sudo ./yolov7 -d yolov7s.engine ../samples
 
 ```
 // install python-tensorrt, pycuda, etc.
-// ensure the yolov7s.engine and libmyplugins.so have been built
+// ensure the yolov7.engine and libmyplugins.so have been built
 python yolov7_trt.py
 
 ```
