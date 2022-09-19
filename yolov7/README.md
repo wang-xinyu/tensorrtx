@@ -50,7 +50,7 @@ cmake ..
 make
 sudo ./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize model to plan file
 sudo ./yolov7 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
-// For example yolov7s
+// For example yolov7
 sudo ./yolov7 -s yolov7.wts yolov7.engine v7
 sudo ./yolov7 -d yolov7.engine ../samples
 ```
