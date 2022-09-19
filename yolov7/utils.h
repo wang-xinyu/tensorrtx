@@ -1,5 +1,5 @@
-#ifndef TRTX_YOLOV5_UTILS_H_
-#define TRTX_YOLOV5_UTILS_H_
+#ifndef TRTX_YOLOV7_UTILS_H_
+#define TRTX_YOLOV7_UTILS_H_
 
 #include <dirent.h>
 #include <opencv2/opencv.hpp>
@@ -48,5 +48,5 @@ static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::str
     return 0;
 }
 
-#endif  // TRTX_YOLOV5_UTILS_H_
+#endif  // TRTX_YOLOV7_UTILS_H_
 

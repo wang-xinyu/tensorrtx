@@ -1,5 +1,5 @@
-﻿#ifndef YOLOV5_COMMON_H_
-#define YOLOV5_COMMON_H_
+﻿#ifndef YOLOV7_COMMON_H_
+#define YOLOV7_COMMON_H_
 
 #include <fstream>
 #include <map>
@@ -13,12 +13,12 @@ using namespace nvinfer1;
 
 
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
-    float l, r, t, b; //l:left r:right t:top b:bottom
-    float r_w = Yolo::INPUT_W / (img.cols * 1.0); //缩放比
-    float r_h = Yolo::INPUT_H / (img.rows * 1.0); //缩放比
-    if (r_h > r_w) {  //  r_h > r_w 代表cols 大于 rows  宽大于高
-        l = bbox[0] - bbox[2] / 2.f;//左上x
-        r = bbox[0] + bbox[2] / 2.f;//右下x
+    float l, r, t, b;
+    float r_w = Yolo::INPUT_W / (img.cols * 1.0);
+    float r_h = Yolo::INPUT_H / (img.rows * 1.0);
+    if (r_h > r_w) {
+        l = bbox[0] - bbox[2] / 2.f;
+        r = bbox[0] + bbox[2] / 2.f;
         t = bbox[1] - bbox[3] / 2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
         b = bbox[1] + bbox[3] / 2.f - (Yolo::INPUT_H - r_w * img.rows) / 2;
         l = l / r_w;

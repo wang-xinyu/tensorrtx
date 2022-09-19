@@ -230,7 +230,7 @@ namespace nvinfer1
             det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
 
             // W: (Pw * e^tw) / FeaturemapW * netwidth
-            // v5: https://github.com/ultralytics/yolov5/issues/471
+            // v5: https://github.com/ultralytics/yolov7/issues/471
             //float box_w = ((row[2] * 2)*(row[2] * 2)) * float(anchors[a][c][0]) * scale;
             //float box_h = ((row[3] * 2) * (row[3] * 2)) * float(anchors[a][c][1]) * scale;
             det->bbox[2] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]);
