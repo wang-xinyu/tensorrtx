@@ -2,9 +2,7 @@
 
 The Pytorch implementation is [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7).
 
-## environment
-
-### ubuntu18.04   cuda11.1  tensorrt7.2.2.3
+The tensorrt code is derived from [QIANXUNZDL123/tensorrtx-yolov7](https://github.com/QIANXUNZDL123/tensorrtx-yolov7)
 
 ## Different versions of yolov7
 
@@ -32,11 +30,9 @@ Currently, we support yolov7 v0.1
 // download https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7-tiny.pt
 cp {tensorrtx}/yolov7/gen_wts.py {WongKinYiu}/yolov7
 cd {WongKinYiu}/yolov7
-python gen_wts.py -w yolov7.pt -o yolov7.wts
+python gen_wts.py
 // a file 'yolov7.wts' will be generated.
 ```
-
-
 
 2. build tensorrtx/yolov7 and run
 
@@ -45,7 +41,7 @@ cd {tensorrtx}/yolov7/
 // update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp {ultralytics}/yolov7/yolov7s.wts {tensorrtx}/yolov7/build
+cp {WongKinYiu}/yolov7/yolov7s.wts {tensorrtx}/yolov7/build
 cmake ..
 make
 sudo ./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize model to plan file
@@ -63,7 +59,6 @@ sudo ./yolov7 -d yolov7s.engine ../samples
 // install python-tensorrt, pycuda, etc.
 // ensure the yolov7.engine and libmyplugins.so have been built
 python yolov7_trt.py
-
 ```
 
 # INT8 Quantization
@@ -76,9 +71,13 @@ python yolov7_trt.py
 
 4. serialize the model and test
 
-# Acknowledgment
-The code is modified on this basis: https://github.com/QIANXUNZDL123/tensorrtx-yolov7 ,
-Thanks for the donation for this  tensorrt implementation from https://github.com/QIANXUNZDL123/tensorrtx-yolov7
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg">
+</p>
+
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/78247970-60b27c00-751e-11ea-88df-41473fed4823.jpg">
+</p>
 
 ## More Information
 
