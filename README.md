@@ -10,6 +10,7 @@ Get the trained models from pytorch, mxnet or tensorflow, etc. Export the weight
 
 ## News
 
+- `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.
 - `7 Sep 2022`. [xiang-wuu](https://github.com/xiang-wuu): YOLOv5 v6.2 classification models.
 - `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
 - `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
@@ -24,7 +25,6 @@ Get the trained models from pytorch, mxnet or tensorflow, etc. Export the weight
 - `1 Jul 2021`. [freedenS](https://github.com/freedenS): DE⫶TR: End-to-End Object Detection with Transformers. First Transformer model!
 - `10 Jun 2021`. [upczww](https://github.com/upczww): EfficientNet b0-b8 and l2.
 - `23 May 2021`. [SsisyphusTao](https://github.com/SsisyphusTao): CenterNet DLA-34 with DCNv2 plugin.
-- `17 May 2021`. [ybw108](https://github.com/ybw108): arcface LResNet100E-IR and MobileFaceNet.
 
 ## Tutorials
 
@@ -71,6 +71,7 @@ Following models are implemented.
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov5](./yolov5)| yolov5 v1.0-v6.2, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+|[yolov7](./yolov7)| yolov7 v0.1, pytorch implementation from [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, LResNet100E-IR and MobileFaceNet, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
