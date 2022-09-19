@@ -76,7 +76,7 @@ python yolov7_trt.py
 
 4. serialize the model and test
 
-Acknowledgment
+#Acknowledgment
 The code is modified on this basis: https://github.com/QIANXUNZDL123/tensorrtx-yolov7
 Thanks for the donation for this  tensorrt implementation from https://github.com/QIANXUNZDL123/tensorrtx-yolov7
 
