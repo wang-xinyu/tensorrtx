@@ -29,8 +29,8 @@ namespace nvinfer1
     YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel)
     {
         mClassCount = classCount;
-        mYoloV5NetWidth = netWidth;
-        mYoloV5NetHeight = netHeight;
+        mYoloV7NetWidth = netWidth;
+        mYoloV7NetHeight = netHeight;
         mMaxOutObject = maxOut;
         /*mYoloKernel.clear();
         mYoloKernel.push_back(yolo1);
@@ -66,8 +66,8 @@ namespace nvinfer1
         read(d, mClassCount);
         read(d, mThreadCount);
         read(d, mKernelCount);
-        read(d, mYoloV5NetWidth);
-        read(d, mYoloV5NetHeight);
+        read(d, mYoloV7NetWidth);
+        read(d, mYoloV7NetHeight);
         read(d, mMaxOutObject);
         mYoloKernel.resize(mKernelCount);
         auto kernelSize = mKernelCount * sizeof(YoloKernel);
@@ -91,8 +91,8 @@ namespace nvinfer1
         write(d, mClassCount);
         write(d, mThreadCount);
         write(d, mKernelCount);
-        write(d, mYoloV5NetWidth);
-        write(d, mYoloV5NetHeight);
+        write(d, mYoloV7NetWidth);
+        write(d, mYoloV7NetHeight);
         write(d, mMaxOutObject);
         auto kernelSize = mKernelCount * sizeof(YoloKernel);
         memcpy(d, mYoloKernel.data(), kernelSize);
@@ -103,7 +103,7 @@ namespace nvinfer1
 
     size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT
     {
-        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mYoloV5NetWidth) + sizeof(mYoloV5NetHeight) + sizeof(mMaxOutObject);
+        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mYoloV7NetWidth) + sizeof(mYoloV7NetHeight) + sizeof(mMaxOutObject);
     }
 
     int YoloLayerPlugin::initialize() TRT_NOEXCEPT
@@ -178,7 +178,7 @@ namespace nvinfer1
     // Clone the plugin
     IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT
     {
-        YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, mYoloKernel);
+        YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV7NetWidth, mYoloV7NetHeight, mMaxOutObject, mYoloKernel);
         p->setPluginNamespace(mPluginNamespace);
         return p;
     }
@@ -260,9 +260,9 @@ namespace nvinfer1
 
 
             CalDetection << < (numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream >> >
-                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float*)mAnchor[i], mClassCount, outputElem);
+                (inputs[i], output, numElem, mYoloV7NetWidth, mYoloV7NetHeight, mMaxOutObject, yolo.width, yolo.height, (float*)mAnchor[i], mClassCount, outputElem);
            /* CalDetection << < (numElem + mThreadCount - 1) / mThreadCount2, mThreadCount2, 0, stream >> >
-                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float*)mAnchor[i], mClassCount, outputElem);*/
+                (inputs[i], output, numElem, mYoloV7NetWidth, mYoloV7NetHeight, mMaxOutObject, yolo.width, yolo.height, (float*)mAnchor[i], mClassCount, outputElem);*/
         }
     }
 

@@ -1301,7 +1301,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 
 
 
-     /*-----------------四个检测头对应极小，小，中，大物体检测-------------------*/
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.118", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -1312,12 +1311,12 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #endif
-    /*----------------------生成engine模型-----------------------------*/
+   
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-    /*------------------------销毁-----------------------------------*/
+
     network->destroy();
 
     // Release host memory
@@ -1712,7 +1711,7 @@ ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     IElementWiseLayer* conv61 = convBnSilu(network, weightMap, *conv60->getOutput(0), 128, 3, 1, 1, "model.61");
     ITensor* input_tensor_62[] = { conv61->getOutput(0), conv60->getOutput(0), conv59->getOutput(0), conv58->getOutput(0), conv57->getOutput(0), conv56->getOutput(0) };
     IConcatenationLayer* concat62 = network->addConcatenation(input_tensor_62, 6);
-    concat62->setAxis(0);//提娜佳
+    concat62->setAxis(0);
     IElementWiseLayer* conv63 = convBnSilu(network, weightMap, *concat62->getOutput(0), 256, 1, 1, 0, "model.63");
 
     IElementWiseLayer* conv64 = convBnSilu(network, weightMap, *conv63->getOutput(0), 128, 1, 1, 0, "model.64");
@@ -1817,7 +1816,7 @@ ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
 ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAMEm,lkkkkk///////////////////////////////////
+
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);

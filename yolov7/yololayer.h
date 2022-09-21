@@ -112,8 +112,8 @@ namespace nvinfer1
         const char* mPluginNamespace;
         int mKernelCount;
         int mClassCount;
-        int mYoloV5NetWidth;
-        int mYoloV5NetHeight;
+        int mYoloV7NetWidth;
+        int mYoloV7NetHeight;
         int mMaxOutObject;
         std::vector<Yolo::YoloKernel> mYoloKernel;
         void** mAnchor;

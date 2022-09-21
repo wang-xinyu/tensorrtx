@@ -41,14 +41,14 @@ cd {tensorrtx}/yolov7/
 // update CLASS_NUM in yololayer.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp {WongKinYiu}/yolov7/yolov7s.wts {tensorrtx}/yolov7/build
+cp {WongKinYiu}/yolov7/yolov7.wts {tensorrtx}/yolov7/build
 cmake ..
 make
 sudo ./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize model to plan file
 sudo ./yolov7 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
-// For example yolov7s
+// For example yolov7
 sudo ./yolov7 -s yolov7.wts yolov7.engine v7
-sudo ./yolov7 -d yolov7s.engine ../samples
+sudo ./yolov7 -d yolov7.engine ../samples
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
@@ -82,4 +82,3 @@ python yolov7_trt.py
 ## More Information
 
 See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
-
