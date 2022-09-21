@@ -44,5 +44,5 @@ with open(wts_file, 'w') as f:
         f.write('{} {} '.format(k, len(vr)))
         for vv in vr:
             f.write(' ')
-            f.write(struct.pack('>f' ,float(vv)).hex())
+            f.write(struct.pack('>f', float(vv)).hex())
         f.write('\n')
