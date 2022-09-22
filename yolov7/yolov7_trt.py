@@ -34,7 +34,7 @@ def get_img_path_batches(batch_size, img_dir):
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,
-                 this function comes from YoLov5 project.
+                 this function comes from YoLov7 project.
     param: 
         x:      a box likes [x1,y1,x2,y2]
         img:    a opencv image object
@@ -68,9 +68,9 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         )
 
 
-class YoLov5TRT(object):
+class YoLov7TRT(object):
     """
-    description: A YOLOv5 class that warps TensorRT ops, preprocess and postprocess ops.
+    description: A YOLOv7 class that warps TensorRT ops, preprocess and postprocess ops.
     """
 
     def __init__(self, engine_file_path):
@@ -427,8 +427,8 @@ if __name__ == "__main__":
     if os.path.exists('output/'):
         shutil.rmtree('output/')
     os.makedirs('output/')
-    # a YoLov5TRT instance
-    yolov7_wrapper = YoLov5TRT(engine_file_path)
+    # a YoLov7TRT instance
+    yolov7_wrapper = YoLov7TRT(engine_file_path)
     try:
         print('batch size is', yolov7_wrapper.batch_size)
         
