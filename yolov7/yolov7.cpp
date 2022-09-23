@@ -13,7 +13,7 @@
 #define NMS_THRESH 0.45
 #define CONF_THRESH 0.25
 #define BATCH_SIZE 1
-#define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
+#define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000  // max input image buffer size
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
@@ -23,8 +23,6 @@ static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detect
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
-
-
 
 
 static int get_width(int x, float gw, int divisor = 8) {
@@ -40,9 +38,7 @@ static int get_depth(int x, float gd) {
     return std::max<int>(r, 1);
 }
 
-
-ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
-{
+ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -187,7 +183,7 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     auto conv89 = network->addElementWise(*conv88->getOutput(0), *conv78->getOutput(0), ElementWiseOperation::kSUM);
 
 
-    auto conv90 = DownC(network, weightMap, *conv89->getOutput(0), 960, 1280, "model.90");//=====
+    auto conv90 = DownC(network, weightMap, *conv89->getOutput(0), 960, 1280, "model.90");
 
     IElementWiseLayer* conv91 = convBnSilu(network, weightMap, *conv90->getOutput(0), 512, 1, 1, 0, "model.91");
     IElementWiseLayer* conv92 = convBnSilu(network, weightMap, *conv90->getOutput(0), 512, 1, 1, 0, "model.92");
@@ -491,16 +487,14 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
     return engine;
 }
 
-ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
-{
+ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -795,17 +789,14 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
     return engine;
 }
 
-
-ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
-{
+ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1075,11 +1066,7 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     return engine;
 }
 
-
-
-
-ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path)
-{
+ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1311,7 +1298,7 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #endif
-   
+
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
@@ -1320,15 +1307,12 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
     return engine;
 }
-
-
 
 //----------------------------------yolov7x---------------------------------------------------
 ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
@@ -1609,8 +1593,6 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     return engine;
 }
 
-
-
 ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
@@ -1811,8 +1793,6 @@ ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     return engine;
 }
 
-
-
 ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
@@ -1820,8 +1800,8 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
-    
-    
+
+
     /* ------ yolov7-tiny backbone------ */
     // [32, 3, 2, None, 1, nn.LeakyReLU(0.1)]]---> outch、ksize、stride、padding、groups------
     auto conv0 = convBlockLeakRelu(network, weightMap, *data, 32, 3, 2, 1, "model.0");
@@ -2171,7 +2151,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     IConvolutionLayer* det1 = network->addConvolutionNd(*conv75->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.1.weight"], weightMap["model.77.m.1.bias"]);
 
     IConvolutionLayer* det2 = network->addConvolutionNd(*conv76->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.2.weight"], weightMap["model.77.m.2.bias"]);
- 
 
 
     auto yolo = addYoLoLayer(network, weightMap, "model.77", std::vector<IConvolutionLayer*>{det0, det1, det2});
@@ -2198,13 +2177,11 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
     return engine;
 }
-
 
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream,std::string& wts_name,std::string &model_check) {
     // Create builder
@@ -2214,32 +2191,19 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream,std::string
     ICudaEngine* engine = nullptr;
 
 
-    if (model_check == "yolov7-tiny")
-    {
+    if (model_check == "yolov7-tiny") {
         engine = build_engine_yolov7_tiny(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    }else if (model_check == "yolov7")
-    {
+    } else if (model_check == "yolov7") {
         engine = build_engine_yolov7(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    }
-    else if (model_check == "yolov7x")
-    {
+    } else if (model_check == "yolov7x") {
         engine = build_engine_yolov7x(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-
-    }
-    else if (model_check == "yolov7w6")
-    {
+    } else if (model_check == "yolov7w6") {
         engine = build_engine_yolov7w6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    }
-    else if (model_check == "yolov7e6")
-    {
+    } else if (model_check == "yolov7e6") {
         engine = build_engine_yolov7e6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    }
-    else if (model_check == "yolov7d6")
-    {
+    } else if (model_check == "yolov7d6") {
         engine = build_engine_yolov7d6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    }
-    else if (model_check == "yolov7e6e")
-    {
+    } else if (model_check == "yolov7e6e") {
         engine = build_engine_yolov7e6e(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     }
     assert(engine != nullptr);
@@ -2260,7 +2224,6 @@ void doInference(IExecutionContext& context, cudaStream_t& stream, void** buffer
     cudaStreamSynchronize(stream);
 }
 
-
 bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir,std::string& model_check) {
     if (argc < 4) return false;
     if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
@@ -2268,20 +2231,17 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
         engine = std::string(argv[3]);
         auto net = std::string(argv[4]);
 
-
         if (net.size() == 1 && net[0] == 't' ) {
             model_check = "yolov7-tiny";
             gd = 1.0;
             gw = 1.0;
         }
 
-
         if (net.size() == 2 && net[0] == 'v' && net[1]=='7') {
             model_check ="yolov7";
             gd = 5.0;
             gw = 1.0;
         }
-
 
         if (net.size() == 1 && net[0] == 'x' ) {
             model_check = "yolov7x";
@@ -2310,7 +2270,7 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
             gw = 1.0;
 
         }
-        }else if (std::string(argv[1]) == "-d" && argc == 4) {
+    } else if (std::string(argv[1]) == "-d" && argc == 4) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
 
@@ -2319,9 +2279,6 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
     }
     return true;
 }
-
-
-
 
 int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
@@ -2334,14 +2291,11 @@ int main(int argc, char** argv) {
     std::string model_check="";
 
     if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir,model_check)) {
-    std::cerr << "arguments not right!" << std::endl;
-    std::cerr << "./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize model to plan file" << std::endl;
-    std::cerr << "./yolov7 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
-    return -1;
-}
-
-
-
+        std::cerr << "arguments not right!" << std::endl;
+        std::cerr << "./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov7 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        return -1;
+    }
 
     // create a model using the API directly and serialize it to a stream
     if (!wts_name.empty()) {
@@ -2358,7 +2312,6 @@ int main(int argc, char** argv) {
         modelStream->destroy();
         return 0;
     }
-
 
     // deserialize the .engine and run inference
     std::ifstream file(engine_name, std::ios::binary);
@@ -2405,8 +2358,8 @@ int main(int argc, char** argv) {
     // Create stream
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    uint8_t* img_host = nullptr;
-    uint8_t* img_device = nullptr;
+    uint8_t *img_host = nullptr;
+    uint8_t *img_device = nullptr;
     // prepare input data cache in pinned memory 
     CUDA_CHECK(cudaMallocHost((void**)&img_host, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     // prepare input data cache in device memory
@@ -2422,8 +2375,8 @@ int main(int argc, char** argv) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
             imgs_buffer[b] = img;
-            size_t  size_image = img.cols * img.rows * 3;
-            size_t  size_image_dst = INPUT_H * INPUT_W * 3;
+            size_t size_image = img.cols * img.rows * 3;
+            size_t size_image_dst = INPUT_H * INPUT_W * 3;
             //copy data to pinned memory
             memcpy(img_host, img.data, size_image);
             //copy data to device memory
