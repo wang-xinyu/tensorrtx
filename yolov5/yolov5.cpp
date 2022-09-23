@@ -116,8 +116,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
@@ -129,7 +128,7 @@ ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuil
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
-    
+
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
 
     /* ------ yolov5 backbone------ */
@@ -220,8 +219,7 @@ ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuil
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
@@ -384,18 +382,18 @@ int main(int argc, char** argv) {
         fcount++;
         if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
         //auto start = std::chrono::system_clock::now();
-        float* buffer_idx = (float*)buffers[inputIndex];
+        float *buffer_idx = (float*)buffers[inputIndex];
         for (int b = 0; b < fcount; b++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
             imgs_buffer[b] = img;
-            size_t  size_image = img.cols * img.rows * 3;
-            size_t  size_image_dst = INPUT_H * INPUT_W * 3;
+            size_t size_image = img.cols * img.rows * 3;
+            size_t size_image_dst = INPUT_H * INPUT_W * 3;
             //copy data to pinned memory
-            memcpy(img_host,img.data,size_image);
+            memcpy(img_host, img.data, size_image);
             //copy data to device memory
-            CUDA_CHECK(cudaMemcpyAsync(img_device,img_host,size_image,cudaMemcpyHostToDevice,stream));
-            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);       
+            CUDA_CHECK(cudaMemcpyAsync(img_device, img_host, size_image, cudaMemcpyHostToDevice, stream));
+            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);
             buffer_idx += size_image_dst;
         }
         // Run inference
