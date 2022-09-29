@@ -98,8 +98,7 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
     input >> count;
     assert(count > 0 && "Invalid weight map file.");
 
-    while (count--)
-    {
+    while (count--) {
         Weights wt{ DataType::kFLOAT, nullptr, 0 };
         uint32_t size;
 
@@ -110,8 +109,7 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
 
         // Load blob
         uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
+        for (uint32_t x = 0, y = size; x < y; ++x) {
             input >> std::hex >> val[x];
         }
         wt.values = val;
@@ -155,8 +153,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     assert(scale_1);
     return scale_1;
 }
-
-
 
 ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
@@ -323,5 +319,5 @@ IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, 
     auto yolo = network->addPluginV2(&input_tensors[0], input_tensors.size(), *plugin_obj);
     return yolo;
 }
-#endif
+#endif  // YOLOV5_COMMON_H_
 
