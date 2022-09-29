@@ -11,8 +11,7 @@
 //! \brief Implements Entropy calibrator 2.
 //!  CalibrationAlgoType is kENTROPY_CALIBRATION_2.
 //!
-class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2
-{
+class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
 public:
     Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache = true);
 
@@ -37,4 +36,4 @@ private:
     std::vector<char> calib_cache_;
 };
 
-#endif // ENTROPY_CALIBRATOR_H
+#endif  // ENTROPY_CALIBRATOR_H
