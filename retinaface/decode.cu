@@ -176,14 +176,14 @@ namespace nvinfer1
         totalCount += decodeplugin::INPUT_H / 16 * decodeplugin::INPUT_W / 16 * 2 * sizeof(decodeplugin::Detection) / sizeof(float);
         totalCount += decodeplugin::INPUT_H / 32 * decodeplugin::INPUT_W / 32 * 2 * sizeof(decodeplugin::Detection) / sizeof(float);
         for(int idx = 0 ; idx < batchSize; ++idx) {
-            cudaMemset(output + idx * totalCount, 0, sizeof(float));
+            cudaMemsetAsync(output + idx * totalCount, 0, sizeof(float), stream);
         }
 
         for (unsigned int i = 0; i < 3; ++i)
         {
             num_elem = batchSize * decodeplugin::INPUT_H / base_step * decodeplugin::INPUT_W / base_step;
             thread_count = (num_elem < thread_count_) ? num_elem : thread_count_;
-            CalDetection<<< (num_elem + thread_count - 1) / thread_count, thread_count>>>
+            CalDetection<<< (num_elem + thread_count - 1) / thread_count, thread_count, 0, stream>>>
                 (inputs[i], output, num_elem, base_step, base_anchor, totalCount);
             base_step *= 2;
             base_anchor *= 4;
