@@ -136,7 +136,7 @@ ICudaEngine* createLenetEngine(unsigned int maxBatchSize, IBuilder* builder, IBu
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(1 << 20);
+    config->setMaxWorkspaceSize(16 << 20);
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
 
     // Don't need the network any more
