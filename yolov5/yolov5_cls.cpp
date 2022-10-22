@@ -10,14 +10,14 @@
 
 #define USE_FP32  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
-#define BATCH_SIZE 1
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = 224;
-static const int INPUT_W = 224;
-static const int CLASS_NUM = 1000;
+static int BATCH_SIZE = 1;
+static int INPUT_H = 224;
+static int INPUT_W = 224;
+static int CLASS_NUM = 1000;
+static int OUTPUT_SIZE = CLASS_NUM;
 
-static const int OUTPUT_SIZE = CLASS_NUM;
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -144,7 +144,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, float& gd,
     ICudaEngine *engine = nullptr;
 
     engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
-    
+
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -166,10 +166,11 @@ void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffer
 
 bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir) {
     if (argc < 4) return false;
-    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
+    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7 || argc==9)) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
         auto net = std::string(argv[4]);
+        int idx = 5;
         if (net[0] == 'n') {
             gd = 0.33;
             gw = 0.25;
@@ -191,9 +192,18 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
         } else {
             return false;
         }
-    } else if (std::string(argv[1]) == "-d" && argc == 4) {
+        if((argc==idx+2) && strcmp(argv[idx], "-S") ==0){
+            sscanf(argv[idx+1], "%d,%d,%d,%d", &BATCH_SIZE, &CLASS_NUM, &INPUT_H, &INPUT_W);
+            printf("shape:(%d,%d,%d,%d)\n", BATCH_SIZE, CLASS_NUM, INPUT_H, INPUT_W) ;
+        }
+    } else if (std::string(argv[1]) == "-d" && (argc == 4 || argc==6)) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
+        int idx = 4;
+        if((argc==idx+2) && strcmp(argv[idx], "-S") ==0){
+            sscanf(argv[idx+1], "%d,%d,%d,%d", &BATCH_SIZE, &CLASS_NUM, &INPUT_H, &INPUT_W);
+            printf("shape:(%d,%d,%d,%d)\n", BATCH_SIZE, CLASS_NUM, INPUT_H, INPUT_W) ;
+        }
     } else {
         return false;
     }
@@ -209,8 +219,8 @@ int main(int argc, char** argv) {
     std::string img_dir;
     if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir)) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5-cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5-cls -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov5-cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw] [-S b,c,h,w ] // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov5-cls -d [.engine] ../samples  [-S b,c,h,w ] // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
@@ -252,8 +262,8 @@ int main(int argc, char** argv) {
     }
     auto classes = read_classes("../imagenet_classes.txt");
 
-    static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
-    static float prob[BATCH_SIZE * OUTPUT_SIZE];
+    float* data = new float[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
+    float* prob = new float[BATCH_SIZE * OUTPUT_SIZE];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
@@ -315,6 +325,9 @@ int main(int argc, char** argv) {
 
         fcount = 0;
     }
+
+    delete []data;
+    delete []prob;
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
