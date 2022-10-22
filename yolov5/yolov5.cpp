@@ -12,13 +12,9 @@
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
-#define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = Yolo::INPUT_H;
-static const int INPUT_W = Yolo::INPUT_W;
-static const int CLASS_NUM = Yolo::CLASS_NUM;
 static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
@@ -41,7 +37,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3,  Yolo::INPUT_H,  Yolo::INPUT_W });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
     /* ------ yolov5 backbone------ */
@@ -126,7 +122,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, Yolo::INPUT_H,  Yolo::INPUT_W });
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
@@ -258,10 +254,11 @@ void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffer
 
 bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, bool& is_p6, float& gd, float& gw, std::string& img_dir) {
     if (argc < 4) return false;
-    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
+    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7 || argc==9)) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
         auto net = std::string(argv[4]);
+        int idx = 5;
         if (net[0] == 'n') {
             gd = 0.33;
             gw = 0.25;
@@ -277,18 +274,28 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, bo
         } else if (net[0] == 'x') {
             gd = 1.33;
             gw = 1.25;
-        } else if (net[0] == 'c' && argc == 7) {
+        } else if (net[0] == 'c' && argc >= 7) {
             gd = atof(argv[5]);
             gw = atof(argv[6]);
+            idx = 7;
         } else {
             return false;
         }
         if (net.size() == 2 && net[1] == '6') {
             is_p6 = true;
         }
-    } else if (std::string(argv[1]) == "-d" && argc == 4) {
+        if((argc==idx+2) && strcmp(argv[idx], "-S") ==0){
+            sscanf(argv[idx+1], "%d,%d,%d,%d", &Yolo::BATCH_SIZE, &Yolo::CLASS_NUM, &Yolo::INPUT_H, &Yolo::INPUT_W);
+            printf("shape:(%d,%d,%d,%d)\n", Yolo::BATCH_SIZE, Yolo::CLASS_NUM, Yolo::INPUT_H, Yolo::INPUT_W) ;
+        }
+    } else if (std::string(argv[1]) == "-d" && (argc == 4 || argc==6)) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
+        int idx = 4;
+        if((argc==idx+2) && strcmp(argv[idx], "-S") ==0){
+            sscanf(argv[idx+1], "%d,%d,%d,%d", &Yolo::BATCH_SIZE, &Yolo::CLASS_NUM, &Yolo::INPUT_H, &Yolo::INPUT_W);
+            printf("shape:(%d,%d,%d,%d)\n", Yolo::BATCH_SIZE, Yolo::CLASS_NUM, Yolo::INPUT_H, Yolo::INPUT_W) ;
+        }
     } else {
         return false;
     }
@@ -305,15 +312,15 @@ int main(int argc, char** argv) {
     std::string img_dir;
     if (!parse_args(argc, argv, wts_name, engine_name, is_p6, gd, gw, img_dir)) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5 -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov5 -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  [-S b,c,h,w ] // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov5 -d [.engine] ../samples [-S b,c,h,w ] // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
     // create a model using the API directly and serialize it to a stream
     if (!wts_name.empty()) {
         IHostMemory* modelStream{ nullptr };
-        APIToModel(BATCH_SIZE, &modelStream, is_p6, gd, gw, wts_name);
+        APIToModel(Yolo::BATCH_SIZE, &modelStream, is_p6, gd, gw, wts_name);
         assert(modelStream != nullptr);
         std::ofstream p(engine_name, std::ios::binary);
         if (!p) {
@@ -347,7 +354,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    static float prob[BATCH_SIZE * OUTPUT_SIZE];
+    float *prob = new float[Yolo::BATCH_SIZE * OUTPUT_SIZE];
+
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
@@ -364,23 +372,23 @@ int main(int argc, char** argv) {
     assert(inputIndex == 0);
     assert(outputIndex == 1);
     // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], Yolo::BATCH_SIZE * 3 * Yolo::INPUT_H * Yolo::INPUT_W * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], Yolo::BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     uint8_t* img_host = nullptr;
     uint8_t* img_device = nullptr;
-    // prepare input data cache in pinned memory 
+    // prepare input data cache in pinned memory
     CUDA_CHECK(cudaMallocHost((void**)&img_host, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     // prepare input data cache in device memory
     CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     int fcount = 0;
-    std::vector<cv::Mat> imgs_buffer(BATCH_SIZE);
+    std::vector<cv::Mat> imgs_buffer(Yolo::BATCH_SIZE);
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
-        if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
+        if (fcount < Yolo::BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
         //auto start = std::chrono::system_clock::now();
         float *buffer_idx = (float*)buffers[inputIndex];
         for (int b = 0; b < fcount; b++) {
@@ -388,17 +396,17 @@ int main(int argc, char** argv) {
             if (img.empty()) continue;
             imgs_buffer[b] = img;
             size_t size_image = img.cols * img.rows * 3;
-            size_t size_image_dst = INPUT_H * INPUT_W * 3;
+            size_t size_image_dst = Yolo::INPUT_H * Yolo::INPUT_W * 3;
             //copy data to pinned memory
             memcpy(img_host, img.data, size_image);
             //copy data to device memory
             CUDA_CHECK(cudaMemcpyAsync(img_device, img_host, size_image, cudaMemcpyHostToDevice, stream));
-            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);
+            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, Yolo::INPUT_W, Yolo::INPUT_H, stream);
             buffer_idx += size_image_dst;
         }
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
+        doInference(*context, stream, (void**)buffers, prob, Yolo::BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
@@ -418,6 +426,8 @@ int main(int argc, char** argv) {
         }
         fcount = 0;
     }
+
+    delete []prob;
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
