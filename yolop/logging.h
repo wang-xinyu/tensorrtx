@@ -1,4 +1,5 @@
 // create by ausk(jinlj) 2022/10/25
+#pragma once
 #include "NvInferRuntimeCommon.h"
 #include <cassert>
 #include <ctime>
