@@ -30,9 +30,6 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
-    // auto shuffle = network->addShuffle(*data);
-    // shuffle->setReshapeDimensions(Dims3{ 3, INPUT_H, INPUT_W });
-    // shuffle->setFirstTranspose(Permutation{ 2, 0, 1 });
 
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
@@ -155,18 +152,6 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto laneout = network->addTopK(*laneSlice->getOutput(0), TopKOperation::kMAX, 1, 1);
     laneout->getOutput(1)->setName(OUTPUT_LANE_NAME);
 
-    // // std::cout << std::to_string(slicelayer->getOutput(0)->getDimensions().d[0]) << std::endl;
-    // // ISliceLayer *tmp1 = network->addSlice(*slicelayer->getOutput(0), Dims3{ 0, 0, 0 }, Dims3{ 1, (Yolo::INPUT_H - 2 * Yolo::PAD_H), Yolo::INPUT_W }, Dims3{ 1, 1, 1 });
-    // // ISliceLayer *tmp2 = network->addSlice(*slicelayer->getOutput(0), Dims3{ 1, 0, 0 }, Dims3{ 1, (Yolo::INPUT_H - 2 * Yolo::PAD_H), Yolo::INPUT_W }, Dims3{ 1, 1, 1 });
-    // // auto segout = network->addElementWise(*tmp1->getOutput(0), *tmp2->getOutput(0), ElementWiseOperation::kLESS);
-    // std::cout << std::to_string(conv44->getOutput(0)->getDimensions().d[0]) << std::endl;
-    // std::cout << std::to_string(conv44->getOutput(0)->getDimensions().d[1]) << std::endl;
-    // std::cout << std::to_string(conv44->getOutput(0)->getDimensions().d[2]) << std::endl;
-    // assert(false);
-    // // segout->setOutputType(1, DataType::kFLOAT);
-    // segout->getOutput(1)->setName(OUTPUT_SEG_NAME);
-    // // std::cout << std::to_string(segout->getOutput(1)->getDimensions().d[0]) << std::endl;
-
     // detection output
     network->markOutput(*detect24->getOutput(0));
     // segmentation output
@@ -237,30 +222,11 @@ void doInferenceCpu(IExecutionContext& context, cudaStream_t& stream, void **buf
     cudaStreamSynchronize(stream);
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir) {
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, std::string& img_dir) {
     if (argc < 4) return false;
-    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
+    if (std::string(argv[1]) == "-s" && argc == 4) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
-        auto net = std::string(argv[4]);
-        if (net == "s") {
-            gd = 0.33;
-            gw = 0.50;
-        } else if (net == "m") {
-            gd = 0.67;
-            gw = 0.75;
-        } else if (net == "l") {
-            gd = 1.0;
-            gw = 1.0;
-        } else if (net == "x") {
-            gd = 1.33;
-            gw = 1.25;
-        } else if (net == "c" && argc == 7) {
-            gd = atof(argv[5]);
-            gw = atof(argv[6]);
-        } else {
-            return false;
-        }
     } else if (std::string(argv[1]) == "-d" && argc == 4) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
