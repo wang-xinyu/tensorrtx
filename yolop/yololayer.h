@@ -21,10 +21,6 @@ namespace Yolo
     static constexpr int INPUT_W = 640;
     static constexpr int IMG_H = 360;
     static constexpr int IMG_W = 640;
-    // static constexpr int INPUT_H = 192;
-    // static constexpr int INPUT_W = 320;
-    // static constexpr int IMG_H = 180;
-    // static constexpr int IMG_W = 320;
 
     static constexpr int LOCATIONS = 4;
     struct alignas(float) Detection {
