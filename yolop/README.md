@@ -9,7 +9,7 @@ Fork from [hustvl/YOLOP](https://github.com/hustvl/YOLOP), modify from [ausk/YOL
 Make sure you have install `c++`(support c++11)、 `cmake`、`opencv`(4.x)、`cuda`(10.x)、`nvinfer`(7.x).
 
 
-## 2. build
+## 2. build yolop
 
 Go to `yolop`.
 
@@ -21,15 +21,15 @@ cmake ..
 make
 ```
 
-Now you can get `yolov5` and `libmyplugins.so`.
+Now you can get `yolop` and `libmyplugins.so`.
 
 
 ## 3. Generate and test trt
 
 Go to `yolop/build`.
 
-### 3.1 gen yolop.wts
-Download [YOLOP](https://github.com/hustvl/YOLOP)
+### 3.1 generate yolop.wts
+Download/Clone [YOLOP](https://github.com/hustvl/YOLOP)
 
 Edit `gen_wts.py` , change `YOLOP_BASE_DIR` to realpath of `YOLOP`.
 
@@ -38,10 +38,13 @@ Edit `gen_wts.py` , change `YOLOP_BASE_DIR` to realpath of `YOLOP`.
 python3 ../gen_wts.py
 ```
 
-### 3.2 gen yolop.trt
+### 3.2 generate yolop.trt
 ```
 ./yolop -s yolop.wts  yolop.trt s
 ```
+
+Now you have such files:  `libmyplugins.so yolop yolop.wts  yolop.trt`
+
 
 ### 3.3 test yolop.trt
 ```
@@ -54,7 +57,7 @@ YOLOP_BASE_DIR=/home/user/jetson/tmp/YOLOP
 It will output like as follow if successful! ( test on `Jetson Xavier NX - Jetpack 4.4`)
 ```
 1601ms # the fist time is slow
-26ms   # the follow is faster
+26ms   # then it is faster
 29ms
 27ms
 29ms

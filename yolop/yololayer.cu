@@ -6,14 +6,14 @@
 
 namespace Tn
 {
-    template<typename T> 
+    template<typename T>
     void write(char*& buffer, const T& val)
     {
         *reinterpret_cast<T*>(buffer) = val;
         buffer += sizeof(T);
     }
 
-    template<typename T> 
+    template<typename T>
     void read(const char*& buffer, T& val)
     {
         val = *reinterpret_cast<const T*>(buffer);
@@ -28,8 +28,8 @@ namespace nvinfer1
     YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel)
     {
         mClassCount = classCount;
-        mYoloV5NetWidth = netWidth;
-        mYoloV5NetHeight = netHeight;
+        mNetWidth = netWidth;
+        mNetHeight = netHeight;
         mMaxOutObject = maxOut;
         mYoloKernel = vYoloKernel;
         mKernelCount = vYoloKernel.size();
@@ -60,8 +60,8 @@ namespace nvinfer1
         read(d, mClassCount);
         read(d, mThreadCount);
         read(d, mKernelCount);
-        read(d, mYoloV5NetWidth);
-        read(d, mYoloV5NetHeight);
+        read(d, mNetWidth);
+        read(d, mNetHeight);
         read(d, mMaxOutObject);
         mYoloKernel.resize(mKernelCount);
         auto kernelSize = mKernelCount * sizeof(YoloKernel);
@@ -85,8 +85,8 @@ namespace nvinfer1
         write(d, mClassCount);
         write(d, mThreadCount);
         write(d, mKernelCount);
-        write(d, mYoloV5NetWidth);
-        write(d, mYoloV5NetHeight);
+        write(d, mNetWidth);
+        write(d, mNetHeight);
         write(d, mMaxOutObject);
         auto kernelSize = mKernelCount * sizeof(YoloKernel);
         memcpy(d, mYoloKernel.data(), kernelSize);
@@ -97,7 +97,7 @@ namespace nvinfer1
 
     size_t YoloLayerPlugin::getSerializationSize() const
     {
-        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mYoloV5NetWidth) + sizeof(mYoloV5NetHeight) + sizeof(mMaxOutObject);
+        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mNetWidth) + sizeof(mNetHeight) + sizeof(mMaxOutObject);
     }
 
     int YoloLayerPlugin::initialize()
@@ -172,7 +172,7 @@ namespace nvinfer1
     // Clone the plugin
     IPluginV2IOExt* YoloLayerPlugin::clone() const
     {
-        YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, mYoloKernel);
+        YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mNetWidth, mNetHeight, mMaxOutObject, mYoloKernel);
         p->setPluginNamespace(mPluginNamespace);
         return p;
     }
@@ -217,12 +217,12 @@ namespace nvinfer1
             // pytorch:
             //  y = x[i].sigmoid()
             //  y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
-            //  y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh 
-            //  X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth 
+            //  y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+            //  X: (sigmoid(tx) + cx)/FeaturemapW *  netwidth
             det->bbox[0] = (col - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 0 * total_grid])) * netwidth / yoloWidth;
             det->bbox[1] = (row - 0.5f + 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 1 * total_grid])) * netheight / yoloHeight;
 
-            // W: (Pw * e^tw) / FeaturemapW * netwidth  
+            // W: (Pw * e^tw) / FeaturemapW * netwidth
             // v5: https://github.com/ultralytics/yolov5/issues/471
             det->bbox[2] = 2.0f * Logist(curInput[idx + k * info_len_i * total_grid + 2 * total_grid]);
             det->bbox[2] = det->bbox[2] * det->bbox[2] * anchors[2 * k];
@@ -243,13 +243,13 @@ namespace nvinfer1
         for (unsigned int i = 0; i < mYoloKernel.size(); ++i)
         {
             const auto& yolo = mYoloKernel[i];
-            numElem = yolo.width*yolo.height*batchSize; 
+            numElem = yolo.width*yolo.height*batchSize;
             if (numElem < mThreadCount)
                 mThreadCount = numElem;
 
-            //printf("Net: %d  %d \n", mYoloV5NetWidth, mYoloV5NetHeight);
+            //printf("Net: %d  %d \n", mNetWidth, mNetHeight);
             CalDetection << < (yolo.width*yolo.height*batchSize + mThreadCount - 1) / mThreadCount, mThreadCount >> >
-                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float *)mAnchor[i], mClassCount, outputElem);
+                (inputs[i], output, numElem, mNetWidth, mNetHeight, mMaxOutObject, yolo.width, yolo.height, (float *)mAnchor[i], mClassCount, outputElem);
         }
     }
 

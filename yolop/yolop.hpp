@@ -37,7 +37,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
-    // yolov5 backbone
+    // yolop backbone
     // auto focus0 = focus(network, weightMap, *shuffle->getOutput(0), 3, 32, 3, "model.0");
     auto focus0 = focus(network, weightMap, *data, 3, 32, 3, "model.0");
     auto conv1 = convBlock(network, weightMap, *focus0->getOutput(0), 64, 3, 2, 1, "model.1");
@@ -49,7 +49,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto conv7 = convBlock(network, weightMap, *bottleneck_csp6->getOutput(0), 512, 3, 2, 1, "model.7");
     auto spp8 = SPP(network, weightMap, *conv7->getOutput(0), 512, 512, 5, 9, 13, "model.8");
 
-    // yolov5 head
+    // yolop head
     auto bottleneck_csp9 = bottleneckCSP(network, weightMap, *spp8->getOutput(0), 512, 512, 1, false, 1, 0.5, "model.9");
     auto conv10 = convBlock(network, weightMap, *bottleneck_csp9->getOutput(0), 256, 1, 1, 1, "model.10");
 
