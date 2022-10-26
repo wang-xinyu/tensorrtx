@@ -40,7 +40,7 @@ python3 ../gen_wts.py
 
 ### 3.2 generate yolop.trt
 ```
-./yolop -s yolop.wts  yolop.trt s
+./yolop -s yolop.wts  yolop.trt
 ```
 
 Now you have such files:  `libmyplugins.so yolop yolop.wts  yolop.trt`
