@@ -1,8 +1,12 @@
-YoloP TensorRT Usage
+YoloP
 =====
 
-Fork from [hustvl/YOLOP](https://github.com/hustvl/YOLOP), modify from [ausk/YOLOP](https://github.com/ausk/YOLOP/), push into [wang-xinyu/tensorrtx](https://github.com/wang-xinyu/tensorrtxls)
+The original pytorch model is from [hustvl/YOLOP](https://github.com/hustvl/YOLOP)
 
+## Authors
+
+<a href="https://github.com/ausk"><img src="https://avatars.githubusercontent.com/u/4545060?v=4?s=48" width="40px;" alt=""/></a> 
+<a href="https://github.com/aliceint"><img src="https://avatars.githubusercontent.com/u/15520773?v=4?s=48" width="40px;" alt=""/></a> 
 
 ## 1. Prepare building environments
 
