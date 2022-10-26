@@ -71,7 +71,7 @@ It will output like as follow if successful! ( test on `Jetson Xavier NX - Jetpa
 ![](https://user-images.githubusercontent.com/4545060/197756635-38348dc5-d8e7-4ae3-be56-6b231dd2f5db.jpg)
 
 
-## 3. Test in python3
+## 4. Test in python3
 Go to `yolop`.
 
 Make sure you have install `pycuda` `tensorrt`; and modify `image_dir` to your image dir.
