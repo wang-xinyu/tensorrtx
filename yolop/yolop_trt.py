@@ -7,7 +7,6 @@ import os
 import shutil
 import random
 import sys
-import threading
 import time
 import cv2
 import numpy as np
@@ -36,19 +35,8 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,
                  this function comes from YoLov5 project.
-    param:
-        x:      a box likes [x1,y1,x2,y2]
-        img:    a opencv image object
-        color:  color to draw rectangle, such as (0,255,0)
-        label:  str
-        line_thickness: int
-    return:
-        no return
-
     """
-    tl = (
-        line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1
-    )  # line/font thickness
+    tl = ( line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1)  # line/font thickness
     color = color or [random.randint(0, 255) for _ in range(3)]
     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
     cv2.rectangle(img, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
@@ -57,21 +45,11 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1, cv2.LINE_AA)  # filled
-        cv2.putText(
-            img,
-            label,
-            (c1[0], c1[1] - 2),
-            0,
-            tl / 3,
-            [225, 255, 255],
-            thickness=tf,
-            lineType=cv2.LINE_AA,
-        )
-
+        cv2.putText( img, label,  (c1[0], c1[1] - 2), 0,  tl / 3, [225, 255, 255], thickness=tf,  lineType=cv2.LINE_AA)
 
 class YolopTRT(object):
     """
-    description: A YOLOv5 class that warps TensorRT ops, preprocess and postprocess ops.
+    description: Warps TensorRT ops, preprocess and postprocess ops.
     """
 
     def __init__(self, engine_file_path):
@@ -111,7 +89,6 @@ class YolopTRT(object):
                 host_outputs.append(host_mem)
                 cuda_outputs.append(cuda_mem)
 
-
         self.input_h = 384
         self.input_w = 640
         self.img_h = 360
@@ -129,7 +106,6 @@ class YolopTRT(object):
         self.batch_size = engine.max_batch_size
 
     def infer(self, raw_image_generator):
-        threading.Thread.__init__(self)
         # Make self the active context, pushing it on top of the context stack.
         self.ctx.push()
         # Restore
@@ -197,9 +173,7 @@ class YolopTRT(object):
             color_area[lane==1] = (0,0,255)
             color_mask = np.mean(color_area, 2)
             img[color_mask != 0] = img[color_mask != 0] * 0.5 + color_area[color_mask != 0] * 0.5
-
             img = img.astype(np.uint8)
-
 
         return batch_image_raw, end - start
 
@@ -208,32 +182,14 @@ class YolopTRT(object):
         self.ctx.pop()
 
     def get_raw_image(self, image_path_batch):
-        """
-        description: Read an image from image path
-        """
         for img_path in image_path_batch:
             yield cv2.imread(img_path)
 
     def get_raw_image_zeros(self, image_path_batch=None):
-        """
-        description: Ready data for warmup
-        """
         for _ in range(self.batch_size):
             yield np.zeros([self.input_h, self.input_w, 3], dtype=np.uint8)
 
     def preprocess_image(self, raw_bgr_image):
-        """
-        description: Convert BGR image to RGB,
-                     resize and pad it to target size, normalize to [0,1],
-                     transform to NCHW format.
-        param:
-            input_image_path: str, image path
-        return:
-            image:  the processed image
-            image_raw: the original image
-            h: original height
-            w: original width
-        """
         image_raw = raw_bgr_image
         h, w, c = image_raw.shape
         image = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
@@ -299,17 +255,6 @@ class YolopTRT(object):
         return y
 
     def post_process(self, output, origin_h, origin_w):
-        """
-        description: postprocess the prediction
-        param:
-            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...]
-            origin_h:   height of original image
-            origin_w:   width of original image
-        return:
-            result_boxes: finally boxes, a boxes numpy, each row is a box [x1, y1, x2, y2]
-            result_scores: finally scores, a numpy, each element is the score correspoing to box
-            result_classid: finally classid, a numpy, each element is the classid correspoing to box
-        """
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
@@ -397,33 +342,6 @@ class YolopTRT(object):
         return boxes
 
 
-class inferThread(threading.Thread):
-    def __init__(self, yolop_wrapper, image_path_batch):
-        threading.Thread.__init__(self)
-        self.yolop_wrapper = yolop_wrapper
-        self.image_path_batch = image_path_batch
-
-    def run(self):
-        batch_image_raw, use_time = self.yolop_wrapper.infer(self.yolop_wrapper.get_raw_image(self.image_path_batch))
-        for i, img_path in enumerate(self.image_path_batch):
-            parent, filename = os.path.split(img_path)
-            save_name = os.path.join('output', filename)
-            # Save image
-            cv2.imwrite(save_name, batch_image_raw[i])
-        print('input->{}, time->{:.2f}ms, saving into output/'.format(self.image_path_batch, use_time * 1000))
-
-
-class warmUpThread(threading.Thread):
-    def __init__(self, yolop_wrapper):
-        threading.Thread.__init__(self)
-        self.yolop_wrapper = yolop_wrapper
-
-    def run(self):
-        batch_image_raw, use_time = self.yolop_wrapper.infer(self.yolop_wrapper.get_raw_image_zeros())
-        print('warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
-
-
-
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
@@ -447,8 +365,10 @@ if __name__ == "__main__":
     if os.path.exists('output/'):
         shutil.rmtree('output/')
     os.makedirs('output/')
+
     # a YolopTRT instance
     yolop_wrapper = YolopTRT(engine_file_path)
+
     try:
         print('batch size is', yolop_wrapper.batch_size)
 
@@ -456,15 +376,18 @@ if __name__ == "__main__":
         image_path_batches = get_img_path_batches(yolop_wrapper.batch_size, image_dir)
 
         for i in range(1):
-            # create a new thread to do warm_up
-            thread1 = warmUpThread(yolop_wrapper)
-            thread1.start()
-            thread1.join()
+            batch_image_raw, use_time = yolop_wrapper.infer(yolop_wrapper.get_raw_image_zeros())
+            print('warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
+
         for batch in image_path_batches:
-            # create a new thread to do inference
-            thread1 = inferThread(yolop_wrapper, batch)
-            thread1.start()
-            thread1.join()
+            batch_image_raw, use_time = yolop_wrapper.infer(yolop_wrapper.get_raw_image(batch))
+            for i, img_path in enumerate(batch):
+                parent, filename = os.path.split(img_path)
+                save_name = os.path.join('output', filename)
+                # Save image
+                cv2.imwrite(save_name, batch_image_raw[i])
+            print('input->{}, time->{:.2f}ms, saving into output/'.format(batch, use_time * 1000))
+
     finally:
         # destroy the instance
         yolop_wrapper.destroy()
