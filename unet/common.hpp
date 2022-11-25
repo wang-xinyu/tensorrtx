@@ -9,7 +9,6 @@
 #include <dirent.h>
 #include "NvInfer.h"
 
-
 #define CHECK(status) \
     do\
     {\
@@ -22,10 +21,6 @@
     } while (0)
 
 using namespace nvinfer1;
-
-
-
-
 
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
@@ -100,7 +95,6 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-
 ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int p = ksize / 2;
@@ -120,8 +114,6 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
     assert(ew);
     return ew;
 }
-
-
 
 int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
     DIR *p_dir = opendir(p_dir_name);
