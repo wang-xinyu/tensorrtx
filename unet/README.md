@@ -1,54 +1,57 @@
-# tensorrt-unet
-This is a TensorRT version Unet, inspired by [tensorrtx](https://github.com/wang-xinyu/tensorrtx) and [pytorch-unet](https://github.com/milesial/Pytorch-UNet).<br>
+# UNet
+This is a TensorRT version UNet, inspired by [tensorrtx](https://github.com/wang-xinyu/tensorrtx) and [pytorch-unet](https://github.com/milesial/Pytorch-UNet).<br>
 You can generate TensorRT engine file using this script and customize some params and network structure based on network you trained (FP32/16 precision, input size, different conv, activation function...)<br>
 
-# requirements
+# Requirements
 
-TensorRT 7.0 (you need to install tensorrt first)<br>
-Cuda 10.2<br>
-Python3.7<br>
-opencv 4.4<br>
-cmake 3.18<br>
-# train .pth file and convert .wts
+TensorRT 7.x or 8.x (you need to install tensorrt first)<br>
+Python<br>
+opencv<br>
+cmake<br>
 
-## create env
+# Train .pth file and convert .wts
+
+## Create env
 
 ```
 pip install -r requirements.txt
 ```
 
-## train .pth file
+## Train .pth file
 
-train your dataset by following [pytorch-unet](https://github.com/milesial/Pytorch-UNet) and generate .pth file.<br>
+Train your dataset by following [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet) and generate .pth file.<br>
 
-## convert .wts
+Please set bilinear=False, i.e. `UNet(n_channels=3, n_classes=1, bilinear=False)`, because TensorRT doesn't support Upsample layer.
 
-run gen_wts from utils folder, and move it to project folder<br>
+## Convert .pth to .wts
 
-# generate engine file and infer
-
-## create build folder in project folder
 ```
+cp tensorrtx/unet/gen_wts.py Pytorch-UNet/
+cd Pytorch-UNet/
+python gen_wts.py
+```
+
+# Generate engine file and infer
+
+Build:
+```
+cd tensorrtx/unet/
 mkdir build
-```
-
-## make file, generate exec file
-```
 cd build
 cmake ..
 make
 ```
 
-## generate TensorRT engine file and infer image
+Generate TensorRT engine file:
 ```
 unet -s
 ```
-then a unet exec file will generated, you can use unet -d to infer files in a folder<br>
+Inference on images in a folder:
 ```
 unet -d ../samples
 ```
 
-# efficiency
+# Benchmark
 the speed of tensorRT engine is much faster
 
  pytorch | TensorRT FP32 | TensorRT FP16
@@ -61,4 +64,3 @@ the speed of tensorRT engine is much faster
 
 1. add INT8 calibrator<br>
 2. add custom plugin<br>
-etc
