@@ -3,27 +3,21 @@
 #include "cuda_runtime_api.h"
 #include "logging.h"
 #include "common.hpp"
+
 #define DEVICE 0
-#define NET s  // s m l x
-#define NETSTRUCT(str) createEngine_##str
-#define CREATENET(net) NETSTRUCT(net)
-#define STR1(x) #x
-#define STR2(x) STR1(x)
 // #define USE_FP16  // comment out this if want to use FP16
 #define CONF_THRESH 0.5
 #define BATCH_SIZE 1
+
+using namespace nvinfer1;
+
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 816;
 static const int INPUT_W = 672;
 static const int OUTPUT_SIZE = 672*816;
-
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
-
-using namespace nvinfer1;
-
 static Logger gLogger;
-
 
 cv::Mat preprocess_img(cv::Mat& img) {
     int w, h, x, y;
@@ -46,8 +40,6 @@ cv::Mat preprocess_img(cv::Mat& img) {
     re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
     return out;
 }
-
-
 
 ILayer* doubleConv(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, std::string lname, int midch){
     // Weights emptywts{DataType::kFLOAT, nullptr, 0};
@@ -97,28 +89,26 @@ ILayer* up(INetworkDefinition *network, std::map<std::string, Weights>& weightMa
     // IPoolingLayer* pool1 = network->addPooling(dcov1, PoolingType::kMAX, DimsHW{2, 2});
     // pool1->setStrideNd(DimsHW{2, 2});
     // dcov1->add_pading
-    ILayer* pad1 = network->addPaddingNd(*deconv1->getOutput(0),DimsHW{diffx / 2, diffy / 2},DimsHW{diffx - (diffx / 2), diffy - (diffy / 2)});
+    ILayer* pad1 = network->addPaddingNd(*deconv1->getOutput(0), DimsHW{diffx / 2, diffy / 2}, DimsHW{diffx - (diffx / 2), diffy - (diffy / 2)});
     // dcov1->setPaddingNd(DimsHW{diffx / 2, diffx - diffx / 2},DimsHW{diffy / 2, diffy - diffy / 2});
-    ITensor* inputTensors[] = {&input2,pad1->getOutput(0)};
+    ITensor* inputTensors[] = {&input2, pad1->getOutput(0)};
     auto cat = network->addConcatenation(inputTensors, 2);
     assert(cat);
-    if (midch==64){
+    if (midch == 64) {
         ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),outch,3,lname+".conv",outch);
         assert(dcov1);
         return dcov1;
-    }else{
+    } else {
         int midch1 = outch/2;
         ILayer* dcov1 = doubleConv(network,weightMap,*cat->getOutput(0),midch1,3,lname+".conv",outch);
         assert(dcov1);
         return dcov1;
     }
-    
     // assert(dcov1);
-
     // return dcov1;
 }
 
-ILayer* outConv(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input,  int outch, std::string lname){
+ILayer* outConv(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, std::string lname) {
     // Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     IConvolutionLayer* conv1 = network->addConvolutionNd(input, 1, DimsHW{1, 1}, weightMap[lname + ".conv.weight"], weightMap[lname + ".conv.bias"]);
@@ -129,8 +119,6 @@ ILayer* outConv(INetworkDefinition *network, std::map<std::string, Weights>& wei
     return conv1;
 }
 
-
-
 ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
@@ -138,7 +126,7 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
     assert(data);
 
-    std::map<std::string, Weights> weightMap = loadWeights("/home/sycv/workplace/pengyuzhou/tensorrtx/unet/unet_816_672.wts");
+    std::map<std::string, Weights> weightMap = loadWeights("../unet.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     // build network
@@ -170,14 +158,12 @@ ICudaEngine* createEngine_l(unsigned int maxBatchSize, IBuilder* builder, IBuild
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
     return engine;
 }
-
 
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
@@ -185,7 +171,6 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    // ICudaEngine* engine = (CREATENET(NET))(maxBatchSize, builder, config, DataType::kFLOAT);
     ICudaEngine* engine = createEngine_l(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
@@ -222,7 +207,7 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
     CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
-    //流同步：通过cudaStreamSynchronize()来协调。
+
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers
@@ -231,20 +216,19 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
-struct  Detection{        
+struct Detection {        
     float mask[INPUT_W*INPUT_H*1];
-    };
+};
 
-float sigmoid(float x)
-{
+float sigmoid(float x) {
     return (1 / (1 + exp(-x)));
 }
 
 void process_cls_result(Detection &res, float *output) {    
-    for(int i=0;i<INPUT_W*INPUT_H*1;i++){
+    for (int i = 0; i < INPUT_W * INPUT_H * 1; i++) {
         res.mask[i] = sigmoid(*(output+i));
-        }
     }
+}
 
 int main(int argc, char** argv) {
     cudaSetDevice(DEVICE);
@@ -328,8 +312,6 @@ int main(int argc, char** argv) {
         doInference(*context, data, prob, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-
-        
 
         std::vector<Detection> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
