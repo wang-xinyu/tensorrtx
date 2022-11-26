@@ -2402,7 +2402,7 @@ int main(int argc, char** argv) {
                 cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
                 cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
             }
-            cv::imwrite("__" + file_names[f - fcount + 1 + b], img);
+            cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
         fcount = 0;
     }

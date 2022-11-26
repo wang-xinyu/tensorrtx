@@ -11,6 +11,7 @@ set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
 enable_language(CUDA)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
 # include and link dirs of cuda and tensorrt, you need adapt them if yours are different
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
@@ -28,13 +29,14 @@ else()
   link_directories(/home/nvidia/TensorRT-8.2.5.1/lib)
 endif()
 
-add_library(myplugins SHARED yololayer.cu)
+add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/plugin/yololayer.cu)
 target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-add_executable(yolov7 calibrator.cpp yolov7.cpp preprocess.cu)
+file(GLOB_RECURSE SRCS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.cu)
+add_executable(yolov7 main.cpp ${SRCS})
 
 target_link_libraries(yolov7 nvinfer)
 target_link_libraries(yolov7 cudart)
