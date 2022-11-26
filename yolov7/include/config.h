@@ -25,4 +25,3 @@ const static float kIgnoreThresh = 0.1f;
 // NMS overlapping thresh and final detection confidence thresh
 const static float kNmsThresh = 0.45f;
 const static float kConfThresh = 0.5f;
-
