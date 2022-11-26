@@ -1,36 +1,14 @@
-#ifndef _YOLO_LAYER_H
-#define _YOLO_LAYER_H
+#pragma once
 
 #include "macros.h"
+#include "types.h"
 #include <vector>
 #include <string>
-
-namespace Yolo {
-static constexpr int CHECK_COUNT = 3;
-static constexpr float IGNORE_THRESH = 0.5f;
-struct YoloKernel {
-  int width;
-  int height;
-  float anchors[CHECK_COUNT * 2];
-};
-static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
-static constexpr int CLASS_NUM = 80;
-static constexpr int INPUT_H = 640;  // yolov7's input height and width must be divisible by 32.
-static constexpr int INPUT_W = 640;
-
-static constexpr int LOCATIONS = 4;
-struct alignas(float) Detection {
-  //center_x center_y w h
-  float bbox[LOCATIONS];
-  float conf;  // bbox_conf * cls_conf
-  float class_id;
-};
-}  // namespace yolo
 
 namespace nvinfer1 {
 class API YoloLayerPlugin : public IPluginV2IOExt {
  public:
-  YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel);
+  YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<YoloKernel>& vYoloKernel);
   YoloLayerPlugin(const void* data, size_t length);
   ~YoloLayerPlugin();
 
@@ -90,7 +68,7 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
   int mYoloV7NetWidth;
   int mYoloV7NetHeight;
   int mMaxOutObject;
-  std::vector<Yolo::YoloKernel> mYoloKernel;
+  std::vector<YoloKernel> mYoloKernel;
   void** mAnchor;
 };
 
@@ -125,6 +103,4 @@ class API YoloPluginCreator : public IPluginCreator {
 };
 REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 }  // namespace nvinfer1
-
-#endif  // _YOLO_LAYER_H
 
