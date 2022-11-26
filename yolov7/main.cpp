@@ -8,8 +8,6 @@
 #include <chrono>
 
 #define DEVICE 0  // GPU id
-#define NMS_THRESH 0.45
-#define CONF_THRESH 0.25
 #define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000  // max input image buffer size
 
@@ -183,7 +181,7 @@ int main(int argc, char** argv) {
         std::vector<std::vector<Detection>> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
-            nms(res, &prob[b * kOutputSize], CONF_THRESH, NMS_THRESH);
+            nms(res, &prob[b * kOutputSize], kConfThresh, kNmsThresh);
         }
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];

@@ -19,6 +19,10 @@ const static int kMaxNumOutputBbox = 1000;
 
 const static int kNumAnchor = 3;
 
-// The bboxes whose conf lower kIgnoreThresh will be ignored in yololayer plugin.
+// The bboxes whose confidence lower kIgnoreThresh will be ignored in yololayer plugin.
 const static float kIgnoreThresh = 0.1f;
+
+// NMS overlapping thresh and final detection confidence thresh
+const static float kNmsThresh = 0.45f;
+const static float kConfThresh = 0.5f;
 
