@@ -1854,10 +1854,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(pool15);
     pool15->setStrideNd(DimsHW{ 2, 2 });
 
-
-
-
-
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv16 = convBlockLeakRelu(network, weightMap, *pool15->getOutput(0), 128, 1, 1, 0, "model.16");
     assert(conv16);
@@ -2129,7 +2125,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv76 = convBlockLeakRelu(network, weightMap, *conv73->getOutput(0), 512, 3, 1, 1, "model.76");
     assert(conv76);
 
-    /*--------------------detect--------------*/
     /* ------ detect ------ */
     IConvolutionLayer* det0 = network->addConvolutionNd(*conv74->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.0.weight"], weightMap["model.77.m.0.bias"]);
    
