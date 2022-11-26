@@ -1,6 +1,8 @@
 #ifndef __MACROS_H
 #define __MACROS_H
 
+#include "NvInfer.h"
+
 #ifdef API_EXPORTS
 #if defined(_MSC_VER)
 #define API __declspec(dllexport)

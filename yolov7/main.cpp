@@ -1,12 +1,12 @@
-﻿#include <iostream>
-#include <chrono>
-#include <cmath>
-#include "cuda_utils.h"
+﻿#include "cuda_utils.h"
 #include "logging.h"
 #include "common.hpp"
 #include "utils.h"
 #include "calibrator.h"
 #include "preprocess.h"
+#include <iostream>
+#include <chrono>
+#include <cmath>
 
 #define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
@@ -23,20 +23,6 @@ static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detect
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
-
-
-static int get_width(int x, float gw, int divisor = 8) {
-    return int(ceil((x * gw) / divisor)) * divisor;
-}
-
-static int get_depth(int x, float gd) {
-    if (x == 1) return 1;
-    int r = round(x * gd);
-    if (x * gd - int(x * gd) == 0.5 && (int(x * gd) % 2) == 0) {
-        --r;
-    }
-    return std::max<int>(r, 1);
-}
 
 ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
@@ -1314,7 +1300,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     return engine;
 }
 
-//----------------------------------yolov7x---------------------------------------------------
 ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
@@ -1869,10 +1854,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(pool15);
     pool15->setStrideNd(DimsHW{ 2, 2 });
 
-
-
-
-
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv16 = convBlockLeakRelu(network, weightMap, *pool15->getOutput(0), 128, 1, 1, 0, "model.16");
     assert(conv16);
@@ -2144,7 +2125,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv76 = convBlockLeakRelu(network, weightMap, *conv73->getOutput(0), 512, 3, 1, 1, "model.76");
     assert(conv76);
 
-    /*--------------------detect--------------*/
     /* ------ detect ------ */
     IConvolutionLayer* det0 = network->addConvolutionNd(*conv74->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.0.weight"], weightMap["model.77.m.0.bias"]);
    
@@ -2183,27 +2163,26 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream,std::string& wts_name,std::string &model_check) {
+void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, std::string& wts_name, std::string& sub_type) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
     // Create model to populate the network, then set the outputs and create an engine
     ICudaEngine* engine = nullptr;
 
-
-    if (model_check == "yolov7-tiny") {
+    if (sub_type == "t") {
         engine = build_engine_yolov7_tiny(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (model_check == "yolov7") {
+    } else if (sub_type == "v7") {
         engine = build_engine_yolov7(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (model_check == "yolov7x") {
+    } else if (sub_type == "x") {
         engine = build_engine_yolov7x(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (model_check == "yolov7w6") {
+    } else if (sub_type == "w6") {
         engine = build_engine_yolov7w6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (model_check == "yolov7e6") {
+    } else if (sub_type == "e6") {
         engine = build_engine_yolov7e6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (model_check == "yolov7d6") {
+    } else if (sub_type == "d6") {
         engine = build_engine_yolov7d6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (model_check == "yolov7e6e") {
+    } else if (sub_type == "e6e") {
         engine = build_engine_yolov7e6e(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     }
     assert(engine != nullptr);
@@ -2224,56 +2203,15 @@ void doInference(IExecutionContext& context, cudaStream_t& stream, void** buffer
     cudaStreamSynchronize(stream);
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir,std::string& model_check) {
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, std::string& img_dir, std::string& sub_type) {
     if (argc < 4) return false;
-    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
+    if (std::string(argv[1]) == "-s" && argc == 5) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
-        auto net = std::string(argv[4]);
-
-        if (net.size() == 1 && net[0] == 't' ) {
-            model_check = "yolov7-tiny";
-            gd = 1.0;
-            gw = 1.0;
-        }
-
-        if (net.size() == 2 && net[0] == 'v' && net[1]=='7') {
-            model_check ="yolov7";
-            gd = 5.0;
-            gw = 1.0;
-        }
-
-        if (net.size() == 1 && net[0] == 'x' ) {
-            model_check = "yolov7x";
-            gd = 1.0;
-            gw = 1.0;
-        }
-
-        if (net.size() == 2 && net[0] == 'w' && net[1]=='6') {
-            model_check = "yolov7w6";
-            gd = 1.0;
-            gw = 1.0;
-        }
-        if (net.size() == 2 && net[0] == 'e' && net[1]=='6') {
-            model_check ="yolov7e6";
-            gd = 1.0;
-            gw = 1.0;
-        }
-        if (net.size() == 2 && net[0] == 'd' && net[1]=='6') {
-            model_check ="yolov7d6";
-            gd = 1.0;
-            gw = 1.0;
-        }
-        if (net.size() == 3 && net[0] == 'e' && net[1]=='6' && net[2]=='e' ) {
-            model_check = "yolov7e6e";
-            gd = 1.0;
-            gw = 1.0;
-
-        }
+        sub_type = std::string(argv[4]);
     } else if (std::string(argv[1]) == "-d" && argc == 4) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
-
     } else {
         return false;
     }
@@ -2285,23 +2223,21 @@ int main(int argc, char** argv) {
 
     std::string wts_name = "";
     std::string engine_name = "";
-    bool is_p6 = false;
-    float gd = 0.0f, gw = 0.0f;
     std::string img_dir;
-    std::string model_check="";
+    std::string sub_type = "";
 
-    if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir,model_check)) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize model to plan file" << std::endl;
+    if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type)) {
+        std::cerr << "Arguments not right!" << std::endl;
+        std::cerr << "./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e]  // serialize model to plan file" << std::endl;
         std::cerr << "./yolov7 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
     // create a model using the API directly and serialize it to a stream
     if (!wts_name.empty()) {
-        IHostMemory* modelStream{ nullptr };
+        IHostMemory* modelStream = nullptr;
 
-        APIToModel(BATCH_SIZE, &modelStream, wts_name, model_check);
+        APIToModel(BATCH_SIZE, &modelStream, wts_name, sub_type);
         assert(modelStream != nullptr);
         std::ofstream p(engine_name, std::ios::binary);
         if (!p) {
@@ -2402,7 +2338,7 @@ int main(int argc, char** argv) {
                 cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
                 cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
             }
-            cv::imwrite("__" + file_names[f - fcount + 1 + b], img);
+            cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
         fcount = 0;
     }
@@ -2417,7 +2353,6 @@ int main(int argc, char** argv) {
     context->destroy();
     engine->destroy();
     runtime->destroy();
-
 
     // Print histogram of the output distribution
     //std::cout << "\nOutput:\n\n";
