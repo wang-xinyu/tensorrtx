@@ -48,7 +48,7 @@ sudo ./yolov7 -s [.wts] [.engine] [t/v7/x/w6/e6/d6/e6e gd gw]  // serialize mode
 sudo ./yolov7 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov7
 sudo ./yolov7 -s yolov7.wts yolov7.engine v7
-sudo ./yolov7 -d yolov7.engine ../samples
+sudo ./yolov7 -d yolov7.engine ../images
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
