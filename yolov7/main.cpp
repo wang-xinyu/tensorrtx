@@ -7,7 +7,6 @@
 #include "postprocess.h"
 #include <chrono>
 
-#define DEVICE 0  // GPU id
 #define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000  // max input image buffer size
 
@@ -21,32 +20,27 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, std::strin
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = nullptr;
 
     if (sub_type == "t") {
-        engine = build_engine_yolov7_tiny(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7_tiny(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "v7") {
-        engine = build_engine_yolov7(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "x") {
-        engine = build_engine_yolov7x(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7x(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "w6") {
-        engine = build_engine_yolov7w6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7w6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "e6") {
-        engine = build_engine_yolov7e6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7e6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "d6") {
-        engine = build_engine_yolov7d6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7d6(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "e6e") {
-        engine = build_engine_yolov7e6e(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        *modelStream = build_engine_yolov7e6e(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
     }
-    assert(engine != nullptr);
-
-    // Serialize the engine
-    (*modelStream) = engine->serialize();
+    assert(*modelStream != nullptr);
 
     // Close everything down
-    engine->destroy();
-    builder->destroy();
-    config->destroy();
+    delete builder;
+    delete config;
 }
 
 void doInference(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* output, int batchSize) {
@@ -72,7 +66,7 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, st
 }
 
 int main(int argc, char** argv) {
-    cudaSetDevice(DEVICE);
+    cudaSetDevice(kGpuId);
 
     std::string wts_name = "";
     std::string engine_name = "";
@@ -89,16 +83,14 @@ int main(int argc, char** argv) {
     // create a model using the API directly and serialize it to a stream
     if (!wts_name.empty()) {
         IHostMemory* modelStream = nullptr;
-
         APIToModel(BATCH_SIZE, &modelStream, wts_name, sub_type);
-        assert(modelStream != nullptr);
         std::ofstream p(engine_name, std::ios::binary);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
-        modelStream->destroy();
+        delete modelStream;
         return 0;
     }
 
@@ -203,9 +195,9 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
     CUDA_CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
+    delete context;
+    delete engine;
+    delete runtime;
 
     // Print histogram of the output distribution
     //std::cout << "\nOutput:\n\n";

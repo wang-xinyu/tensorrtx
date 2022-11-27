@@ -8,7 +8,7 @@
 
 using namespace nvinfer1;
 
-ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -451,20 +451,20 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -752,21 +752,20 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1021,22 +1020,20 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-
-    network->destroy();
+    delete network;
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1270,21 +1267,20 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1549,20 +1545,20 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     config->setFlag(BuilderFlag::kFP16);
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1749,26 +1745,25 @@ ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     config->setFlag(BuilderFlag::kFP16);
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
+IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
-
 
     /* ------ yolov7-tiny backbone------ */
     // [32, 3, 2, None, 1, nn.LeakyReLU(0.1)]]---> outch、ksize、stride、padding、groups------
@@ -2133,16 +2128,16 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
-    return engine;
+    return serialized_model;
 }
 
