@@ -1,8 +1,8 @@
 #include "preprocess.h"
 #include "cuda_utils.h"
 
-uint8_t* img_buffer_host = nullptr;
-uint8_t* img_buffer_device = nullptr;
+static uint8_t* img_buffer_host = nullptr;
+static uint8_t* img_buffer_device = nullptr;
 
 struct AffineMatrix{
   float value[6];

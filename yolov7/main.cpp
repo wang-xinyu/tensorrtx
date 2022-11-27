@@ -7,8 +7,6 @@
 #include "postprocess.h"
 #include <chrono>
 
-#define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000  // max input image buffer size
-
 using namespace nvinfer1;
 
 const static int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
@@ -140,7 +138,7 @@ int main(int argc, char** argv) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
-  cuda_preprocess_init(MAX_IMAGE_INPUT_SIZE_THRESH);
+  cuda_preprocess_init(kMaxInputImageSize);
 
   // Prepare cpu and gpu buffers
   float* device_buffers[2];
