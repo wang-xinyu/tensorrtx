@@ -55,7 +55,7 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
   void attachToContext(
       cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) TRT_NOEXCEPT override;
 
-  void configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) TRT_NOEXCEPT override;
+  void configurePlugin(PluginTensorDesc const* in, int nbInput, PluginTensorDesc const* out, int nbOutput) TRT_NOEXCEPT override;
 
   void detachFromContext() TRT_NOEXCEPT override;
 

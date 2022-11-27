@@ -8,7 +8,7 @@
 
 using namespace nvinfer1;
 
-ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -437,8 +437,6 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
-
-
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.261", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(kOutputTensorName);
@@ -448,23 +446,29 @@ ICudaEngine* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -737,9 +741,6 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
-
-
-
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.162", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(kOutputTensorName);
@@ -749,24 +750,29 @@ ICudaEngine* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1006,9 +1012,6 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
-
-
-
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.140", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(kOutputTensorName);
@@ -1018,25 +1021,29 @@ ICudaEngine* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-
-    network->destroy();
+    delete network;
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
+    for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1045,7 +1052,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 
     /*----------------------------------yolov7w6 backbone-----------------------------------------*/
     auto* conv0 = ReOrg(network, weightMap, *data, 3);
-
 
     IElementWiseLayer* conv1 = convBnSilu(network, weightMap, *conv0->getOutput(0), 64, 3, 1, 1, "model.1");
 
@@ -1058,8 +1064,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv6 = convBnSilu(network, weightMap, *conv5->getOutput(0), 64, 3, 1, 1, "model.6");
     IElementWiseLayer* conv7 = convBnSilu(network, weightMap, *conv6->getOutput(0), 64, 3, 1, 1, "model.7");
     IElementWiseLayer* conv8 = convBnSilu(network, weightMap, *conv7->getOutput(0), 64, 3, 1, 1, "model.8");
-
-
 
     ITensor* input_tensor_9[] = { conv8->getOutput(0), conv6->getOutput(0), conv4->getOutput(0), conv3->getOutput(0) };
     IConcatenationLayer* concat9 = network->addConcatenation(input_tensor_9, 4);
@@ -1091,8 +1095,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IConcatenationLayer* concat27 = network->addConcatenation(input_tensor_27, 4);
     concat27->setAxis(0);
 
-
-
     IElementWiseLayer* conv28 = convBnSilu(network, weightMap, *concat27->getOutput(0), 512, 1, 1, 0, "model.28");
 
     IElementWiseLayer* conv29 = convBnSilu(network, weightMap, *conv28->getOutput(0), 768, 3, 2, 1, "model.29");
@@ -1119,10 +1121,8 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IConcatenationLayer* concat45 = network->addConcatenation(input_tensor_45, 4);
     IElementWiseLayer* conv46 = convBnSilu(network, weightMap, *concat45->getOutput(0), 1024, 1, 1, 0, "model.46");
 
-    //----------------head============================
     auto conv47 = SPPCSPC(network, weightMap, *conv46->getOutput(0), 512, "model.47");
     IElementWiseLayer* conv48 = convBnSilu(network, weightMap, *conv47->getOutput(0), 384, 1, 1, 0, "model.48");
-
 
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* re49 = network->addResize(*conv48->getOutput(0));
@@ -1140,7 +1140,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv56 = convBnSilu(network, weightMap, *conv55->getOutput(0), 192, 3, 1, 1, "model.56");
     IElementWiseLayer* conv57 = convBnSilu(network, weightMap, *conv56->getOutput(0), 192, 3, 1, 1, "model.57");
 
-
     ITensor* input_tensor_58[] = { conv57->getOutput(0), conv56->getOutput(0), conv55->getOutput(0), conv54->getOutput(0), conv53->getOutput(0), conv52->getOutput(0) };
     IConcatenationLayer* concat58 = network->addConcatenation(input_tensor_58, 6);
 
@@ -1153,7 +1152,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv62 = convBnSilu(network, weightMap, *conv28->getOutput(0), 256, 1, 1, 0, "model.62");
     ITensor* input_tensor_63[] = { conv62->getOutput(0), re61->getOutput(0) };
     IConcatenationLayer* concat63 = network->addConcatenation(input_tensor_63, 2);
-
 
     IElementWiseLayer* conv64 = convBnSilu(network, weightMap, *concat63->getOutput(0), 256, 1, 1, 0, "model.64");
     IElementWiseLayer* conv65 = convBnSilu(network, weightMap, *concat63->getOutput(0), 256, 1, 1, 0, "model.65");
@@ -1219,7 +1217,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 
     IElementWiseLayer* conv104 = convBnSilu(network, weightMap, *conv103->getOutput(0), 512, 3, 2, 1, "model.104");
 
-
     ITensor* input_tensor_105[] = { conv104->getOutput(0), conv47->getOutput(0) };
     IConcatenationLayer* concat105 = network->addConcatenation(input_tensor_105, 2);
 
@@ -1234,13 +1231,10 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IConcatenationLayer* concat112 = network->addConcatenation(input_tensor_112, 6);
 
     IElementWiseLayer* conv113 = convBnSilu(network, weightMap, *concat112->getOutput(0), 512, 1, 1, 0, "model.113");
-
     IElementWiseLayer* conv114 = convBnSilu(network, weightMap, *conv83->getOutput(0), 256, 3, 1, 1, "model.114");
     IElementWiseLayer* conv115 = convBnSilu(network, weightMap, *conv93->getOutput(0), 512, 3, 1, 1, "model.115");
     IElementWiseLayer* conv116 = convBnSilu(network, weightMap, *conv103->getOutput(0), 768, 3, 1, 1, "model.116");
     IElementWiseLayer* conv117 = convBnSilu(network, weightMap, *conv113->getOutput(0), 1024, 3, 1, 1, "model.117");
-
-
 
     // out
     IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv114->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.0.weight"], weightMap["model.118.m.0.bias"]);
@@ -1256,8 +1250,6 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
-
-
     /*------------detect-----------*/
     auto yolo = addYoLoLayer(network, weightMap, "model.118", std::vector<IConvolutionLayer*>{cv105_0, cv105_1, cv105_2, cv105_3});
     yolo->getOutput(0)->setName(kOutputTensorName);
@@ -1267,24 +1259,29 @@ ICudaEngine* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
-
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
 
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1539,30 +1536,37 @@ ICudaEngine* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     assert(det2);
     det2->setName("det2");
 
-
     auto yolo = addYoLoLayer(network, weightMap, "model.121", std::vector<IConvolutionLayer*>{det0, det1, det2});
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
+IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -1746,29 +1750,36 @@ ICudaEngine* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
 
     builder->setMaxBatchSize(maxBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
-    return engine;
+    return serialized_model;
 }
 
-ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
+IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
-
 
     /* ------ yolov7-tiny backbone------ */
     // [32, 3, 2, None, 1, nn.LeakyReLU(0.1)]]---> outch、ksize、stride、padding、groups------
@@ -1795,7 +1806,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv5 = convBlockLeakRelu(network, weightMap, *conv4->getOutput(0), 32, 3, 1, 1, "model.5");
     assert(conv5);
 
-
     ITensor* input_tensor_6[] = { conv5->getOutput(0), conv4->getOutput(0), conv3->getOutput(0), conv2->getOutput(0) };
     auto cat6 = network->addConcatenation(input_tensor_6, 4);
     //cat6->setAxis(0);
@@ -1804,11 +1814,9 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv7 = convBlockLeakRelu(network, weightMap, *cat6->getOutput(0), 64, 1, 1, 0, "model.7");
     assert(conv7);
 
-
     auto* pool8 = network->addPoolingNd(*conv7->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     assert(pool8);
     pool8->setStrideNd(DimsHW{ 2, 2 });
-
 
     //[-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]] ,
     auto conv9 = convBlockLeakRelu(network, weightMap, *pool8->getOutput(0), 64, 1, 1, 0, "model.9");
@@ -1831,7 +1839,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 14
     auto conv14 = convBlockLeakRelu(network, weightMap, *cat13->getOutput(0), 128, 1, 1, 0, "model.14");
     assert(conv14);
-
 
     auto* pool15 = network->addPoolingNd(*conv14->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     assert(pool15);
@@ -1857,12 +1864,9 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv21 = convBlockLeakRelu(network, weightMap, *cat20->getOutput(0), 256, 1, 1, 0, "model.21");
     assert(conv21);
 
-
     auto* pool22 = network->addPoolingNd(*conv21->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     assert(pool22);
     pool22->setStrideNd(DimsHW{ 2, 2 });
-
-
 
     // [-1, 1, Conv, [256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv23 = convBlockLeakRelu(network, weightMap, *pool22->getOutput(0), 256, 1, 1, 0, "model.23");
@@ -1916,8 +1920,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     pool33->setStrideNd(DimsHW{ 1, 1 });
     pool33->setPaddingNd(DimsHW{ 6, 6 });
 
-
-
     ITensor* input_tensor_34[] = { pool33->getOutput(0), pool32->getOutput(0), pool31->getOutput(0), conv30->getOutput(0) };
     auto cat34 = network->addConcatenation(input_tensor_34, 4);
     //cat34->setAxis(0);
@@ -1925,10 +1927,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     // [-1, 1, Conv, [256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv35 = convBlockLeakRelu(network, weightMap, *cat34->getOutput(0), 256, 1, 1, 0, "model.35");
     assert(conv35);
-
-
-
-
 
     ITensor* input_tensor_36[] = { conv35->getOutput(0), conv29->getOutput(0) };
     auto cat36 = network->addConcatenation(input_tensor_36, 2);
@@ -1942,7 +1940,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv38 = convBlockLeakRelu(network, weightMap, *conv37->getOutput(0), 128, 1, 1, 0, "model.38");
     assert(conv38);
 
-
     float scale[] = { 1.0, 2.0, 2.0 };
     IResizeLayer* resize39 = network->addResize(*conv38->getOutput(0));
     resize39->setResizeMode(ResizeMode::kNEAREST);
@@ -1952,13 +1949,9 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv40 = convBlockLeakRelu(network, weightMap, *conv21->getOutput(0), 128, 1, 1, 0, "model.40");
     assert(conv40);
 
-
-
     ITensor* input_tensor_41[] = { conv40->getOutput(0), resize39->getOutput(0) };
     auto cat41 = network->addConcatenation(input_tensor_41, 2);
     //cat41->setAxis(0);
-
-
 
     //   [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv42 = convBlockLeakRelu(network, weightMap, *cat41->getOutput(0), 64, 1, 1, 0, "model.42");
@@ -1976,7 +1969,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv45 = convBlockLeakRelu(network, weightMap, *conv44->getOutput(0), 64, 3, 1, 1, "model.45");
     assert(conv45);
 
-
     ITensor* input_tensor_46[] = { conv45->getOutput(0), conv44->getOutput(0), conv43->getOutput(0), conv42->getOutput(0) };
     auto cat46 = network->addConcatenation(input_tensor_46, 4);
     //cat46->setAxis(0);
@@ -1989,8 +1981,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv48 = convBlockLeakRelu(network, weightMap, *conv47->getOutput(0), 64, 1, 1, 0, "model.48");
     assert(conv48);
 
-
-
     IResizeLayer* resize49 = network->addResize(*conv48->getOutput(0));
     resize49->setResizeMode(ResizeMode::kNEAREST);
     resize49->setScales(scale, 3);
@@ -1999,12 +1989,9 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv50 = convBlockLeakRelu(network, weightMap, *conv14->getOutput(0), 64, 1, 1, 0, "model.50");
     assert(conv50);
 
-    
-
     ITensor* input_tensor_51[] = { conv50->getOutput(0), resize49->getOutput(0) };
     IConcatenationLayer* cat51 = network->addConcatenation(input_tensor_51, 2);
     //cat51->setAxis(0);
-
 
     //    [-1, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv52 = convBlockLeakRelu(network, weightMap, *cat51->getOutput(0), 32, 1, 1, 0, "model.52");
@@ -2020,7 +2007,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv55 = convBlockLeakRelu(network, weightMap, *conv54->getOutput(0), 32, 3, 1, 1, "model.55");
     assert(conv55);
 
-
     ITensor* input_tensor_56[] = { conv55->getOutput(0), conv54->getOutput(0), conv53->getOutput(0),conv52->getOutput(0) };
     IConcatenationLayer* cat56 = network->addConcatenation(input_tensor_56, 4);
     //cat56->setAxis(0);
@@ -2034,12 +2020,9 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(conv58);
 
     // conv32   [[-1, 47], 1, Concat, [1]],
-
-
     ITensor* input_tensor_59[] = { conv58->getOutput(0), conv47->getOutput(0) };
     IConcatenationLayer* cat59 = network->addConcatenation(input_tensor_59, 2);
     //cat59->setAxis(0);
-
 
     //    [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv60 = convBlockLeakRelu(network, weightMap, *cat59->getOutput(0), 64, 1, 1, 0, "model.60");
@@ -2055,7 +2038,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv63 = convBlockLeakRelu(network, weightMap, *conv62->getOutput(0), 64, 3, 1, 1, "model.63");
     assert(conv63);
 
-
     ITensor* input_tensor_64[] = { conv63->getOutput(0), conv62->getOutput(0), conv61->getOutput(0), conv60->getOutput(0) };
     IConcatenationLayer* cat64 = network->addConcatenation(input_tensor_64, 4);
     //cat64->setAxis(0);
@@ -2064,11 +2046,9 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv65 = convBlockLeakRelu(network, weightMap, *cat64->getOutput(0), 128, 1, 1, 0, "model.65");
     assert(conv65);
 
-
     //[-1, 1, Conv, [256, 3, 2, None, 1, nn.LeakyReLU(0.1)]] ,
     auto conv66 = convBlockLeakRelu(network, weightMap, *conv65->getOutput(0), 256, 3, 2, 1, "model.66");
     assert(conv66);
-
 
     ITensor* input_tensor_67[] = { conv66->getOutput(0), conv37->getOutput(0) };
     IConcatenationLayer* cat67 = network->addConcatenation(input_tensor_67, 2);
@@ -2084,10 +2064,10 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     //   [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv70 = convBlockLeakRelu(network, weightMap, *conv69->getOutput(0), 128, 3, 1, 1, "model.70");
     assert(conv70);
+
     //   [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv71 = convBlockLeakRelu(network, weightMap, *conv70->getOutput(0), 128, 3, 1, 1, "model.71");
     assert(conv71);
-
 
     ITensor* input_tensor_72[] = { conv71->getOutput(0), conv70->getOutput(0), conv69->getOutput(0), conv68->getOutput(0) };
     IConcatenationLayer* cat72 = network->addConcatenation(input_tensor_72, 4);
@@ -2115,7 +2095,6 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
 
     IConvolutionLayer* det2 = network->addConvolutionNd(*conv76->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.2.weight"], weightMap["model.77.m.2.bias"]);
 
-
     auto yolo = addYoLoLayer(network, weightMap, "model.77", std::vector<IConvolutionLayer*>{det0, det1, det2});
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
@@ -2133,16 +2112,16 @@ ICudaEngine* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
 #endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    network->destroy();
+    delete network;
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
-    return engine;
+    return serialized_model;
 }
 
