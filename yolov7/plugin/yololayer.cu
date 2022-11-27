@@ -120,7 +120,7 @@ bool YoloLayerPlugin::canBroadcastInputAcrossBatch(int inputIndex) const TRT_NOE
   return false;
 }
 
-void YoloLayerPlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) TRT_NOEXCEPT {}
+void YoloLayerPlugin::configurePlugin(PluginTensorDesc const* in, int nbInput, PluginTensorDesc const* out, int nbOutput) TRT_NOEXCEPT {}
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void YoloLayerPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) TRT_NOEXCEPT {}
