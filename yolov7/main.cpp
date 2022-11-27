@@ -7,7 +7,6 @@
 #include "postprocess.h"
 #include <chrono>
 
-#define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000  // max input image buffer size
 
 using namespace nvinfer1;
@@ -83,7 +82,7 @@ int main(int argc, char** argv) {
     // create a model using the API directly and serialize it to a stream
     if (!wts_name.empty()) {
         IHostMemory* modelStream = nullptr;
-        APIToModel(BATCH_SIZE, &modelStream, wts_name, sub_type);
+        APIToModel(kBatchSize, &modelStream, wts_name, sub_type);
         std::ofstream p(engine_name, std::ios::binary);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
@@ -116,7 +115,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    static float prob[BATCH_SIZE * kOutputSize];
+    static float prob[kBatchSize * kOutputSize];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
@@ -133,8 +132,8 @@ int main(int argc, char** argv) {
     assert(inputIndex == 0);
     assert(outputIndex == 1);
     // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], BATCH_SIZE * 3 * kInputH * kInputW * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], BATCH_SIZE * kOutputSize * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], kBatchSize * kOutputSize * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
@@ -146,10 +145,10 @@ int main(int argc, char** argv) {
     // prepare input data cache in device memory
     CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
     int fcount = 0;
-    std::vector<cv::Mat> imgs_buffer(BATCH_SIZE);
+    std::vector<cv::Mat> imgs_buffer(kBatchSize);
     for (int f = 0; f < (int)file_names.size(); f++) {
         fcount++;
-        if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
+        if (fcount < kBatchSize && f + 1 != (int)file_names.size()) continue;
         //auto start = std::chrono::system_clock::now();
         float* buffer_idx = (float*)buffers[inputIndex];
         for (int b = 0; b < fcount; b++) {
@@ -167,7 +166,7 @@ int main(int argc, char** argv) {
         }
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
+        doInference(*context, stream, (void**)buffers, prob, kBatchSize);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Detection>> batch_res(fcount);
