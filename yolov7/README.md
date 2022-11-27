@@ -10,6 +10,11 @@ The tensorrt code is derived from [QIANXUNZDL123/tensorrtx-yolov7](https://githu
 <a href="https://github.com/lindsayshuo"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/wang-xinyu"><img src="https://avatars.githubusercontent.com/u/15235574?s=48&v=4" width="40px;" alt=""/></a> 
 
+## Requirements
+
+- TensorRT 8.0+
+- OpenCV 3.4.0+
+
 ## Different versions of yolov7
 
 Currently, we support yolov7 v0.1
@@ -71,11 +76,7 @@ python yolov7_trt.py
 4. serialize the model and test
 
 <p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg">
-</p>
-
-<p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78247970-60b27c00-751e-11ea-88df-41473fed4823.jpg">
+<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg" height="360px;">
 </p>
 
 ## More Information

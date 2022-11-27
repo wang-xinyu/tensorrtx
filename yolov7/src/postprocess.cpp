@@ -72,3 +72,22 @@ void nms(std::vector<Detection>& res, float *output, float conf_thresh, float nm
     }
 }
 
+void batch_nms(std::vector<std::vector<Detection>>& res_batch, float *output, int batch_size, int output_size, float conf_thresh, float nms_thresh) {
+  res_batch.resize(batch_size);
+  for (int i = 0; i < batch_size; i++) {
+    nms(res_batch[i], &output[i * output_size], conf_thresh, nms_thresh);
+  }
+}
+
+void draw_bbox(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detection>>& res_batch) {
+  for (size_t i = 0; i < img_batch.size(); i++) {
+    auto& res = res_batch[i];
+    cv::Mat img = img_batch[i];
+    for (size_t j = 0; j < res.size(); j++) {
+      cv::Rect r = get_rect(img, res[j].bbox);
+      cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+      cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+    }
+  }
+}
+
