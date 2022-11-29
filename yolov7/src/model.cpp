@@ -1295,7 +1295,6 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv2 = convBnSilu(network, weightMap, *conv1->getOutput(0), 80, 3, 1, 1, "model.2");
     IElementWiseLayer* conv3 = convBnSilu(network, weightMap, *conv2->getOutput(0), 160, 3, 2, 1, "model.3");
 
-
     IElementWiseLayer* conv4 = convBnSilu(network, weightMap, *conv3->getOutput(0), 64, 1, 1, 0, "model.4");
 
     IElementWiseLayer* conv5 = convBnSilu(network, weightMap, *conv3->getOutput(0), 64, 1, 1, 0, "model.5");
@@ -1306,12 +1305,10 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv10 = convBnSilu(network, weightMap, *conv9->getOutput(0), 64, 3, 1, 1, "model.10");
     IElementWiseLayer* conv11 = convBnSilu(network, weightMap, *conv10->getOutput(0), 64, 3, 1, 1, "model.11");
 
-    ITensor* input_tensor_12[] = { conv11->getOutput(0), conv9->getOutput(0), conv7->getOutput(0), conv5->getOutput(0),conv4->getOutput(0) };
+    ITensor* input_tensor_12[] = { conv11->getOutput(0), conv9->getOutput(0), conv7->getOutput(0), conv5->getOutput(0), conv4->getOutput(0) };
     IConcatenationLayer* concat12 = network->addConcatenation(input_tensor_12, 5);
     //concat9->setAxis(0);
     IElementWiseLayer* conv13 = convBnSilu(network, weightMap, *concat12->getOutput(0), 320, 1, 1, 0, "model.13");
-
-
 
     IPoolingLayer* mp1 = network->addPoolingNd(*conv13->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
     mp1->setStrideNd(DimsHW{ 2, 2 });
@@ -1342,11 +1339,12 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
 
     IPoolingLayer* mp2 = network->addPoolingNd(*conv28->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
-    mp1->setStrideNd(DimsHW{ 2, 2 });
+    mp2->setStrideNd(DimsHW{ 2, 2 });
     IElementWiseLayer* conv30 = convBnSilu(network, weightMap, *mp2->getOutput(0), 320, 1, 1, 0, "model.30");
 
     IElementWiseLayer* conv31 = convBnSilu(network, weightMap, *conv28->getOutput(0), 320, 1, 1, 0, "model.31");
     IElementWiseLayer* conv32 = convBnSilu(network, weightMap, *conv31->getOutput(0), 320, 3, 2, 1, "model.32");
+
     ITensor* input_tensor_33[] = { conv32->getOutput(0), conv30->getOutput(0) };
     IConcatenationLayer* concat33 = network->addConcatenation(input_tensor_33, 2);
     //IConcatenationLayer* mp2 = MPC3(network, weightMap, *conv28->getOutput(0), 320, "model.30", "model.31", "model.32");
@@ -1369,7 +1367,7 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
 
     IPoolingLayer* mp3 = network->addPoolingNd(*conv43->getOutput(0), PoolingType::kMAX, DimsHW{ 2, 2 });
-    mp1->setStrideNd(DimsHW{ 2, 2 });
+    mp3->setStrideNd(DimsHW{ 2, 2 });
     IElementWiseLayer* conv45 = convBnSilu(network, weightMap, *mp3->getOutput(0), 640, 1, 1, 0, "model.45");
 
     IElementWiseLayer* conv46 = convBnSilu(network, weightMap, *conv43->getOutput(0), 640, 1, 1, 0, "model.46");
@@ -1786,7 +1784,7 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv0 = convBlockLeakRelu(network, weightMap, *data, 32, 3, 2, 1, "model.0");
     assert(conv0);
 
-    // [-1, 1, Conv, [64, 3, 2, None, 1, nn.LeakyReLU(0.1)]],  # 1-P2/4    
+    // [-1, 1, Conv, [64, 3, 2, None, 1, nn.LeakyReLU(0.1)]],  # 1-P2/4
     auto conv1 = convBlockLeakRelu(network, weightMap, *conv0->getOutput(0), 64, 3, 2, 1, "model.1");
     assert(conv1);
 
@@ -1907,7 +1905,7 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto* pool31 = network->addPoolingNd(*conv30->getOutput(0), PoolingType::kMAX, DimsHW{ 5, 5 });
     assert(pool31);
     pool31->setStrideNd(DimsHW{ 1, 1 });
-    pool31->setPaddingNd(DimsHW{2,2});
+    pool31->setPaddingNd(DimsHW{ 2, 2 });
     // [-2, 1, SP, [9]],
     auto* pool32 = network->addPoolingNd(*conv30->getOutput(0), PoolingType::kMAX, DimsHW{ 9, 9 });
     assert(pool32);
@@ -1985,7 +1983,7 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     resize49->setResizeMode(ResizeMode::kNEAREST);
     resize49->setScales(scale, 3);
 
-    //   [14, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]], # route backbone P3        conv11
+    // [14, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]], # route backbone P3 conv11
     auto conv50 = convBlockLeakRelu(network, weightMap, *conv14->getOutput(0), 64, 1, 1, 0, "model.50");
     assert(conv50);
 
@@ -1993,17 +1991,17 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     IConcatenationLayer* cat51 = network->addConcatenation(input_tensor_51, 2);
     //cat51->setAxis(0);
 
-    //    [-1, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv52 = convBlockLeakRelu(network, weightMap, *cat51->getOutput(0), 32, 1, 1, 0, "model.52");
     assert(conv52);
-    //   [-2, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-2, 1, Conv, [32, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv53 = convBlockLeakRelu(network, weightMap, *cat51->getOutput(0), 32, 1, 1, 0, "model.53");
     assert(conv53);
 
-    //  [-1, 1, Conv, [32, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [32, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv54 = convBlockLeakRelu(network, weightMap, *conv53->getOutput(0), 32, 3, 1, 1, "model.54");
     assert(conv54);
-    //   [-1, 1, Conv, [32, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [32, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv55 = convBlockLeakRelu(network, weightMap, *conv54->getOutput(0), 32, 3, 1, 1, "model.55");
     assert(conv55);
 
@@ -2011,30 +2009,30 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     IConcatenationLayer* cat56 = network->addConcatenation(input_tensor_56, 4);
     //cat56->setAxis(0);
 
-    //    [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 57
+    // [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 57
     auto conv57 = convBlockLeakRelu(network, weightMap, *cat56->getOutput(0), 64, 1, 1, 0, "model.57");
     assert(conv57);
 
-    //   [-1, 1, Conv, [128, 3, 2, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [128, 3, 2, None, 1, nn.LeakyReLU(0.1)]],
     auto conv58 = convBlockLeakRelu(network, weightMap, *conv57->getOutput(0), 128, 3, 2, 1, "model.58");
     assert(conv58);
 
-    // conv32   [[-1, 47], 1, Concat, [1]],
+    // conv32 [[-1, 47], 1, Concat, [1]],
     ITensor* input_tensor_59[] = { conv58->getOutput(0), conv47->getOutput(0) };
     IConcatenationLayer* cat59 = network->addConcatenation(input_tensor_59, 2);
     //cat59->setAxis(0);
 
-    //    [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv60 = convBlockLeakRelu(network, weightMap, *cat59->getOutput(0), 64, 1, 1, 0, "model.60");
     assert(conv60);
-    //    [-2, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-2, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv61 = convBlockLeakRelu(network, weightMap, *cat59->getOutput(0), 64, 1, 1, 0, "model.61");
     assert(conv61);
 
-    //   [-1, 1, Conv, [64, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [64, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv62 = convBlockLeakRelu(network, weightMap, *conv61->getOutput(0), 64, 3, 1, 1, "model.62");
     assert(conv62);
-    //   [-1, 1, Conv, [64, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [64, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv63 = convBlockLeakRelu(network, weightMap, *conv62->getOutput(0), 64, 3, 1, 1, "model.63");
     assert(conv63);
 
@@ -2046,7 +2044,7 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv65 = convBlockLeakRelu(network, weightMap, *cat64->getOutput(0), 128, 1, 1, 0, "model.65");
     assert(conv65);
 
-    //[-1, 1, Conv, [256, 3, 2, None, 1, nn.LeakyReLU(0.1)]] ,
+    // [-1, 1, Conv, [256, 3, 2, None, 1, nn.LeakyReLU(0.1)]] ,
     auto conv66 = convBlockLeakRelu(network, weightMap, *conv65->getOutput(0), 256, 3, 2, 1, "model.66");
     assert(conv66);
 
@@ -2057,15 +2055,15 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     // [-1, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv68 = convBlockLeakRelu(network, weightMap, *cat67->getOutput(0), 128, 1, 1, 0, "model.68");
     assert(conv68);
-    //   [-2, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-2, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv69 = convBlockLeakRelu(network, weightMap, *cat67->getOutput(0), 128, 1, 1, 0, "model.69");
     assert(conv69);
 
-    //   [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv70 = convBlockLeakRelu(network, weightMap, *conv69->getOutput(0), 128, 3, 1, 1, "model.70");
     assert(conv70);
 
-    //   [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [-1, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv71 = convBlockLeakRelu(network, weightMap, *conv70->getOutput(0), 128, 3, 1, 1, "model.71");
     assert(conv71);
 
@@ -2073,7 +2071,7 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     IConcatenationLayer* cat72 = network->addConcatenation(input_tensor_72, 4);
     //cat72->setAxis(0);
 
-    //    [-1, 1, Conv, [256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 73
+    // [-1, 1, Conv, [256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 73
     auto conv73 = convBlockLeakRelu(network, weightMap, *cat72->getOutput(0), 256, 1, 1, 0, "model.73");
     assert(conv73);
 
@@ -2081,10 +2079,10 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     // [57, 1, Conv, [128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv74 = convBlockLeakRelu(network, weightMap, *conv57->getOutput(0), 128, 3, 1, 1, "model.74");
     assert(conv74);
-    //    [65, 1, Conv, [256, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [65, 1, Conv, [256, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv75 = convBlockLeakRelu(network, weightMap, *conv65->getOutput(0), 256, 3, 1, 1, "model.75");
     assert(conv75);
-    //    [73, 1, Conv, [512, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+    // [73, 1, Conv, [512, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
     auto conv76 = convBlockLeakRelu(network, weightMap, *conv73->getOutput(0), 512, 3, 1, 1, "model.76");
     assert(conv76);
 
