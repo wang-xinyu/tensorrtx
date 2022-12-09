@@ -1,4 +1,4 @@
-﻿#include "config.h"
+#include "config.h"
 #include "model.h"
 #include "cuda_utils.h"
 #include "logging.h"
@@ -6,6 +6,7 @@
 #include "preprocess.h"
 #include "postprocess.h"
 #include <chrono>
+#include <fstream>
 
 using namespace nvinfer1;
 
