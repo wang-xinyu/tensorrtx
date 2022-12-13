@@ -273,8 +273,8 @@ int main(int argc, char** argv) {
 	char* trtModelStream{ nullptr };
 	size_t size{ 0 };
 	std::string engine_name = "unet.engine";
-	std::vector<std::string> file_names;
-	std::string wtsPath = "..\\models\\unet_carvana_scale0.5_epoch2.wts";
+	std::vector<cv::String> file_names;
+	std::string wtsPath = "unet.wts";
 	if (argc == 2 && std::string(argv[1]) == "-s") {
 		IHostMemory* modelStream{ nullptr };
 		APIToModel(BATCH_SIZE, &modelStream, wtsPath);
@@ -365,10 +365,10 @@ int main(int argc, char** argv) {
 				results.at<cv::Vec3b>(i) = cv::Vec3b(0, 0, 0);
 			}
 		}
-		cv::imshow(" results", results);
+		// cv::imshow(" results", results);
 		cv::imwrite(f + "_unet.jpg", results);
 
-		cv::waitKey(0);
+		// cv::waitKey(0);
 		results = cv::Mat::zeros(INPUT_H, INPUT_W, CV_8UC3);
 
 	}
