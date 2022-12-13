@@ -13,8 +13,8 @@ include_directories(/usr/local/cuda/include/)
 link_directories(/usr/local/cuda/lib64/)
 
 # tensorrt
-include_directories(/workspace/TensorRT-8.4.1.5/include/)
-link_directories(/workspace/TensorRT-8.4.1.5/lib/)
+include_directories(/workspace/TensorRT-7.2.3.4/include/)
+link_directories(/workspace/TensorRT-7.2.3.4/lib/)
 
 # opencv library
 find_package(OpenCV)
