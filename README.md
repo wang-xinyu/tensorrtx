@@ -1,15 +1,21 @@
 # TensorRTx
 
-TensorRTx aims to implement popular deep learning networks with tensorrt network definition APIs. As we know, tensorrt has builtin parsers, including caffeparser, uffparser, onnxparser, etc. But when we use these parsers, we often run into some "unsupported operations or layers" problems, especially some state-of-the-art models are using new type of layers.
+TensorRTx aims to implement popular deep learning networks with TensorRT network definition API.
 
-So why don't we just skip all parsers? Instead, build the entire network directly using the tensorrt network definition API, which is not that complicated.
+Why don't we use a parser (ONNX parser, UFF parser, caffe parser, etc), but use complex APIs to build a network from scratch? I have summarized the advantages in the following aspects.
+- **Flexible**, easy to modify the network, add/delete a layer or input/output tensor, replace a layer, merge layers, integrate preprocessing and postprocessing into network, etc.
+- **Debuggable**, construct the entire network in an incremental development manner, easy to get middle layer results.
+- **Chance to learn**, learn about the network structure during this development, rather than treating everything as a black box.
 
-I wrote this project to get familiar with tensorrt API, and also to share and learn from the community.
-
-Get the trained models from pytorch, mxnet or tensorflow, etc. Export the weights to [.wts file](./tutorials/getting_started.md#the-wts-content-format). Then load weights in tensorrt, define network and do inference. Some pytorch models can be found in my repo [pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from popular open-source repo.
+The basic workflow of TensorRTx is:
+1. Get the trained models from pytorch, mxnet or tensorflow, etc. Some pytorch models can be found in my repo [pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from popular open-source repos.
+2. Export the weights to a plain text file -- [.wts file](./tutorials/getting_started.md#the-wts-content-format).
+3. Load weights in TensorRT, define the network, build a TensorRT engine.
+4. Load the TensorRT engine and run inference.
 
 ## News
 
+- `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 - `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
 - `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.
 - `7 Sep 2022`. [xiang-wuu](https://github.com/xiang-wuu): YOLOv5 v6.2 classification models.
@@ -24,7 +30,6 @@ Get the trained models from pytorch, mxnet or tensorflow, etc. Export the weight
 - `31 Aug 2021`. [FamousDirector](https://github.com/FamousDirector): update retinaface to support TensorRT 8.0.
 - `27 Aug 2021`. [HaiyangPeng](https://github.com/HaiyangPeng): add a python wrapper for hrnet segmentation.
 - `1 Jul 2021`. [freedenS](https://github.com/freedenS): DE⫶TR: End-to-End Object Detection with Transformers. First Transformer model!
-- `10 Jun 2021`. [upczww](https://github.com/upczww): EfficientNet b0-b8 and l2.
 
 ## Tutorials
 
