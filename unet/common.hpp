@@ -6,7 +6,6 @@
 #include <sstream>
 #include <vector>
 #include <opencv2/opencv.hpp>
-#include <dirent.h>
 #include "NvInfer.h"
 
 #define CHECK(status) \
@@ -95,46 +94,5 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int ksize, int s, int g, std::string lname) {
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
-    int p = ksize / 2;
-    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap[lname + ".conv.weight"], emptywts);
-    assert(conv1);
-    conv1->setStrideNd(DimsHW{s, s});
-    conv1->setPaddingNd(DimsHW{p, p});
-    conv1->setNbGroups(g);
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
-
-    // hard_swish = x * hard_sigmoid
-    auto hsig = network->addActivation(*bn1->getOutput(0), ActivationType::kHARD_SIGMOID);
-    assert(hsig);
-    hsig->setAlpha(1.0 / 6.0);
-    hsig->setBeta(0.5);
-    auto ew = network->addElementWise(*bn1->getOutput(0), *hsig->getOutput(0), ElementWiseOperation::kPROD);
-    assert(ew);
-    return ew;
-}
-
-int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
-    DIR *p_dir = opendir(p_dir_name);
-    if (p_dir == nullptr) {
-        return -1;
-    }
-
-    struct dirent* p_file = nullptr;
-    while ((p_file = readdir(p_dir)) != nullptr) {
-        if (strcmp(p_file->d_name, ".") != 0 &&
-                strcmp(p_file->d_name, "..") != 0) {
-            //std::string cur_file_name(p_dir_name);
-            //cur_file_name += "/";
-            //cur_file_name += p_file->d_name;
-            std::string cur_file_name(p_file->d_name);
-            file_names.push_back(cur_file_name);
-        }
-    }
-
-    closedir(p_dir);
-    return 0;
-}
-
 #endif
+
