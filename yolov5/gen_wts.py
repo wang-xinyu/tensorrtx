@@ -43,6 +43,7 @@ if m_type == "detect":
     delattr(model.model[-1], 'anchor_grid')  # model.model[-1] is detect layer
     # The parameters are saved in the OrderDict through the "register_buffer" method, and then saved to the weight.
     model.model[-1].register_buffer("anchor_grid", anchor_grid)
+    model.model[-1].register_buffer("strides", model.model[-1].stride)
 
 model.to(device).eval()
 
