@@ -294,8 +294,9 @@ IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, 
     plugin_fields[0].length = 4;
     plugin_fields[0].name = "netinfo";
     plugin_fields[0].type = PluginFieldType::kFLOAT32;
+
     //load strides from Detect layer
-    assert(weightMap.find(lname + ".strides") != weightMap.end() && "Not found `strides`!!!, please check gen_wts.py!!!");
+    assert(weightMap.find(lname + ".strides") != weightMap.end() && "Not found `strides`, please check gen_wts.py!!!");
     Weights strides = weightMap[lname + ".strides"];
     auto *p = (const float*)(strides.values);
     std::vector<int> scales(p, p + strides.count);
@@ -304,7 +305,7 @@ IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, 
     for (size_t i = 0; i < anchors.size(); i++) {
         Yolo::YoloKernel kernel;
         kernel.width = Yolo::INPUT_W / scales[i];
-        kernel.height = Yolo::INPUT_H / scale[i];
+        kernel.height = Yolo::INPUT_H / scales[i];
         memcpy(kernel.anchors, &anchors[i][0], anchors[i].size() * sizeof(float));
         kernels.push_back(kernel);
     }
