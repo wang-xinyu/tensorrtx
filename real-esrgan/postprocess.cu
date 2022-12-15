@@ -38,7 +38,7 @@ void postprocess(uint8_t* output, float*input, int batchSize, int height, int wi
 
 namespace nvinfer1
 {
-    int PostprocessPluginV2::enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+    int PostprocessPluginV2::enqueue(int batchSize, const void* const* inputs, void* TRT_CONST_ENQUEUE* outputs, void* workspace, cudaStream_t stream) noexcept
     {
         float* input = (float*)inputs[0];
         uint8_t* output = (uint8_t*)outputs[0];

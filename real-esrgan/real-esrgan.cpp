@@ -5,6 +5,7 @@
 #include "logging.h"
 #include "utils.h"
 #include <unistd.h>//access()
+#include <chrono>
 
 #define DEVICE 0 // GPU id
 #define BATCH_SIZE 1
@@ -117,7 +118,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
-    delete network;
+    network->destroy();
 
     // Release host memory
     for (auto& mem : weightMap)
@@ -142,9 +143,9 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, std::strin
     (*modelStream) = engine->serialize();
 
     // Close everything down
-    delete engine;
-    delete builder;
-    delete config;
+    engine->destroy();
+    builder->destroy();
+    config->destroy();
 }
 
 void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, uint8_t* output, int batchSize) {
@@ -195,8 +196,8 @@ int main(int argc, char** argv) {
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
-        delete modelStream;
-        return 0;
+        modelStream->destroy();
+	return 0;
     }
 
     // deserialize the .engine and run inference
@@ -279,7 +280,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
     CUDA_CHECK(cudaFree(buffers[outputIndex]));
     // Destroy the engine
-    delete context;
-    delete engine;
-    delete runtime;
+    context->destroy();
+    engine->destroy();
+    runtime->destroy();
 }

@@ -35,7 +35,7 @@ void preprocess(float* output, uint8_t*input, int batchSize, int height, int wid
 
 namespace nvinfer1
 {
-    int PreprocessPluginV2::enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+    int PreprocessPluginV2::enqueue(int batchSize, const void* const* inputs, void* TRT_CONST_ENQUEUE* outputs, void* workspace, cudaStream_t stream) noexcept
     {
         uint8_t* input = (uint8_t*)inputs[0];
         float* output = (float*)outputs[0];
