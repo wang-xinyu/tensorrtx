@@ -1,12 +1,41 @@
-# yolov5
+# YOLOv5
 
-The Pytorch implementation is [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
+TensorRTx inference code base for [ultralytics/yolov5](https://github.com/ultralytics/yolov5).
+
+## Contributors
+
+<a href="https://github.com/wang-xinyu"><img src="https://avatars.githubusercontent.com/u/15235574?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/BaofengZan"><img src="https://avatars.githubusercontent.com/u/20653176?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/upczww"><img src="https://avatars.githubusercontent.com/u/16224249?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/cesarandreslopez"><img src="https://avatars.githubusercontent.com/u/14029177?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/makaveli10"><img src="https://avatars.githubusercontent.com/u/39617050?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/priteshgohil"><img src="https://avatars.githubusercontent.com/u/43172056?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/rymzt"><img src="https://avatars.githubusercontent.com/u/3270954?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/AsakusaRinne"><img src="https://avatars.githubusercontent.com/u/47343601?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/freedenS"><img src="https://avatars.githubusercontent.com/u/26213470?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/smarttowel"><img src="https://avatars.githubusercontent.com/u/1128528?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/wwqgtxx"><img src="https://avatars.githubusercontent.com/u/582584?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/adujardin"><img src="https://avatars.githubusercontent.com/u/12609780?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/jow905"><img src="https://avatars.githubusercontent.com/u/19189198?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/CristiFati"><img src="https://avatars.githubusercontent.com/u/29705787?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/HaiyangPeng"><img src="https://avatars.githubusercontent.com/u/46739135?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/Armassarion"><img src="https://avatars.githubusercontent.com/u/33727511?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/xupengao"><img src="https://avatars.githubusercontent.com/u/51817015?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/liuqi123123"><img src="https://avatars.githubusercontent.com/u/46275888?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/ASONG0506"><img src="https://avatars.githubusercontent.com/u/26050577?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/bobo0810"><img src="https://avatars.githubusercontent.com/u/26057879?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/Silmeria112"><img src="https://avatars.githubusercontent.com/u/16464837?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/LW-SCU"><img src="https://avatars.githubusercontent.com/u/28128257?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/AdanWang"><img src="https://avatars.githubusercontent.com/u/32757980?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/triple-Mu"><img src="https://avatars.githubusercontent.com/u/92794867?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/xiang-wuu"><img src="https://avatars.githubusercontent.com/u/107029401?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/uyolo1314"><img src="https://avatars.githubusercontent.com/u/101853326?s=48&v=4" width="40px;" alt=""/></a>
 
 ## Different versions of yolov5
 
-Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2.
+Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2
 
-- For yolov5 v6.2, download .pt from [yolov5 release v6.2](https://github.com/ultralytics/yolov5/releases/tag/v6.2), `git clone -b v6.2 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.2 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in current page.
+- For yolov5 v6.2, download .pt from [yolov5 release v6.2](https://github.com/ultralytics/yolov5/releases/tag/v6.2), `git clone -b v6.2 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.2 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.2](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.2/yolov5)
 - For yolov5 v6.0, download .pt from [yolov5 release v6.0](https://github.com/ultralytics/yolov5/releases/tag/v6.0), `git clone -b v6.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.0/yolov5).
 - For yolov5 v5.0, download .pt from [yolov5 release v5.0](https://github.com/ultralytics/yolov5/releases/tag/v5.0), `git clone -b v5.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v5.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v5.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v5.0/yolov5).
 - For yolov5 v4.0, download .pt from [yolov5 release v4.0](https://github.com/ultralytics/yolov5/releases/tag/v4.0), `git clone -b v4.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v4.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v4.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v4.0/yolov5).
@@ -26,13 +55,15 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2.
 - BBox confidence thresh in yolov5.cpp
 - Batch size in yolov5.cpp
 
-## How to Run, yolov5s as example
+## Build and Run
+
+### Detection
 
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
 ```
 // clone code according to above #Different versions of yolov5
-// download https://github.com/ultralytics/yolov5/releases/download/v6.0/yolov5s.pt
+// download https://github.com/ultralytics/yolov5/releases/download/v6.2/yolov5s.pt
 cp {tensorrtx}/yolov5/gen_wts.py {ultralytics}/yolov5
 cd {ultralytics}/yolov5
 python gen_wts.py -w yolov5s.pt -o yolov5s.wts
@@ -72,7 +103,18 @@ python yolov5_trt.py
 python yolov5_trt_cuda_python.py
 ```
 
-5. optional, run yolov5 classification models with similar steps
+### Classification
+
+```
+# Download ImageNet labels
+wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/imagenet_classes.txt
+
+# Build and serialize TensorRT engine
+./yolov5-cls -s yolov5s-cls.wts yolov5s-cls.engine s
+
+# Run inference
+./yolov5-cls -d yolov5s-cls.engine ../samples
+```
 
 # INT8 Quantization
 
@@ -85,11 +127,7 @@ python yolov5_trt_cuda_python.py
 4. serialize the model and test
 
 <p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg">
-</p>
-
-<p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78247970-60b27c00-751e-11ea-88df-41473fed4823.jpg">
+<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg" height="360px;">
 </p>
 
 ## More Information

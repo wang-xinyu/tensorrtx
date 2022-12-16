@@ -69,7 +69,10 @@ std::vector<int> topk(const std::vector<float>& vec, int k) {
 std::vector<std::string> read_classes(std::string file_name) {
     std::vector<std::string> classes;
     std::ifstream ifs(file_name, std::ios::in);
-    assert(ifs.is_open());
+    if (!ifs.is_open()) {
+        std::cerr << file_name << " is not found, pls refer to README and download it." << std::endl;
+        assert(0);
+    }
     std::string s;
     while (std::getline(ifs, s)) {
         classes.push_back(s);
@@ -250,7 +253,7 @@ int main(int argc, char** argv) {
         std::cerr << "read_files_in_dir failed." << std::endl;
         return -1;
     }
-    auto classes = read_classes("../imagenet_classes.txt");
+    auto classes = read_classes("imagenet_classes.txt");
 
     static float data[BATCH_SIZE * 3 * INPUT_H * INPUT_W];
     static float prob[BATCH_SIZE * OUTPUT_SIZE];

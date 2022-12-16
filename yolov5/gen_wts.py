@@ -28,17 +28,18 @@ def parse_args():
 
 
 pt_file, wts_file, m_type = parse_args()
+print(f'Generating .wts for {m_type} model')
 
 # Initialize
 device = select_device('cpu')
 # Load model
+print(f'Loading {pt_file}')
 model = torch.load(pt_file, map_location=device)  # load to FP32
 model = model['ema' if model.get('ema') else 'model'].float()
 
 if m_type == "detect":
     # update anchor_grid info
-    anchor_grid = model.model[-1].anchors * \
-        model.model[-1].stride[..., None, None]
+    anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
     # model.model[-1].anchor_grid = anchor_grid
     delattr(model.model[-1], 'anchor_grid')  # model.model[-1] is detect layer
     # The parameters are saved in the OrderDict through the "register_buffer" method, and then saved to the weight.
@@ -47,6 +48,7 @@ if m_type == "detect":
 
 model.to(device).eval()
 
+print(f'Writing into {wts_file}')
 with open(wts_file, 'w') as f:
     f.write('{}\n'.format(len(model.state_dict().keys())))
     for k, v in model.state_dict().items():
