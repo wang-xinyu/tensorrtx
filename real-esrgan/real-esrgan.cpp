@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
         modelStream->destroy();
-	return 0;
+        return 0;
     }
 
     // deserialize the .engine and run inference
