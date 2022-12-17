@@ -189,7 +189,7 @@ namespace nvinfer1
         int total_grid = yoloWidth * yoloHeight;
         int bnIdx = idx / total_grid;
         idx = idx - total_grid * bnIdx;
-        int info_len_i = 5 + classes;
+        int info_len_i = 5 + classes + 32;
         const float* curInput = input + bnIdx * (info_len_i * total_grid * CHECK_COUNT);
 
         for (int k = 0; k < CHECK_COUNT; ++k) {
@@ -197,7 +197,7 @@ namespace nvinfer1
             if (box_prob < IGNORE_THRESH) continue;
             int class_id = 0;
             float max_cls_prob = 0.0;
-            for (int i = 5; i < info_len_i; ++i) {
+            for (int i = 5; i < 5 + classes; ++i) {
                 float p = Logist(curInput[idx + k * info_len_i * total_grid + i * total_grid]);
                 if (p > max_cls_prob) {
                     max_cls_prob = p;
