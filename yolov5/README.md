@@ -33,8 +33,9 @@ TensorRTx inference code base for [ultralytics/yolov5](https://github.com/ultral
 
 ## Different versions of yolov5
 
-Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2
+Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2, v7.0
 
+- For yolov5 v7.0, download .pt from [yolov5 release v7.0](https://github.com/ultralytics/yolov5/releases/tag/v7.0), `git clone -b v7.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v7.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v7.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v7.0/yolov5)
 - For yolov5 v6.2, download .pt from [yolov5 release v6.2](https://github.com/ultralytics/yolov5/releases/tag/v6.2), `git clone -b v6.2 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.2 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.2](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.2/yolov5)
 - For yolov5 v6.0, download .pt from [yolov5 release v6.0](https://github.com/ultralytics/yolov5/releases/tag/v6.0), `git clone -b v6.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.0/yolov5).
 - For yolov5 v5.0, download .pt from [yolov5 release v5.0](https://github.com/ultralytics/yolov5/releases/tag/v5.0), `git clone -b v5.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v5.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v5.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v5.0/yolov5).
@@ -63,7 +64,7 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2
 
 ```
 // clone code according to above #Different versions of yolov5
-// download https://github.com/ultralytics/yolov5/releases/download/v6.2/yolov5s.pt
+// download https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
 cp {tensorrtx}/yolov5/gen_wts.py {ultralytics}/yolov5
 cd {ultralytics}/yolov5
 python gen_wts.py -w yolov5s.pt -o yolov5s.wts
@@ -114,6 +115,16 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 
 # Run inference
 ./yolov5-cls -d yolov5s-cls.engine ../samples
+```
+
+### Instance Segmentation
+
+```
+# Build and serialize TensorRT engine
+./yolov5-seg -s yolov5s-seg.wts yolov5s-seg.engine s
+
+# Run inference
+./yolov5-seg -d yolov5s-seg.engine ../samples
 ```
 
 # INT8 Quantization

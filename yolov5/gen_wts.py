@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument(
         '-o', '--output', help='Output (.wts) file path (optional)')
     parser.add_argument(
-        '-t', '--type', type=str, default='detect', choices=['detect', 'cls'],
+        '-t', '--type', type=str, default='detect', choices=['detect', 'cls', 'seg'],
         help='determines the model is detection/classification')
     args = parser.parse_args()
     if not os.path.isfile(args.weights):
@@ -37,7 +37,7 @@ print(f'Loading {pt_file}')
 model = torch.load(pt_file, map_location=device)  # load to FP32
 model = model['ema' if model.get('ema') else 'model'].float()
 
-if m_type == "detect":
+if m_type in ['detect', 'seg']:
     # update anchor_grid info
     anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
     # model.model[-1].anchor_grid = anchor_grid
