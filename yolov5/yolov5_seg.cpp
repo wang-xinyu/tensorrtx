@@ -8,18 +8,19 @@
 #include "calibrator.h"
 #include "preprocess.h"
 
-#define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
+#define USE_FP32  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
-#define BATCH_SIZE 3
+#define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
 static const int INPUT_W = Yolo::INPUT_W;
 static const int CLASS_NUM = Yolo::CLASS_NUM;
-static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
+static const int OUTPUT_SIZE1 = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
+static const int OUTPUT_SIZE2 = 32 * (INPUT_H / 4) * (INPUT_W / 4);
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
@@ -92,9 +93,13 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto bottleneck_csp23 = C3(network, weightMap, *cat22->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.23");
     IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (32 + Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
-    auto yolo = addYoLoLayer(network, weightMap, "model.24", std::vector<IConvolutionLayer*>{det0, det1, det2});
+    auto yolo = addYoLoLayer(network, weightMap, "model.24", std::vector<IConvolutionLayer*>{det0, det1, det2}, true);
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
+
+    auto proto = Proto(network, weightMap, *bottleneck_csp17->getOutput(0), get_width(256, gw), 32, "model.24.proto");
+    proto->getOutput(0)->setName("proto");
+    network->markOutput(*proto->getOutput(0));
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
@@ -142,10 +147,11 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, float& gd,
     config->destroy();
 }
 
-void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* output, int batchSize) {
+void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* output1, float* output2, int batchSize) {
     // infer on the batch asynchronously, and DMA output back to host
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output1, buffers[1], batchSize * OUTPUT_SIZE1 * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output2, buffers[2], batchSize * OUTPUT_SIZE2 * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 }
 
@@ -183,6 +189,93 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
         return false;
     }
     return true;
+}
+
+cv::Rect get_downscale_rect(float bbox[4], float scale) {
+  float left = bbox[0] - bbox[2] / 2;
+  float top = bbox[1] - bbox[3] / 2;
+  float right = bbox[0] + bbox[2] / 2;
+  float bottom = bbox[1] + bbox[3] / 2;
+  left /= scale;
+  top /= scale;
+  right /= scale;
+  bottom /= scale;
+  return cv::Rect(round(left), round(top), round(right - left), round(bottom - top));
+}
+
+std::vector<cv::Mat> process_mask(const float* proto, std::vector<Yolo::Detection>& dets) {
+  std::vector<cv::Mat> masks;
+  for (size_t i = 0; i < dets.size(); i++) {
+    cv::Mat mask_mat = cv::Mat::zeros(INPUT_H / 4, INPUT_W / 4, CV_32FC1);
+    auto r = get_downscale_rect(dets[i].bbox, 4);
+    for (int x = r.x; x < r.x + r.width; x++) {
+      for (int y = r.y; y < r.y + r.height; y++) {
+        float e = 0.0f;
+        for (int j = 0; j < 32; j++) {
+          e += dets[i].mask[j] * proto[j * OUTPUT_SIZE2 / 32 + y * mask_mat.cols + x];
+        }
+        e = 1.0f / (1.0f + expf(-e));
+        mask_mat.at<float>(y, x) = e;
+        // if (e > 0.5) {
+        //   // TODO(Call for PR): Use different colors for different class ids
+        //   mask_mat.at<cv::Vec3b>(y, x)[2] = 0xFF;
+        //   mask_mat.at<cv::Vec3b>(y, x)[1] = 0x38;
+        //   mask_mat.at<cv::Vec3b>(y, x)[0] = 0x38;
+        // }
+      }
+    }
+    cv::resize(mask_mat, mask_mat, cv::Size(INPUT_W, INPUT_H));
+    masks.push_back(mask_mat);
+  }
+  return masks;
+}
+
+cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
+  int x, y, w, h;
+  float r_w = INPUT_W / (img.cols * 1.0);
+  float r_h = INPUT_H / (img.rows * 1.0);
+  if (r_h > r_w) {
+    w = INPUT_W;
+    h = r_w * img.rows;
+    x = 0;
+    y = (INPUT_H - h) / 2;
+  } else {
+    w = r_h * img.cols;
+    h = INPUT_H;
+    x = (INPUT_W - w) / 2;
+    y = 0;
+  }
+  cv::Rect r(x, y, w, h);
+  cv::Mat res;
+  cv::resize(mask(r), res, img.size());
+  return res;
+}
+
+void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vector<cv::Mat>& masks) {
+  static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
+                                         0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
+                                         0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
+                                         0xFF95C8, 0xFF37C7};
+  for (size_t i = 0; i < dets.size(); i++) {
+    cv::Mat img_mask = scale_mask(masks[i], img);
+    auto color = colors[(int)dets[i].class_id % colors.size()];
+    auto bgr = cv::Scalar(color & 0xFF, color >> 8 & 0xFF, color >> 16 & 0xFF);
+
+    cv::Rect r = get_rect(img, dets[i].bbox);
+    for (int x = r.x; x < r.x + r.width; x++) {
+      for (int y = r.y; y < r.y + r.height; y++) {
+        float val = img_mask.at<float>(y, x);
+        if (val <= 0.5) continue;
+        img.at<cv::Vec3b>(y, x)[0] = img.at<cv::Vec3b>(y, x)[0] / 2 + bgr[0] / 2;
+        img.at<cv::Vec3b>(y, x)[1] = img.at<cv::Vec3b>(y, x)[1] / 2 + bgr[1] / 2;
+        img.at<cv::Vec3b>(y, x)[2] = img.at<cv::Vec3b>(y, x)[2] / 2 + bgr[2] / 2;
+      }
+    }
+
+    cv::rectangle(img, r, bgr, 2);
+    // TODO(Call for PR): convert class id to class name
+    cv::putText(img, std::to_string((int)dets[i].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
+  }
 }
 
 int main(int argc, char** argv) {
@@ -236,7 +329,8 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    static float prob[BATCH_SIZE * OUTPUT_SIZE];
+    static float prob[BATCH_SIZE * OUTPUT_SIZE1];
+    static float proto[BATCH_SIZE * OUTPUT_SIZE2];
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
@@ -244,17 +338,20 @@ int main(int argc, char** argv) {
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
     delete[] trtModelStream;
-    assert(engine->getNbBindings() == 2);
-    float* buffers[2];
+    assert(engine->getNbBindings() == 3);
+    float* buffers[3];
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine->getBindingIndex(OUTPUT_BLOB_NAME);
+    const int outputIndex1 = engine->getBindingIndex(OUTPUT_BLOB_NAME);
+    const int outputIndex2 = engine->getBindingIndex("proto");
     assert(inputIndex == 0);
-    assert(outputIndex == 1);
+    assert(outputIndex1 == 1);
+    assert(outputIndex2 == 2);
     // Create GPU buffers on device
     CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex1], BATCH_SIZE * OUTPUT_SIZE1 * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex2], BATCH_SIZE * OUTPUT_SIZE2 * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
@@ -287,22 +384,20 @@ int main(int argc, char** argv) {
         }
         // Run inference
         auto start = std::chrono::system_clock::now();
-        doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
+        doInference(*context, stream, (void**)buffers, prob, proto, BATCH_SIZE);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
-            nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);
+            nms(res, &prob[b * OUTPUT_SIZE1], CONF_THRESH, NMS_THRESH);
         }
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
             cv::Mat img = imgs_buffer[b];
-            for (size_t j = 0; j < res.size(); j++) {
-                cv::Rect r = get_rect(img, res[j].bbox);
-                cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-                cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-            }
+
+            auto masks = process_mask(&proto[b * OUTPUT_SIZE2], res);
+            draw_mask_bbox(img, res, masks);
             cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
         fcount = 0;
@@ -313,7 +408,8 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(img_device));
     CUDA_CHECK(cudaFreeHost(img_host));
     CUDA_CHECK(cudaFree(buffers[inputIndex]));
-    CUDA_CHECK(cudaFree(buffers[outputIndex]));
+    CUDA_CHECK(cudaFree(buffers[outputIndex1]));
+    CUDA_CHECK(cudaFree(buffers[outputIndex2]));
     // Destroy the engine
     context->destroy();
     engine->destroy();
