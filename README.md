@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmention.
 - `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 - `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
 - `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `18 Oct 2021`. [xupengao](https://github.com/xupengao): YOLOv5 updated to v6.0, supporting n/s/m/l/x/n6/s6/m6/l6/x6.
 - `31 Aug 2021`. [FamousDirector](https://github.com/FamousDirector): update retinaface to support TensorRT 8.0.
 - `27 Aug 2021`. [HaiyangPeng](https://github.com/HaiyangPeng): add a python wrapper for hrnet segmentation.
-- `1 Jul 2021`. [freedenS](https://github.com/freedenS): DE⫶TR: End-to-End Object Detection with Transformers. First Transformer model!
 
 ## Tutorials
 
@@ -75,7 +75,7 @@ Following models are implemented.
 |[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
-|[yolov5](./yolov5)| yolov5 v1.0-v6.2, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+|[yolov5](./yolov5)| yolov5 v1.0-v7.0 of [ultralytics/yolov5](https://github.com/ultralytics/yolov5), detection, classification and instance segmentation |
 |[yolov7](./yolov7)| yolov7 v0.1, pytorch implementation from [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7) |
 |[yolop](./yolop)| yolop, pytorch implementation from [hustvl/YOLOP](https://github.com/hustvl/YOLOP) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |

@@ -27,6 +27,7 @@ namespace Yolo
         float bbox[LOCATIONS];
         float conf;  // bbox_conf * cls_conf
         float class_id;
+        float mask[32];
     };
 }
 
@@ -35,7 +36,7 @@ namespace nvinfer1
     class API YoloLayerPlugin : public IPluginV2IOExt
     {
     public:
-        YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel);
+        YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const std::vector<Yolo::YoloKernel>& vYoloKernel);
         YoloLayerPlugin(const void* data, size_t length);
         ~YoloLayerPlugin();
 
@@ -96,6 +97,7 @@ namespace nvinfer1
         int mYoloV5NetWidth;
         int mYoloV5NetHeight;
         int mMaxOutObject;
+        bool is_segmentation_;
         std::vector<Yolo::YoloKernel> mYoloKernel;
         void** mAnchor;
     };

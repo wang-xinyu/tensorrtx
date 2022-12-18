@@ -20,6 +20,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 # tensorrt
+# TODO(Call for PR): make TRT path configurable from command line
 include_directories(/usr/include/x86_64-linux-gnu/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 
@@ -44,8 +45,14 @@ target_link_libraries(yolov5-cls cudart)
 target_link_libraries(yolov5-cls myplugins)
 target_link_libraries(yolov5-cls ${OpenCV_LIBS})
 
+cuda_add_executable(yolov5-seg calibrator.cpp yolov5_seg.cpp preprocess.cu)
+
+target_link_libraries(yolov5-seg nvinfer)
+target_link_libraries(yolov5-seg cudart)
+target_link_libraries(yolov5-seg myplugins)
+target_link_libraries(yolov5-seg ${OpenCV_LIBS})
+
 if(UNIX)
 add_definitions(-O2 -pthread)
 endif(UNIX)
-
 

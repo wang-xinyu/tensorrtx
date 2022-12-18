@@ -25,12 +25,13 @@ using namespace Yolo;
 
 namespace nvinfer1
 {
-    YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, const std::vector<Yolo::YoloKernel>& vYoloKernel)
+    YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const std::vector<Yolo::YoloKernel>& vYoloKernel)
     {
         mClassCount = classCount;
         mYoloV5NetWidth = netWidth;
         mYoloV5NetHeight = netHeight;
         mMaxOutObject = maxOut;
+        is_segmentation_ = is_segmentation;
         mYoloKernel = vYoloKernel;
         mKernelCount = vYoloKernel.size();
 
@@ -63,6 +64,7 @@ namespace nvinfer1
         read(d, mYoloV5NetWidth);
         read(d, mYoloV5NetHeight);
         read(d, mMaxOutObject);
+        read(d, is_segmentation_);
         mYoloKernel.resize(mKernelCount);
         auto kernelSize = mKernelCount * sizeof(YoloKernel);
         memcpy(mYoloKernel.data(), d, kernelSize);
@@ -88,6 +90,7 @@ namespace nvinfer1
         write(d, mYoloV5NetWidth);
         write(d, mYoloV5NetHeight);
         write(d, mMaxOutObject);
+        write(d, is_segmentation_);
         auto kernelSize = mKernelCount * sizeof(YoloKernel);
         memcpy(d, mYoloKernel.data(), kernelSize);
         d += kernelSize;
@@ -97,7 +100,7 @@ namespace nvinfer1
 
     size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT
     {
-        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mYoloV5NetWidth) + sizeof(mYoloV5NetHeight) + sizeof(mMaxOutObject);
+        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mYoloV5NetWidth) + sizeof(mYoloV5NetHeight) + sizeof(mMaxOutObject) + sizeof(is_segmentation_);
     }
 
     int YoloLayerPlugin::initialize() TRT_NOEXCEPT
@@ -172,7 +175,7 @@ namespace nvinfer1
     // Clone the plugin
     IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT
     {
-        YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, mYoloKernel);
+        YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, is_segmentation_, mYoloKernel);
         p->setPluginNamespace(mPluginNamespace);
         return p;
     }
@@ -180,7 +183,7 @@ namespace nvinfer1
     __device__ float Logist(float data) { return 1.0f / (1.0f + expf(-data)); };
 
     __global__ void CalDetection(const float *input, float *output, int noElements,
-        const int netwidth, const int netheight, int maxoutobject, int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT * 2], int classes, int outputElem)
+        const int netwidth, const int netheight, int maxoutobject, int yoloWidth, int yoloHeight, const float anchors[CHECK_COUNT * 2], int classes, int outputElem, bool is_segmentation)
     {
 
         int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -190,6 +193,7 @@ namespace nvinfer1
         int bnIdx = idx / total_grid;
         idx = idx - total_grid * bnIdx;
         int info_len_i = 5 + classes;
+        if (is_segmentation) info_len_i += 32;
         const float* curInput = input + bnIdx * (info_len_i * total_grid * CHECK_COUNT);
 
         for (int k = 0; k < CHECK_COUNT; ++k) {
@@ -197,7 +201,7 @@ namespace nvinfer1
             if (box_prob < IGNORE_THRESH) continue;
             int class_id = 0;
             float max_cls_prob = 0.0;
-            for (int i = 5; i < info_len_i; ++i) {
+            for (int i = 5; i < 5 + classes; ++i) {
                 float p = Logist(curInput[idx + k * info_len_i * total_grid + i * total_grid]);
                 if (p > max_cls_prob) {
                     max_cls_prob = p;
@@ -230,6 +234,10 @@ namespace nvinfer1
             det->bbox[3] = det->bbox[3] * det->bbox[3] * anchors[2 * k + 1];
             det->conf = box_prob * max_cls_prob;
             det->class_id = class_id;
+
+            for (int i = 0; is_segmentation && i < 32; i++) {
+                det->mask[i] = curInput[idx + k * info_len_i * total_grid + (i + 5 + classes) * total_grid];
+            }
         }
     }
 
@@ -247,7 +255,7 @@ namespace nvinfer1
 
             //printf("Net: %d  %d \n", mYoloV5NetWidth, mYoloV5NetHeight);
             CalDetection << < (numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream >> >
-                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float*)mAnchor[i], mClassCount, outputElem);
+                (inputs[i], output, numElem, mYoloV5NetWidth, mYoloV5NetHeight, mMaxOutObject, yolo.width, yolo.height, (float*)mAnchor[i], mClassCount, outputElem, is_segmentation_);
         }
     }
 
@@ -294,9 +302,10 @@ namespace nvinfer1
         int input_w = p_netinfo[1];
         int input_h = p_netinfo[2];
         int max_output_object_count = p_netinfo[3];
+        bool is_segmentation = (bool)p_netinfo[4];
         std::vector<Yolo::YoloKernel> kernels(fc->fields[1].length);
         memcpy(&kernels[0], fc->fields[1].data, kernels.size() * sizeof(Yolo::YoloKernel));
-        YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, kernels);
+        YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, is_segmentation, kernels);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }

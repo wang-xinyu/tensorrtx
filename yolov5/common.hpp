@@ -162,6 +162,7 @@ ILayer* convBlock(INetworkDefinition *network, std::map<std::string, Weights>& w
     conv1->setStrideNd(DimsHW{ s, s });
     conv1->setPaddingNd(DimsHW{ p, p });
     conv1->setNbGroups(g);
+    conv1->setName((lname + ".conv").c_str());
     IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
     // silu = x * sigmoid
@@ -273,6 +274,21 @@ ILayer* SPPF(INetworkDefinition *network, std::map<std::string, Weights>& weight
     return cv2;
 }
 
+ILayer* Proto(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c_, int c2, std::string lname) {
+    auto cv1 = convBlock(network, weightMap, input, c_, 3, 1, 1, lname + ".cv1");
+
+    auto upsample = network->addResize(*cv1->getOutput(0));
+    assert(upsample);
+    upsample->setResizeMode(ResizeMode::kNEAREST);
+    const float scales[] = {1, 2, 2};
+    upsample->setScales(scales, 3);
+
+    auto cv2 = convBlock(network, weightMap, *upsample->getOutput(0), c_, 3, 1, 1, lname + ".cv2");
+    auto cv3 = convBlock(network, weightMap, *cv2->getOutput(0), c2, 1, 1, 1, lname + ".cv3");
+    assert(cv3);
+    return cv3;
+}
+
 std::vector<std::vector<float>> getAnchors(std::map<std::string, Weights>& weightMap, std::string lname) {
     std::vector<std::vector<float>> anchors;
     Weights wts = weightMap[lname + ".anchor_grid"];
@@ -285,13 +301,13 @@ std::vector<std::vector<float>> getAnchors(std::map<std::string, Weights>& weigh
     return anchors;
 }
 
-IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, std::string lname, std::vector<IConvolutionLayer*> dets) {
+IPluginV2Layer* addYoLoLayer(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, std::string lname, std::vector<IConvolutionLayer*> dets, bool is_segmentation = false) {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     auto anchors = getAnchors(weightMap, lname);
     PluginField plugin_fields[2];
-    int netinfo[4] = {Yolo::CLASS_NUM, Yolo::INPUT_W, Yolo::INPUT_H, Yolo::MAX_OUTPUT_BBOX_COUNT};
+    int netinfo[5] = {Yolo::CLASS_NUM, Yolo::INPUT_W, Yolo::INPUT_H, Yolo::MAX_OUTPUT_BBOX_COUNT, (int)is_segmentation};
     plugin_fields[0].data = netinfo;
-    plugin_fields[0].length = 4;
+    plugin_fields[0].length = 5;
     plugin_fields[0].name = "netinfo";
     plugin_fields[0].type = PluginFieldType::kFLOAT32;
 

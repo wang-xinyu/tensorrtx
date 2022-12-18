@@ -33,8 +33,9 @@ TensorRTx inference code base for [ultralytics/yolov5](https://github.com/ultral
 
 ## Different versions of yolov5
 
-Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2
+Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2, v7.0
 
+- For yolov5 v7.0, download .pt from [yolov5 release v7.0](https://github.com/ultralytics/yolov5/releases/tag/v7.0), `git clone -b v7.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v7.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v7.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v7.0/yolov5)
 - For yolov5 v6.2, download .pt from [yolov5 release v6.2](https://github.com/ultralytics/yolov5/releases/tag/v6.2), `git clone -b v6.2 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.2 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.2](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.2/yolov5)
 - For yolov5 v6.0, download .pt from [yolov5 release v6.0](https://github.com/ultralytics/yolov5/releases/tag/v6.0), `git clone -b v6.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v6.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v6.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v6.0/yolov5).
 - For yolov5 v5.0, download .pt from [yolov5 release v5.0](https://github.com/ultralytics/yolov5/releases/tag/v5.0), `git clone -b v5.0 https://github.com/ultralytics/yolov5.git` and `git clone -b yolov5-v5.0 https://github.com/wang-xinyu/tensorrtx.git`, then follow how-to-run in [tensorrtx/yolov5-v5.0](https://github.com/wang-xinyu/tensorrtx/tree/yolov5-v5.0/yolov5).
@@ -63,7 +64,7 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2
 
 ```
 // clone code according to above #Different versions of yolov5
-// download https://github.com/ultralytics/yolov5/releases/download/v6.2/yolov5s.pt
+// download https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
 cp {tensorrtx}/yolov5/gen_wts.py {ultralytics}/yolov5
 cd {ultralytics}/yolov5
 python gen_wts.py -w yolov5s.pt -o yolov5s.wts
@@ -103,6 +104,10 @@ python yolov5_trt.py
 python yolov5_trt_cuda_python.py
 ```
 
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg" height="360px;">
+</p>
+
 ### Classification
 
 ```
@@ -116,6 +121,20 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 ./yolov5-cls -d yolov5s-cls.engine ../samples
 ```
 
+### Instance Segmentation
+
+```
+# Build and serialize TensorRT engine
+./yolov5-seg -s yolov5s-seg.wts yolov5s-seg.engine s
+
+# Run inference
+./yolov5-seg -d yolov5s-seg.engine ../samples
+```
+
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/208305921-0a2ee358-6550-4d36-bb86-867685bfe069.jpg" height="360px;">
+</p>
+
 # INT8 Quantization
 
 1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
@@ -126,9 +145,6 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 
 4. serialize the model and test
 
-<p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg" height="360px;">
-</p>
 
 ## More Information
 
