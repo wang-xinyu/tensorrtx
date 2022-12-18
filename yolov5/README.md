@@ -104,6 +104,10 @@ python yolov5_trt.py
 python yolov5_trt_cuda_python.py
 ```
 
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg" height="360px;">
+</p>
+
 ### Classification
 
 ```
@@ -127,6 +131,10 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 ./yolov5-seg -d yolov5s-seg.engine ../samples
 ```
 
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/208305921-0a2ee358-6550-4d36-bb86-867685bfe069.jpg" height="360px;">
+</p>
+
 # INT8 Quantization
 
 1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
@@ -137,9 +145,6 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 
 4. serialize the model and test
 
-<p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/78247927-4d9fac00-751e-11ea-8b1b-704a0aeb3fcf.jpg" height="360px;">
-</p>
 
 ## More Information
 
