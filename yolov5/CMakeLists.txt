@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.10)
 
 project(yolov5)
 
@@ -8,51 +8,45 @@ option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
-find_package(CUDA REQUIRED)
-
-if(WIN32)
+# TODO(Call for PR): make cmake compatible with Windows
+set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
 enable_language(CUDA)
-endif(WIN32)
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
 # include and link dirs of cuda and tensorrt, you need adapt them if yours are different
 # cuda
 include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 # tensorrt
 # TODO(Call for PR): make TRT path configurable from command line
-include_directories(/usr/include/x86_64-linux-gnu/)
-link_directories(/usr/lib/x86_64-linux-gnu/)
+include_directories(/home/nvidia/TensorRT-8.2.5.1/include/)
+link_directories(/home/nvidia/TensorRT-8.2.5.1/lib/)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -g -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
-cuda_add_library(myplugins SHARED yololayer.cu)
+include_directories(${PROJECT_SOURCE_DIR}/src/)
+include_directories(${PROJECT_SOURCE_DIR}/plugin/)
+file(GLOB_RECURSE SRCS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.cu)
+file(GLOB_RECURSE PLUGIN_SRCS ${PROJECT_SOURCE_DIR}/plugin/*.cu)
+
+add_library(myplugins SHARED ${PLUGIN_SRCS})
 target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-cuda_add_executable(yolov5 calibrator.cpp yolov5.cpp preprocess.cu)
+add_executable(yolov5_det yolov5_det.cpp ${SRCS})
+target_link_libraries(yolov5_det nvinfer)
+target_link_libraries(yolov5_det cudart)
+target_link_libraries(yolov5_det myplugins)
+target_link_libraries(yolov5_det ${OpenCV_LIBS})
 
-target_link_libraries(yolov5 nvinfer)
-target_link_libraries(yolov5 cudart)
-target_link_libraries(yolov5 myplugins)
-target_link_libraries(yolov5 ${OpenCV_LIBS})
+add_executable(yolov5_cls yolov5_cls.cpp ${SRCS})
+target_link_libraries(yolov5_cls nvinfer)
+target_link_libraries(yolov5_cls cudart)
+target_link_libraries(yolov5_cls myplugins)
+target_link_libraries(yolov5_cls ${OpenCV_LIBS})
 
-add_executable(yolov5-cls calibrator.cpp yolov5_cls.cpp)
-
-target_link_libraries(yolov5-cls nvinfer)
-target_link_libraries(yolov5-cls cudart)
-target_link_libraries(yolov5-cls myplugins)
-target_link_libraries(yolov5-cls ${OpenCV_LIBS})
-
-cuda_add_executable(yolov5-seg calibrator.cpp yolov5_seg.cpp preprocess.cu)
-
-target_link_libraries(yolov5-seg nvinfer)
-target_link_libraries(yolov5-seg cudart)
-target_link_libraries(yolov5-seg myplugins)
-target_link_libraries(yolov5-seg ${OpenCV_LIBS})
-
-if(UNIX)
-add_definitions(-O2 -pthread)
-endif(UNIX)
+add_executable(yolov5_seg yolov5_seg.cpp ${SRCS})
+target_link_libraries(yolov5_seg nvinfer)
+target_link_libraries(yolov5_seg cudart)
+target_link_libraries(yolov5_seg myplugins)
+target_link_libraries(yolov5_seg ${OpenCV_LIBS})
 

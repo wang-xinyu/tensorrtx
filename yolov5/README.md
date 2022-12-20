@@ -81,14 +81,14 @@ cd build
 cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
 cmake ..
 make
-sudo ./yolov5 -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
-sudo ./yolov5 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
+sudo ./yolov5_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
+sudo ./yolov5_det -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov5s
-sudo ./yolov5 -s yolov5s.wts yolov5s.engine s
-sudo ./yolov5 -d yolov5s.engine ../samples
+sudo ./yolov5_det -s yolov5s.wts yolov5s.engine s
+sudo ./yolov5_det -d yolov5s.engine ../samples
 // For example Custom model with depth_multiple=0.17, width_multiple=0.25 in yolov5.yaml
-sudo ./yolov5 -s yolov5_custom.wts yolov5.engine c 0.17 0.25
-sudo ./yolov5 -d yolov5.engine ../samples
+sudo ./yolov5_det -s yolov5_custom.wts yolov5.engine c 0.17 0.25
+sudo ./yolov5_det -d yolov5.engine ../samples
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
@@ -98,10 +98,10 @@ sudo ./yolov5 -d yolov5.engine ../samples
 ```
 // install python-tensorrt, pycuda, etc.
 // ensure the yolov5s.engine and libmyplugins.so have been built
-python yolov5_trt.py
+python yolov5_det_trt.py
 
 // Another version of python script, which is using CUDA Python instead of pycuda.
-python yolov5_trt_cuda_python.py
+python yolov5_det_trt_cuda_python.py
 ```
 
 <p align="center">
@@ -115,20 +115,20 @@ python yolov5_trt_cuda_python.py
 wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/imagenet_classes.txt
 
 # Build and serialize TensorRT engine
-./yolov5-cls -s yolov5s-cls.wts yolov5s-cls.engine s
+./yolov5_cls -s yolov5s-cls.wts yolov5s-cls.engine s
 
 # Run inference
-./yolov5-cls -d yolov5s-cls.engine ../samples
+./yolov5_cls -d yolov5s-cls.engine ../samples
 ```
 
 ### Instance Segmentation
 
 ```
 # Build and serialize TensorRT engine
-./yolov5-seg -s yolov5s-seg.wts yolov5s-seg.engine s
+./yolov5_seg -s yolov5s-seg.wts yolov5s-seg.engine s
 
 # Run inference
-./yolov5-seg -d yolov5s-seg.engine ../samples
+./yolov5_seg -d yolov5s-seg.engine ../samples
 ```
 
 <p align="center">

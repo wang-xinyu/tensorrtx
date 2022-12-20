@@ -30,11 +30,10 @@ def parse_args():
 pt_file, wts_file, m_type = parse_args()
 print(f'Generating .wts for {m_type} model')
 
-# Initialize
-device = select_device('cpu')
 # Load model
 print(f'Loading {pt_file}')
-model = torch.load(pt_file, map_location=device)  # load to FP32
+device = select_device('cpu')
+model = torch.load(pt_file, map_location=device)  # Load FP32 weights
 model = model['ema' if model.get('ema') else 'model'].float()
 
 if m_type in ['detect', 'seg']:

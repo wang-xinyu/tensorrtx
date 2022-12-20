@@ -216,7 +216,7 @@ class warmUpThread(threading.Thread):
 
 if __name__ == "__main__":
     # load custom plugin and engine
-    engine_file_path = "build/yolov5s_cls.engine"
+    engine_file_path = "build/yolov5s-cls.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]

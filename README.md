@@ -15,7 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
-- `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmention.
+- `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
 - `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 - `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
 - `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.

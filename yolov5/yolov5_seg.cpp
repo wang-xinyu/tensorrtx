@@ -287,8 +287,8 @@ int main(int argc, char** argv) {
     std::string img_dir;
     if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir)) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5-seg -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5-seg -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov5_seg -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov5_seg -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
