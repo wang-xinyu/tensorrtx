@@ -133,6 +133,7 @@ void cuda_batch_preprocess(std::vector<cv::Mat>& img_batch,
   int dst_size = dst_width * dst_height * 3;
   for (size_t i = 0; i < img_batch.size(); i++) {
     cuda_preprocess(img_batch[i].ptr(), img_batch[i].cols, img_batch[i].rows, &dst[dst_size * i], dst_width, dst_height, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 }
 

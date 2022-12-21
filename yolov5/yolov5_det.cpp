@@ -395,6 +395,7 @@ int main(int argc, char** argv) {
             CUDA_CHECK(cudaMemcpyAsync(img_device, img_host, size_image, cudaMemcpyHostToDevice, stream));
             preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);
             buffer_idx += size_image_dst;
+            cudaStreamSynchronize(stream);
         }
         // Run inference
         auto start = std::chrono::system_clock::now();
