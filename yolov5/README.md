@@ -30,7 +30,7 @@ TensorRTx inference code base for [ultralytics/yolov5](https://github.com/ultral
 <a href="https://github.com/triple-Mu"><img src="https://avatars.githubusercontent.com/u/92794867?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/xiang-wuu"><img src="https://avatars.githubusercontent.com/u/107029401?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/uyolo1314"><img src="https://avatars.githubusercontent.com/u/101853326?s=48&v=4" width="40px;" alt=""/></a>
-
+<a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?v=4" width="40px;" alt=""/></a>
 ## Different versions of yolov5
 
 Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2, v7.0
