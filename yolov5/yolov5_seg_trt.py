@@ -19,7 +19,6 @@ CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
 
 
-
 def get_img_path_batches(batch_size, img_dir):
     ret = []
     batch = []
@@ -361,7 +360,7 @@ class YoLov5TRT(object):
         description: Removes detections with lower object confidence score than 'conf_thres' and performs
         Non-Maximum Suppression to further filter detections.
         param:
-            prediction: detections, (x1, y1, x2, y2, conf, cls_id)
+            prediction: detections, (x1, y1, x2, y2, conf, cls_id, mask coefficients)
             origin_h: original image height
             origin_w: original image width
             conf_thres: a confidence threshold to filter detections
@@ -397,7 +396,7 @@ class YoLov5TRT(object):
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    def scale_mask(self,mask, ih, iw):
+    def scale_mask(self, mask, ih, iw):
         mask = cv2.resize(mask, (self.input_w, self.input_h))
         r_w = self.input_w / (iw * 1.0)
         r_h = self.input_h / (ih * 1.0)
@@ -432,8 +431,8 @@ class YoLov5TRT(object):
         c, mh, mw = result_proto_masks.shape
         masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh, mw)
         mask_result = []
-        for mask,box in zip(masks,result_boxes):
-            mask_s = np.zeros((ih,iw))
+        for mask, box in zip(masks,result_boxes):
+            mask_s = np.zeros((ih, iw))
             crop_mask = self.scale_mask(mask, ih, iw)            
             x1 = int(box[0])
             y1 = int(box[1])
