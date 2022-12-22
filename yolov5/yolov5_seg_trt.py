@@ -13,6 +13,7 @@ import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
+from scipy import ndimage
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
@@ -23,6 +24,7 @@ INPUT_H = 640
 SEG_W = 160
 SEG_H = 160
 SEG_C = 32
+
 
 def get_img_path_batches(batch_size, img_dir):
     ret = []
@@ -36,6 +38,7 @@ def get_img_path_batches(batch_size, img_dir):
     if len(batch) > 0:
         ret.append(batch)
     return ret
+
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
@@ -127,6 +130,9 @@ class YoLov5TRT(object):
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
 
+        # Draw mask
+        self.colors_obj = Colors()
+
     def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
         # Make self the active context, pushing it on top of the context stack.
@@ -162,18 +168,25 @@ class YoLov5TRT(object):
         context.execute_async(batch_size=self.batch_size, bindings=bindings, stream_handle=stream.handle)
         # Transfer predictions back from the GPU.
         cuda.memcpy_dtoh_async(host_outputs[0], cuda_outputs[0], stream)
+        cuda.memcpy_dtoh_async(host_outputs[1], cuda_outputs[1], stream)
         # Synchronize the stream
         stream.synchronize()
         end = time.time()
         # Remove any context from the top of the context stack, deactivating it.
         self.ctx.pop()
         # Here we use the first row of output in that batch_size = 1
-        output = host_outputs[0]
+        output_bbox = host_outputs[0]
+        output_proto_mask = host_outputs[1]
         # Do postprocess
         for i in range(self.batch_size):
-            result_boxes, result_scores, result_classid = self.post_process(
-                output[i * LEN_ALL_RESULT: (i + 1) * LEN_ALL_RESULT], batch_origin_h[i], batch_origin_w[i]
+            result_boxes, result_scores, result_classid, result_proto_coef = self.post_process(
+                output_bbox[i * LEN_ALL_RESULT: (i + 1) * LEN_ALL_RESULT], batch_origin_h[i], batch_origin_w[i]
             )
+            result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i], batch_origin_w[i])
+
+            # Draw masks on  the original image
+            self.draw_mask(result_masks,colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
+
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
                 box = result_boxes[j]
@@ -280,7 +293,7 @@ class YoLov5TRT(object):
 
         return y
 
-    def post_process(self, output, origin_h, origin_w):
+    def post_process(self, output_boxes, origin_h, origin_w):
         """
         description: postprocess the prediction
         param:
@@ -293,16 +306,17 @@ class YoLov5TRT(object):
             result_classid: finally classid, a numpy, each element is the classid correspoing to box
         """
         # Get the num of boxes detected
-        num = int(output[0])
+        num = int(output_boxes[0])
         # Reshape to a two dimentional ndarray
-        pred = np.reshape(output[1:], (-1, LEN_ONE_RESULT))[:num, :]
-        pred = pred[:, :6]
+        pred = np.reshape(output_boxes[1:], (-1, LEN_ONE_RESULT))[:num, :]
         # Do nms
-        boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
+        boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH,
+                                         nms_thres=IOU_THRESHOLD)
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
         result_scores = boxes[:, 4] if len(boxes) else np.array([])
         result_classid = boxes[:, 5] if len(boxes) else np.array([])
-        return result_boxes, result_scores, result_classid
+        result_proto_coef = boxes[:, 6:] if len(boxes) else np.array([])
+        return result_boxes, result_scores, result_classid, result_proto_coef
 
     def bbox_iou(self, box1, box2, x1y1x2y2=True):
         """
@@ -359,10 +373,10 @@ class YoLov5TRT(object):
         # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
         boxes[:, :4] = self.xywh2xyxy(origin_h, origin_w, boxes[:, :4])
         # clip the coordinates
-        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w -1)
-        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w -1)
-        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h -1)
-        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h -1)
+        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w - 1)
+        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w - 1)
+        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h - 1)
+        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h - 1)
         # Object confidence
         confs = boxes[:, 4]
         # Sort by the confs
@@ -371,7 +385,7 @@ class YoLov5TRT(object):
         keep_boxes = []
         while boxes.shape[0]:
             large_overlap = self.bbox_iou(np.expand_dims(boxes[0, :4], 0), boxes[:, :4]) > nms_thres
-            label_match = boxes[0, -1] == boxes[:, -1]
+            label_match = boxes[0, 5] == boxes[:, 5]
             # Indices of boxes with lower confidence scores, large IOUs and matching labels
             invalid = large_overlap & label_match
             keep_boxes += [boxes[0]]
@@ -379,6 +393,80 @@ class YoLov5TRT(object):
         boxes = np.stack(keep_boxes, 0) if len(keep_boxes) else np.array([])
         return boxes
 
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+
+    def scale_mask(self,mask,ih, iw):
+        mask = cv2.resize(mask,(INPUT_W,INPUT_H))
+        r_w = INPUT_W / (iw * 1.0)
+        r_h = INPUT_H / (ih * 1.0)
+            
+        if r_h > r_w:
+            w = INPUT_W
+            h = int(r_w * ih)
+            x = 0
+            y = int((INPUT_H - h) / 2)
+        else:
+            w = int(r_h * iw)
+            h = INPUT_H
+            x = int((INPUT_W - w) / 2)
+            y = 0
+        crop = mask[y:y+h,x:x+w]
+        crop = cv2.resize(crop,(iw,ih))
+        return crop
+
+
+    def process_mask(self, output_proto_mask, result_proto_coef, result_boxes, ih, iw):
+        """
+        description: Mask pred by yolov5 instance segmentation ,
+        param: 
+            output_proto_mask: prototype mask (32, 160, 160)
+            result_proto_coef: prototype mask coefficients (n, 32), n represents n results
+            result_boxes     :  
+            ih: rows of original image
+            iw: cols of original image
+        return:
+            mask_result: (n, ih, iw)
+        """
+        result_proto_masks = output_proto_mask.reshape(SEG_C, SEG_H, SEG_W)
+        c, mh, mw = result_proto_masks.shape
+        masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh,mw)
+        mask_result = []
+        for mask,box in zip(masks,result_boxes):
+            mask_s = np.zeros((ih,iw))
+            crop_mask = self.scale_mask(mask, ih, iw)            
+            x1 = int(box[0])
+            y1 = int(box[1])
+            x2 = int(box[2])
+            y2 = int(box[3])
+            crop = crop_mask[y1:y2,x1:x2]
+            crop = np.where(crop >= 0.5,1,0)
+            crop = crop.astype(np.uint8)
+            mask_s[y1:y2,x1:x2] = crop
+            mask_result.append(mask_s)
+        mask_result = np.array(mask_result)
+        return mask_result
+
+    def draw_mask(self, masks, colors_, im_src, alpha=0.5):
+        """
+        description: Draw mask on image ,
+        param: 
+            masks  : result_mask
+            colors_: color to draw mask
+            im_src : original image
+            alpha  : scale between original  image and mask
+        return:
+            no return
+        """
+        if len(masks) == 0:
+            return
+        masks = np.asarray(masks, dtype=np.uint8)
+        masks = np.ascontiguousarray(masks.transpose(1, 2, 0))
+        masks = np.asarray(masks, dtype=np.float32)
+        colors_ = np.asarray(colors_, dtype=np.float32)
+        s = masks.sum(2, keepdims=True).clip(0, 1)
+        masks = (masks @ colors_).clip(0, 255)
+        im_src[:] = masks * alpha + im_src * (1 - s * alpha)
 
 class inferThread(threading.Thread):
     def __init__(self, yolov5_wrapper, image_path_batch):
@@ -406,11 +494,27 @@ class warmUpThread(threading.Thread):
         print('warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
 
 
+class Colors:
+    def __init__(self):
+        hexs = ('FF3838', 'FF9D97', 'FF701F', 'FFB21D', 'CFD231', '48F90A',
+                '92CC17', '3DDB86', '1A9334', '00D4BB', '2C99A8', '00C2FF',
+                '344593', '6473FF', '0018EC', '8438FF', '520085', 'CB38FF',
+                'FF95C8', 'FF37C7')
+        self.palette = [self.hex2rgb(f'#{c}') for c in hexs]
+        self.n = len(self.palette)
+
+    def __call__(self, i, bgr=False):
+        c = self.palette[int(i) % self.n]
+        return (c[2], c[1], c[0]) if bgr else c
+
+    @staticmethod
+    def hex2rgb(h):  # rgb order (PIL)
+        return tuple(int(h[1 + i:1 + i + 2], 16) for i in (0, 2, 4))
 
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "build/yolov5s.engine"
+    engine_file_path = "build/yolov5s-seg.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
