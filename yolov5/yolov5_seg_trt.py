@@ -17,11 +17,7 @@ from scipy import ndimage
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
-LEN_ALL_RESULT = 38001
-LEN_ONE_RESULT = 38
-SEG_W = 160
-SEG_H = 160
-SEG_C = 32
+
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -127,6 +123,14 @@ class YoLov5TRT(object):
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
 
+        # Data length
+        self.det_output_length  = host_outputs[0].shape[0]
+        self.mask_output_length = host_outputs[1].shape[0]
+        self.seg_w =  int(self.input_w / 4)
+        self.seg_h =  int(self.input_h / 4)
+        self.seg_c =  int(self.mask_output_length / (self.seg_w * self.seg_w))
+        self.det_row_output_length = self.seg_c + 6
+        
         # Draw mask
         self.colors_obj = Colors()
 
@@ -177,12 +181,12 @@ class YoLov5TRT(object):
         # Do postprocess
         for i in range(self.batch_size):
             result_boxes, result_scores, result_classid, result_proto_coef = self.post_process(
-                output_bbox[i * LEN_ALL_RESULT: (i + 1) * LEN_ALL_RESULT], batch_origin_h[i], batch_origin_w[i]
+                output_bbox[i * self.det_output_length: (i + 1) * self.det_output_length], batch_origin_h[i], batch_origin_w[i]
             )
             result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i], batch_origin_w[i])
 
             # Draw masks on  the original image
-            self.draw_mask(result_masks,colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
+            self.draw_mask(result_masks, colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
 
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
@@ -305,7 +309,7 @@ class YoLov5TRT(object):
         # Get the num of boxes detected
         num = int(output_boxes[0])
         # Reshape to a two dimentional ndarray
-        pred = np.reshape(output_boxes[1:], (-1, LEN_ONE_RESULT))[:num, :]
+        pred = np.reshape(output_boxes[1:], (-1, self.det_row_output_length))[:num, :]
         # Do nms
         boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH,
                                          nms_thres=IOU_THRESHOLD)
@@ -393,8 +397,8 @@ class YoLov5TRT(object):
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
-    def scale_mask(self,mask,ih, iw):
-        mask = cv2.resize(mask,(self.input_w,self.input_h))
+    def scale_mask(self,mask, ih, iw):
+        mask = cv2.resize(mask, (self.input_w, self.input_h))
         r_w = self.input_w / (iw * 1.0)
         r_h = self.input_h / (ih * 1.0)
         if r_h > r_w:
@@ -407,8 +411,8 @@ class YoLov5TRT(object):
             h = self.input_h
             x = int((self.input_w - w) / 2)
             y = 0
-        crop = mask[y:y+h,x:x+w]
-        crop = cv2.resize(crop,(iw,ih))
+        crop = mask[y:y+h, x:x+w]
+        crop = cv2.resize(crop, (iw, ih))
         return crop
 
 
@@ -424,9 +428,9 @@ class YoLov5TRT(object):
         return:
             mask_result: (n, ih, iw)
         """
-        result_proto_masks = output_proto_mask.reshape(SEG_C, SEG_H, SEG_W)
+        result_proto_masks = output_proto_mask.reshape(self.seg_c, self.seg_h, self.seg_w)
         c, mh, mw = result_proto_masks.shape
-        masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh,mw)
+        masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh, mw)
         mask_result = []
         for mask,box in zip(masks,result_boxes):
             mask_s = np.zeros((ih,iw))
@@ -435,10 +439,10 @@ class YoLov5TRT(object):
             y1 = int(box[1])
             x2 = int(box[2])
             y2 = int(box[3])
-            crop = crop_mask[y1:y2,x1:x2]
-            crop = np.where(crop >= 0.5,1,0)
+            crop = crop_mask[y1:y2, x1:x2]
+            crop = np.where(crop >= 0.5, 1, 0)
             crop = crop.astype(np.uint8)
-            mask_s[y1:y2,x1:x2] = crop
+            mask_s[y1:y2, x1:x2] = crop
             mask_result.append(mask_s)
         mask_result = np.array(mask_result)
         return mask_result
