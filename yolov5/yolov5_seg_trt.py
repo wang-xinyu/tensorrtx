@@ -19,8 +19,6 @@ CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
 LEN_ALL_RESULT = 38001
 LEN_ONE_RESULT = 38
-INPUT_W = 640
-INPUT_H = 640
 SEG_W = 160
 SEG_H = 160
 SEG_C = 32
@@ -118,7 +116,6 @@ class YoLov5TRT(object):
             else:
                 host_outputs.append(host_mem)
                 cuda_outputs.append(cuda_mem)
-
         # Store
         self.stream = stream
         self.context = context
@@ -397,19 +394,18 @@ class YoLov5TRT(object):
         return 1 / (1 + np.exp(-x))
 
     def scale_mask(self,mask,ih, iw):
-        mask = cv2.resize(mask,(INPUT_W,INPUT_H))
-        r_w = INPUT_W / (iw * 1.0)
-        r_h = INPUT_H / (ih * 1.0)
-            
+        mask = cv2.resize(mask,(self.input_w,self.input_h))
+        r_w = self.input_w / (iw * 1.0)
+        r_h = self.input_h / (ih * 1.0)
         if r_h > r_w:
-            w = INPUT_W
+            w = self.input_w
             h = int(r_w * ih)
             x = 0
-            y = int((INPUT_H - h) / 2)
+            y = int((self.input_h - h) / 2)
         else:
             w = int(r_h * iw)
-            h = INPUT_H
-            x = int((INPUT_W - w) / 2)
+            h = self.input_h
+            x = int((self.input_w - w) / 2)
             y = 0
         crop = mask[y:y+h,x:x+w]
         crop = cv2.resize(crop,(iw,ih))
