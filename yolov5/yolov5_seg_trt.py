@@ -125,9 +125,9 @@ class YoLov5TRT(object):
         # Data length
         self.det_output_length  = host_outputs[0].shape[0]
         self.mask_output_length = host_outputs[1].shape[0]
-        self.seg_w =  int(self.input_w / 4)
-        self.seg_h =  int(self.input_h / 4)
-        self.seg_c =  int(self.mask_output_length / (self.seg_w * self.seg_w))
+        self.seg_w = int(self.input_w / 4)
+        self.seg_h = int(self.input_h / 4)
+        self.seg_c = int(self.mask_output_length / (self.seg_w * self.seg_w))
         self.det_row_output_length = self.seg_c + 6
         
         # Draw mask
@@ -297,7 +297,7 @@ class YoLov5TRT(object):
         """
         description: postprocess the prediction
         param:
-            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...] 
+            output:     A numpy likes [num_boxes, cx, cy, w, h, conf, cls_id, mask[32], cx, cy, w, h, conf, cls_id, mask[32] ...] 
             origin_h:   height of original image
             origin_w:   width of original image
         return:
@@ -360,7 +360,7 @@ class YoLov5TRT(object):
         description: Removes detections with lower object confidence score than 'conf_thres' and performs
         Non-Maximum Suppression to further filter detections.
         param:
-            prediction: detections, (x1, y1, x2, y2, conf, cls_id, mask coefficients)
+            prediction: detections, (x1, y1, x2, y2, conf, cls_id, mask coefficients[32])
             origin_h: original image height
             origin_w: original image width
             conf_thres: a confidence threshold to filter detections
@@ -419,7 +419,7 @@ class YoLov5TRT(object):
         """
         description: Mask pred by yolov5 instance segmentation ,
         param: 
-            output_proto_mask: prototype mask (32, 160, 160)
+            output_proto_mask: prototype mask e.g. (32, 160, 160) for 640x640 input
             result_proto_coef: prototype mask coefficients (n, 32), n represents n results
             result_boxes     :  
             ih: rows of original image
@@ -431,7 +431,7 @@ class YoLov5TRT(object):
         c, mh, mw = result_proto_masks.shape
         masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh, mw)
         mask_result = []
-        for mask, box in zip(masks,result_boxes):
+        for mask, box in zip(masks, result_boxes):
             mask_s = np.zeros((ih, iw))
             crop_mask = self.scale_mask(mask, ih, iw)            
             x1 = int(box[0])
