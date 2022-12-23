@@ -13,7 +13,6 @@ import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
-from scipy import ndimage
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
