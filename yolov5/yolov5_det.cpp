@@ -1,6 +1,3 @@
-#include <iostream>
-#include <chrono>
-#include <cmath>
 #include "cuda_utils.h"
 #include "logging.h"
 #include "common.hpp"
@@ -8,20 +5,24 @@
 #include "calibrator.h"
 #include "preprocess.h"
 
+#include <iostream>
+#include <chrono>
+#include <cmath>
+
 #define USE_FP16  // set USE_INT8 or USE_FP16 or USE_FP32
 #define DEVICE 0  // GPU id
 #define NMS_THRESH 0.4
 #define CONF_THRESH 0.5
-#define BATCH_SIZE 1
 #define MAX_IMAGE_INPUT_SIZE_THRESH 3000 * 3000 // ensure it exceed the maximum size in the input images !
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = Yolo::INPUT_H;
-static const int INPUT_W = Yolo::INPUT_W;
-static const int CLASS_NUM = Yolo::CLASS_NUM;
-static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
-const char* INPUT_BLOB_NAME = "data";
-const char* OUTPUT_BLOB_NAME = "prob";
+static const int kBatchSize = 1;
+static const int kInputH = Yolo::INPUT_H;
+static const int kInputW = Yolo::INPUT_W;
+static const int kNumClass = Yolo::CLASS_NUM;
+static const int kOutputSize = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than MAX_OUTPUT_BBOX_COUNT boxes that conf >= 0.1
+const char* kInputTensorName = "data";
+const char* kOutputTensorName = "prob";
 static Logger gLogger;
 
 static int get_width(int x, float gw, int divisor = 8) {
@@ -37,11 +38,11 @@ static int get_depth(int x, float gd) {
     return std::max<int>(r, 1);
 }
 
-ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
+static ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
+    // Create input tensor of shape {3, kInputH, kInputW} with name kInputTensorName
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
     /* ------ yolov5 backbone------ */
@@ -80,20 +81,20 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto bottleneck_csp17 = C3(network, weightMap, *cat16->getOutput(0), get_width(512, gw), get_width(256, gw), get_depth(3, gd), false, 1, 0.5, "model.17");
 
     /* ------ detect ------ */
-    IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
+    IConvolutionLayer* det0 = network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
     auto conv18 = convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), get_width(256, gw), 3, 2, 1, "model.18");
     ITensor* inputTensors19[] = { conv18->getOutput(0), conv14->getOutput(0) };
     auto cat19 = network->addConcatenation(inputTensors19, 2);
     auto bottleneck_csp20 = C3(network, weightMap, *cat19->getOutput(0), get_width(512, gw), get_width(512, gw), get_depth(3, gd), false, 1, 0.5, "model.20");
-    IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
+    IConvolutionLayer* det1 = network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
     auto conv21 = convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), get_width(512, gw), 3, 2, 1, "model.21");
     ITensor* inputTensors22[] = { conv21->getOutput(0), conv10->getOutput(0) };
     auto cat22 = network->addConcatenation(inputTensors22, 2);
     auto bottleneck_csp23 = C3(network, weightMap, *cat22->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.23");
-    IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
+    IConvolutionLayer* det2 = network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
 
     auto yolo = addYoLoLayer(network, weightMap, "model.24", std::vector<IConvolutionLayer*>{det0, det1, det2});
-    yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
@@ -104,7 +105,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(BuilderFlag::kINT8);
-    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -123,10 +124,10 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     return engine;
 }
 
-ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
+static ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ 3, INPUT_H, INPUT_W });
+    // Create input tensor of shape {3, kInputH, kInputW} with name kInputTensorName
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
@@ -189,13 +190,13 @@ ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuil
     auto c3_32 = C3(network, weightMap, *cat31->getOutput(0), get_width(2048, gw), get_width(1024, gw), get_depth(3, gd), false, 1, 0.5, "model.32");
 
     /* ------ detect ------ */
-    IConvolutionLayer* det0 = network->addConvolutionNd(*c3_23->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.0.weight"], weightMap["model.33.m.0.bias"]);
-    IConvolutionLayer* det1 = network->addConvolutionNd(*c3_26->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.1.weight"], weightMap["model.33.m.1.bias"]);
-    IConvolutionLayer* det2 = network->addConvolutionNd(*c3_29->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.2.weight"], weightMap["model.33.m.2.bias"]);
-    IConvolutionLayer* det3 = network->addConvolutionNd(*c3_32->getOutput(0), 3 * (Yolo::CLASS_NUM + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.3.weight"], weightMap["model.33.m.3.bias"]);
+    IConvolutionLayer* det0 = network->addConvolutionNd(*c3_23->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.0.weight"], weightMap["model.33.m.0.bias"]);
+    IConvolutionLayer* det1 = network->addConvolutionNd(*c3_26->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.1.weight"], weightMap["model.33.m.1.bias"]);
+    IConvolutionLayer* det2 = network->addConvolutionNd(*c3_29->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.2.weight"], weightMap["model.33.m.2.bias"]);
+    IConvolutionLayer* det3 = network->addConvolutionNd(*c3_32->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.33.m.3.weight"], weightMap["model.33.m.3.bias"]);
 
     auto yolo = addYoLoLayer(network, weightMap, "model.33", std::vector<IConvolutionLayer*>{det0, det1, det2, det3});
-    yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
     // Build engine
@@ -207,7 +208,7 @@ ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuil
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(BuilderFlag::kINT8);
-    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -226,220 +227,238 @@ ICudaEngine* build_engine_p6(unsigned int maxBatchSize, IBuilder* builder, IBuil
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, bool& is_p6, float& gd, float& gw, std::string& wts_name) {
-    // Create builder
-    IBuilder* builder = createInferBuilder(gLogger);
-    IBuilderConfig* config = builder->createBuilderConfig();
-
-    // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine *engine = nullptr;
-    if (is_p6) {
-        engine = build_engine_p6(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, bool& is_p6, float& gd, float& gw, std::string& img_dir) {
+  if (argc < 4) return false;
+  if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
+    wts = std::string(argv[2]);
+    engine = std::string(argv[3]);
+    auto net = std::string(argv[4]);
+    if (net[0] == 'n') {
+      gd = 0.33;
+      gw = 0.25;
+    } else if (net[0] == 's') {
+      gd = 0.33;
+      gw = 0.50;
+    } else if (net[0] == 'm') {
+      gd = 0.67;
+      gw = 0.75;
+    } else if (net[0] == 'l') {
+      gd = 1.0;
+      gw = 1.0;
+    } else if (net[0] == 'x') {
+      gd = 1.33;
+      gw = 1.25;
+    } else if (net[0] == 'c' && argc == 7) {
+      gd = atof(argv[5]);
+      gw = atof(argv[6]);
     } else {
-        engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
+      return false;
     }
-    assert(engine != nullptr);
-
-    // Serialize the engine
-    (*modelStream) = engine->serialize();
-
-    // Close everything down
-    engine->destroy();
-    builder->destroy();
-    config->destroy();
+    if (net.size() == 2 && net[1] == '6') {
+      is_p6 = true;
+    }
+  } else if (std::string(argv[1]) == "-d" && argc == 4) {
+    engine = std::string(argv[2]);
+    img_dir = std::string(argv[3]);
+  } else {
+    return false;
+  }
+  return true;
 }
 
-void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* output, int batchSize) {
-    // infer on the batch asynchronously, and DMA output back to host
-    context.enqueue(batchSize, buffers, stream, nullptr);
-    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+void prepare_buffers(ICudaEngine* engine, float** gpu_input_buffer, float** gpu_output_buffer, float** cpu_output_buffer) {
+  assert(engine->getNbBindings() == 2);
+  // In order to bind the buffers, we need to know the names of the input and output tensors.
+  // Note that indices are guaranteed to be less than IEngine::getNbBindings()
+  const int inputIndex = engine->getBindingIndex(kInputTensorName);
+  const int outputIndex = engine->getBindingIndex(kOutputTensorName);
+  assert(inputIndex == 0);
+  assert(outputIndex == 1);
+  // Create GPU buffers on device
+  CUDA_CHECK(cudaMalloc((void**)gpu_input_buffer, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
+  CUDA_CHECK(cudaMalloc((void**)gpu_output_buffer, kBatchSize * kOutputSize * sizeof(float)));
+
+  *cpu_output_buffer = new float[kBatchSize * kOutputSize];
+}
+
+void infer(IExecutionContext& context, cudaStream_t& stream, void** gpu_buffers, float* output, int batchsize) {
+    context.enqueue(batchsize, gpu_buffers, stream, nullptr);
+    CUDA_CHECK(cudaMemcpyAsync(output, gpu_buffers[1], batchsize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, bool& is_p6, float& gd, float& gw, std::string& img_dir) {
-    if (argc < 4) return false;
-    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
-        wts = std::string(argv[2]);
-        engine = std::string(argv[3]);
-        auto net = std::string(argv[4]);
-        if (net[0] == 'n') {
-            gd = 0.33;
-            gw = 0.25;
-        } else if (net[0] == 's') {
-            gd = 0.33;
-            gw = 0.50;
-        } else if (net[0] == 'm') {
-            gd = 0.67;
-            gw = 0.75;
-        } else if (net[0] == 'l') {
-            gd = 1.0;
-            gw = 1.0;
-        } else if (net[0] == 'x') {
-            gd = 1.33;
-            gw = 1.25;
-        } else if (net[0] == 'c' && argc == 7) {
-            gd = atof(argv[5]);
-            gw = atof(argv[6]);
-        } else {
-            return false;
-        }
-        if (net.size() == 2 && net[1] == '6') {
-            is_p6 = true;
-        }
-    } else if (std::string(argv[1]) == "-d" && argc == 4) {
-        engine = std::string(argv[2]);
-        img_dir = std::string(argv[3]);
-    } else {
-        return false;
-    }
-    return true;
+void serialize_engine(unsigned int max_batchsize, bool& is_p6, float& gd, float& gw, std::string& wts_name, std::string& engine_name) {
+  // Create builder
+  IBuilder* builder = createInferBuilder(gLogger);
+  IBuilderConfig* config = builder->createBuilderConfig();
+
+  // Create model to populate the network, then set the outputs and create an engine
+  ICudaEngine *engine = nullptr;
+  if (is_p6) {
+    engine = build_engine_p6(max_batchsize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
+  } else {
+    engine = build_engine(max_batchsize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
+  }
+  assert(engine != nullptr);
+
+  // Serialize the engine
+  IHostMemory* serialized_engine = engine->serialize();
+  assert(serialized_engine != nullptr);
+
+  // Save engine to file
+  std::ofstream p(engine_name, std::ios::binary);
+  if (!p) {
+    std::cerr << "Could not open plan output file" << std::endl;
+    assert(false);
+  }
+  p.write(reinterpret_cast<const char*>(serialized_engine->data()), serialized_engine->size());
+
+  // Close everything down
+  engine->destroy();
+  builder->destroy();
+  config->destroy();
+  serialized_engine->destroy();
+}
+
+void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
+  std::ifstream file(engine_name, std::ios::binary);
+  if (!file.good()) {
+    std::cerr << "read " << engine_name << " error!" << std::endl;
+    assert(false);
+  }
+  size_t size = 0;
+  file.seekg(0, file.end);
+  size = file.tellg();
+  file.seekg(0, file.beg);
+  char* serialized_engine = new char[size];
+  assert(serialized_engine);
+  file.read(serialized_engine, size);
+  file.close();
+
+  *runtime = createInferRuntime(gLogger);
+  assert(*runtime);
+  *engine = (*runtime)->deserializeCudaEngine(serialized_engine, size);
+  assert(*engine);
+  *context = (*engine)->createExecutionContext();
+  assert(*context);
+  delete[] serialized_engine;
 }
 
 int main(int argc, char** argv) {
-    cudaSetDevice(DEVICE);
+  cudaSetDevice(DEVICE);
 
-    std::string wts_name = "";
-    std::string engine_name = "";
-    bool is_p6 = false;
-    float gd = 0.0f, gw = 0.0f;
-    std::string img_dir;
-    if (!parse_args(argc, argv, wts_name, engine_name, is_p6, gd, gw, img_dir)) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5_det -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
-        return -1;
-    }
+  std::string wts_name = "";
+  std::string engine_name = "";
+  bool is_p6 = false;
+  float gd = 0.0f, gw = 0.0f;
+  std::string img_dir;
 
-    // create a model using the API directly and serialize it to a stream
-    if (!wts_name.empty()) {
-        IHostMemory* modelStream{ nullptr };
-        APIToModel(BATCH_SIZE, &modelStream, is_p6, gd, gw, wts_name);
-        assert(modelStream != nullptr);
-        std::ofstream p(engine_name, std::ios::binary);
-        if (!p) {
-            std::cerr << "could not open plan output file" << std::endl;
-            return -1;
-        }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
-        modelStream->destroy();
-        return 0;
-    }
+  if (!parse_args(argc, argv, wts_name, engine_name, is_p6, gd, gw, img_dir)) {
+    std::cerr << "arguments not right!" << std::endl;
+    std::cerr << "./yolov5_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file" << std::endl;
+    std::cerr << "./yolov5_det -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+    return -1;
+  }
 
-    // deserialize the .engine and run inference
-    std::ifstream file(engine_name, std::ios::binary);
-    if (!file.good()) {
-        std::cerr << "read " << engine_name << " error!" << std::endl;
-        return -1;
-    }
-    char *trtModelStream = nullptr;
-    size_t size = 0;
-    file.seekg(0, file.end);
-    size = file.tellg();
-    file.seekg(0, file.beg);
-    trtModelStream = new char[size];
-    assert(trtModelStream);
-    file.read(trtModelStream, size);
-    file.close();
-
-    std::vector<std::string> file_names;
-    if (read_files_in_dir(img_dir.c_str(), file_names) < 0) {
-        std::cerr << "read_files_in_dir failed." << std::endl;
-        return -1;
-    }
-
-    static float prob[BATCH_SIZE * OUTPUT_SIZE];
-    IRuntime* runtime = createInferRuntime(gLogger);
-    assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
-    assert(engine != nullptr);
-    IExecutionContext* context = engine->createExecutionContext();
-    assert(context != nullptr);
-    delete[] trtModelStream;
-    assert(engine->getNbBindings() == 2);
-    float* buffers[2];
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine->getBindingIndex(OUTPUT_BLOB_NAME);
-    assert(inputIndex == 0);
-    assert(outputIndex == 1);
-    // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc((void**)&buffers[inputIndex], BATCH_SIZE * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void**)&buffers[outputIndex], BATCH_SIZE * OUTPUT_SIZE * sizeof(float)));
-
-    // Create stream
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    uint8_t* img_host = nullptr;
-    uint8_t* img_device = nullptr;
-    // prepare input data cache in pinned memory 
-    CUDA_CHECK(cudaMallocHost((void**)&img_host, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
-    // prepare input data cache in device memory
-    CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
-    int fcount = 0;
-    std::vector<cv::Mat> imgs_buffer(BATCH_SIZE);
-    for (int f = 0; f < (int)file_names.size(); f++) {
-        fcount++;
-        if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
-        //auto start = std::chrono::system_clock::now();
-        float *buffer_idx = (float*)buffers[inputIndex];
-        for (int b = 0; b < fcount; b++) {
-            cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
-            if (img.empty()) continue;
-            imgs_buffer[b] = img;
-            size_t size_image = img.cols * img.rows * 3;
-            size_t size_image_dst = INPUT_H * INPUT_W * 3;
-            //copy data to pinned memory
-            memcpy(img_host, img.data, size_image);
-            //copy data to device memory
-            CUDA_CHECK(cudaMemcpyAsync(img_device, img_host, size_image, cudaMemcpyHostToDevice, stream));
-            preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, INPUT_W, INPUT_H, stream);
-            buffer_idx += size_image_dst;
-            cudaStreamSynchronize(stream);
-        }
-        // Run inference
-        auto start = std::chrono::system_clock::now();
-        doInference(*context, stream, (void**)buffers, prob, BATCH_SIZE);
-        auto end = std::chrono::system_clock::now();
-        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-        std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
-        for (int b = 0; b < fcount; b++) {
-            auto& res = batch_res[b];
-            nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);
-        }
-        for (int b = 0; b < fcount; b++) {
-            auto& res = batch_res[b];
-            cv::Mat img = imgs_buffer[b];
-            for (size_t j = 0; j < res.size(); j++) {
-                cv::Rect r = get_rect(img, res[j].bbox);
-                cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-                cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-            }
-            cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
-        }
-        fcount = 0;
-    }
-
-    // Release stream and buffers
-    cudaStreamDestroy(stream);
-    CUDA_CHECK(cudaFree(img_device));
-    CUDA_CHECK(cudaFreeHost(img_host));
-    CUDA_CHECK(cudaFree(buffers[inputIndex]));
-    CUDA_CHECK(cudaFree(buffers[outputIndex]));
-    // Destroy the engine
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
-
-
-    // Print histogram of the output distribution
-    //std::cout << "\nOutput:\n\n";
-    //for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    //{
-    //    std::cout << prob[i] << ", ";
-    //    if (i % 10 == 0) std::cout << std::endl;
-    //}
-    //std::cout << std::endl;
-
+  // Create a model using the API directly and serialize it to a file
+  if (!wts_name.empty()) {
+    serialize_engine(kBatchSize, is_p6, gd, gw, wts_name, engine_name);
     return 0;
+  }
+
+
+  // Deserialize the engine from file
+  IRuntime* runtime = nullptr;
+  ICudaEngine* engine = nullptr;
+  IExecutionContext* context = nullptr;
+  deserialize_engine(engine_name, &runtime, &engine, &context);
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+
+  std::vector<std::string> file_names;
+  if (read_files_in_dir(img_dir.c_str(), file_names) < 0) {
+    std::cerr << "read_files_in_dir failed." << std::endl;
+    return -1;
+  }
+
+  // Prepare cpu and gpu buffers
+  float* gpu_buffers[2];
+  float* cpu_output_buffer = nullptr;
+  prepare_buffers(engine, &gpu_buffers[0], &gpu_buffers[1], &cpu_output_buffer);
+
+  uint8_t* img_host = nullptr;
+  uint8_t* img_device = nullptr;
+  // prepare input data cache in pinned memory 
+  CUDA_CHECK(cudaMallocHost((void**)&img_host, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
+  // prepare input data cache in device memory
+  CUDA_CHECK(cudaMalloc((void**)&img_device, MAX_IMAGE_INPUT_SIZE_THRESH * 3));
+
+  int fcount = 0;
+  std::vector<cv::Mat> imgs_buffer(kBatchSize);
+  for (int f = 0; f < (int)file_names.size(); f++) {
+    fcount++;
+    if (fcount < kBatchSize && f + 1 != (int)file_names.size()) continue;
+    //auto start = std::chrono::system_clock::now();
+    float *buffer_idx = (float*)gpu_buffers[0];
+    for (int b = 0; b < fcount; b++) {
+      cv::Mat img = cv::imread(img_dir + "/" + file_names[f - fcount + 1 + b]);
+      if (img.empty()) continue;
+      imgs_buffer[b] = img;
+      size_t size_image = img.cols * img.rows * 3;
+      size_t size_image_dst = kInputH * kInputW * 3;
+      //copy data to pinned memory
+      memcpy(img_host, img.data, size_image);
+      //copy data to device memory
+      CUDA_CHECK(cudaMemcpyAsync(img_device, img_host, size_image, cudaMemcpyHostToDevice, stream));
+      preprocess_kernel_img(img_device, img.cols, img.rows, buffer_idx, kInputW, kInputH, stream);
+      buffer_idx += size_image_dst;
+      cudaStreamSynchronize(stream);
+    }
+    // Run inference
+    auto start = std::chrono::system_clock::now();
+    infer(*context, stream, (void**)gpu_buffers, cpu_output_buffer, kBatchSize);
+    auto end = std::chrono::system_clock::now();
+    std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
+    for (int b = 0; b < fcount; b++) {
+      auto& res = batch_res[b];
+      nms(res, &cpu_output_buffer[b * kOutputSize], CONF_THRESH, NMS_THRESH);
+    }
+    for (int b = 0; b < fcount; b++) {
+      auto& res = batch_res[b];
+      cv::Mat img = imgs_buffer[b];
+      for (size_t j = 0; j < res.size(); j++) {
+        cv::Rect r = get_rect(img, res[j].bbox);
+        cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+        cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+      }
+      cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
+    }
+    fcount = 0;
+  }
+
+  // Release stream and buffers
+  cudaStreamDestroy(stream);
+  CUDA_CHECK(cudaFree(img_device));
+  CUDA_CHECK(cudaFreeHost(img_host));
+  CUDA_CHECK(cudaFree(gpu_buffers[0]));
+  CUDA_CHECK(cudaFree(gpu_buffers[1]));
+  delete[] cpu_output_buffer;
+  // Destroy the engine
+  context->destroy();
+  engine->destroy();
+  runtime->destroy();
+
+
+  // Print histogram of the output distribution
+  //std::cout << "\nOutput:\n\n";
+  //for (unsigned int i = 0; i < kOutputSize; i++)
+  //{
+  //    std::cout << prob[i] << ", ";
+  //    if (i % 10 == 0) std::cout << std::endl;
+  //}
+  //std::cout << std::endl;
+
+  return 0;
 }
+
