@@ -181,6 +181,8 @@ class YoLov5TRT(object):
             result_boxes, result_scores, result_classid, result_proto_coef = self.post_process(
                 output_bbox[i * self.det_output_length: (i + 1) * self.det_output_length], batch_origin_h[i], batch_origin_w[i]
             )
+            if result_proto_coef.shape[0] == 0:
+                continue
             result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i], batch_origin_w[i])
 
             # Draw masks on  the original image
