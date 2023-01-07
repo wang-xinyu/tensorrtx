@@ -129,11 +129,12 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 ./yolov5_seg -s yolov5s-seg.wts yolov5s-seg.engine s
 
 # Run inference
-./yolov5_seg -d yolov5s-seg.engine ../samples
+./yolov5_seg -d yolov5s-seg.engine ../samples ../coco.txt
 ```
 
 <p align="center">
-<img src="https://user-images.githubusercontent.com/15235574/208305921-0a2ee358-6550-4d36-bb86-867685bfe069.jpg" height="360px;">
+<img src="./seg_zidane.jpg" height="360px;">
+<img src="./seg_bus.jpg" height="360px;">
 </p>
 
 # INT8 Quantization
