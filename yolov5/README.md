@@ -128,13 +128,16 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 # Build and serialize TensorRT engine
 ./yolov5_seg -s yolov5s-seg.wts yolov5s-seg.engine s
 
+# Download the labels file
+wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
+
 # Run inference
 ./yolov5_seg -d yolov5s-seg.engine ../samples ../coco.txt
 ```
 
 <p align="center">
-<img src="./seg_zidane.jpg" height="360px;">
-<img src="./seg_bus.jpg" height="360px;">
+<img src="https://user-images.githubusercontent.com/10251537/211291625-1b912483-b6a6-4e92-80c1-434d165b6776.jpg" height="360px;">
+<img src="https://user-images.githubusercontent.com/10251537/211291839-a4c4f9ae-8f9e-4fa3-9d77-d386e85f0341.jpg" height="360px;">
 </p>
 
 # INT8 Quantization
