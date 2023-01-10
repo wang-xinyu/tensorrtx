@@ -131,8 +131,8 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 # Download the labels file
 wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
 
-# Run inference
-./yolov5_seg -d yolov5s-seg.engine ../samples ../coco.txt
+# Run inference with labels file
+./yolov5_seg -d yolov5s-seg.engine ../samples coco.txt
 ```
 
 <p align="center">

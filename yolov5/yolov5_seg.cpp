@@ -217,12 +217,6 @@ std::vector<cv::Mat> process_mask(const float* proto, std::vector<Yolo::Detectio
         }
         e = 1.0f / (1.0f + expf(-e));
         mask_mat.at<float>(y, x) = e;
-        // if (e > 0.5) {
-          // TODO(Call for PR): Use different colors for different class ids
-        //   mask_mat.at<cv::Vec3b>(y, x)[2] = 0xFF;
-        //   mask_mat.at<cv::Vec3b>(y, x)[1] = 0x38;
-        //   mask_mat.at<cv::Vec3b>(y, x)[0] = 0x38;
-        // }
       }
     }
     cv::resize(mask_mat, mask_mat, cv::Size(INPUT_W, INPUT_H));
@@ -274,7 +268,7 @@ void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vecto
     }
 
     cv::rectangle(img, r, bgr, 2);
-    // TODO(Call for PR): convert class id to class name
+    
     // Get the size of the text
     cv::Size textSize = cv::getTextSize(labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::FONT_HERSHEY_PLAIN, 1.2, 2, NULL);
     // Set the top left corner of the rectangle
