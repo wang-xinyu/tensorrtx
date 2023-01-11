@@ -30,7 +30,8 @@ TensorRTx inference code base for [ultralytics/yolov5](https://github.com/ultral
 <a href="https://github.com/triple-Mu"><img src="https://avatars.githubusercontent.com/u/92794867?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/xiang-wuu"><img src="https://avatars.githubusercontent.com/u/107029401?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/uyolo1314"><img src="https://avatars.githubusercontent.com/u/101853326?s=48&v=4" width="40px;" alt=""/></a>
-<a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?s=96&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/PrinceP"><img src="https://avatars.githubusercontent.com/u/10251537?s=48&v=4" width="40px;" alt=""/></a>
 
 ## Different versions of yolov5
 
@@ -137,7 +138,6 @@ wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/
 
 <p align="center">
 <img src="https://user-images.githubusercontent.com/10251537/211291625-1b912483-b6a6-4e92-80c1-434d165b6776.jpg" height="360px;">
-<img src="https://user-images.githubusercontent.com/10251537/211291839-a4c4f9ae-8f9e-4fa3-9d77-d386e85f0341.jpg" height="360px;">
 </p>
 
 # INT8 Quantization
