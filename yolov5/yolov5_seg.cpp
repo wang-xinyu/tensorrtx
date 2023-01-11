@@ -155,7 +155,7 @@ void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffer
     cudaStreamSynchronize(stream);
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir) {
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir, std::string& labels_filename) {
     if (argc < 4) return false;
     if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
         wts = std::string(argv[2]);
@@ -182,9 +182,10 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
         } else {
             return false;
         }
-    } else if (std::string(argv[1]) == "-d" && argc == 4) {
+    } else if (std::string(argv[1]) == "-d" && argc == 5) {
         engine = std::string(argv[2]);
         img_dir = std::string(argv[3]);
+        labels_filename = std::string(argv[4]);
     } else {
         return false;
     }
@@ -216,12 +217,6 @@ std::vector<cv::Mat> process_mask(const float* proto, std::vector<Yolo::Detectio
         }
         e = 1.0f / (1.0f + expf(-e));
         mask_mat.at<float>(y, x) = e;
-        // if (e > 0.5) {
-        //   // TODO(Call for PR): Use different colors for different class ids
-        //   mask_mat.at<cv::Vec3b>(y, x)[2] = 0xFF;
-        //   mask_mat.at<cv::Vec3b>(y, x)[1] = 0x38;
-        //   mask_mat.at<cv::Vec3b>(y, x)[0] = 0x38;
-        // }
       }
     }
     cv::resize(mask_mat, mask_mat, cv::Size(INPUT_W, INPUT_H));
@@ -251,7 +246,7 @@ cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
   return res;
 }
 
-void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vector<cv::Mat>& masks) {
+void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map) {
   static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
                                          0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
                                          0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
@@ -273,8 +268,23 @@ void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vecto
     }
 
     cv::rectangle(img, r, bgr, 2);
-    // TODO(Call for PR): convert class id to class name
-    cv::putText(img, std::to_string((int)dets[i].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
+    
+    // Get the size of the text
+    cv::Size textSize = cv::getTextSize(labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::FONT_HERSHEY_PLAIN, 1.2, 2, NULL);
+    // Set the top left corner of the rectangle
+    cv::Point topLeft(r.x, r.y - textSize.height);
+
+    // Set the bottom right corner of the rectangle
+    cv::Point bottomRight(r.x + textSize.width, r.y + textSize.height);
+
+    // Set the thickness of the rectangle lines
+    int lineThickness = 2;
+
+    // Draw the rectangle on the image
+    cv::rectangle(img, topLeft, bottomRight, bgr, -1);
+
+    cv::putText(img, labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::Point(r.x, r.y + 4), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
+
   }
 }
 
@@ -283,12 +293,14 @@ int main(int argc, char** argv) {
 
     std::string wts_name = "";
     std::string engine_name = "";
+    std::string labels_filename = "";
+    
     float gd = 0.0f, gw = 0.0f;
     std::string img_dir;
-    if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir)) {
+    if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir, labels_filename)) {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./yolov5_seg -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5_seg -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov5_seg -d [.engine] ../samples coco.txt  // deserialize plan file, read the labels file and run inference" << std::endl;
         return -1;
     }
 
@@ -328,6 +340,18 @@ int main(int argc, char** argv) {
         std::cerr << "read_files_in_dir failed." << std::endl;
         return -1;
     }
+    
+    // read the txt file for classnames
+    std::ifstream labels_file(labels_filename, std::ios::binary);
+    if (!labels_file.good()) {
+        std::cerr << "read " << labels_filename << " error!" << std::endl;
+        return -1;
+    }
+    std::unordered_map<int, std::string> labels_map;
+    read_labels(labels_filename, labels_map);
+    
+    assert(CLASS_NUM == labels_map.size());
+
 
     static float prob[BATCH_SIZE * OUTPUT_SIZE1];
     static float proto[BATCH_SIZE * OUTPUT_SIZE2];
@@ -398,7 +422,7 @@ int main(int argc, char** argv) {
             cv::Mat img = imgs_buffer[b];
 
             auto masks = process_mask(&proto[b * OUTPUT_SIZE2], res);
-            draw_mask_bbox(img, res, masks);
+            draw_mask_bbox(img, res, masks, labels_map);
             cv::imwrite("_" + file_names[f - fcount + 1 + b], img);
         }
         fcount = 0;
