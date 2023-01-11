@@ -7,6 +7,7 @@ The original pytorch model is from [hustvl/YOLOP](https://github.com/hustvl/YOLO
 
 <a href="https://github.com/ausk"><img src="https://avatars.githubusercontent.com/u/4545060?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/aliceint"><img src="https://avatars.githubusercontent.com/u/15520773?v=4?s=48" width="40px;" alt=""/></a>
+<a href="https://github.com/mantuoluozk"><img src="https://avatars.githubusercontent.com/u/43333969?v=4?s=48" width="40px;" alt=""/></a>
 
 ## 1. Prepare building environments
 
