@@ -246,7 +246,7 @@ cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
   return res;
 }
 
-void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string> &labels_map) {
+void draw_mask_bbox(cv::Mat& img, std::vector<Yolo::Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map) {
   static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
                                          0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
                                          0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
