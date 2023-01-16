@@ -25,7 +25,7 @@ using namespace Yolo;
 
 namespace nvinfer1
 {
-    YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const std::vector<Yolo::YoloKernel>& vYoloKernel)
+    YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const std::vector<YoloKernel>& vYoloKernel)
     {
         mClassCount = classCount;
         mYoloV5NetWidth = netWidth;
@@ -100,7 +100,7 @@ namespace nvinfer1
 
     size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT
     {
-        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(Yolo::YoloKernel) * mYoloKernel.size() + sizeof(mYoloV5NetWidth) + sizeof(mYoloV5NetHeight) + sizeof(mMaxOutObject) + sizeof(is_segmentation_);
+        return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount) + sizeof(YoloKernel) * mYoloKernel.size() + sizeof(mYoloV5NetWidth) + sizeof(mYoloV5NetHeight) + sizeof(mMaxOutObject) + sizeof(is_segmentation_);
     }
 
     int YoloLayerPlugin::initialize() TRT_NOEXCEPT
@@ -303,8 +303,8 @@ namespace nvinfer1
         int input_h = p_netinfo[2];
         int max_output_object_count = p_netinfo[3];
         bool is_segmentation = (bool)p_netinfo[4];
-        std::vector<Yolo::YoloKernel> kernels(fc->fields[1].length);
-        memcpy(&kernels[0], fc->fields[1].data, kernels.size() * sizeof(Yolo::YoloKernel));
+        std::vector<YoloKernel> kernels(fc->fields[1].length);
+        memcpy(&kernels[0], fc->fields[1].data, kernels.size() * sizeof(YoloKernel));
         YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, is_segmentation, kernels);
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;

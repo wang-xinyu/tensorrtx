@@ -1,34 +1,20 @@
 #ifndef _YOLO_LAYER_H
 #define _YOLO_LAYER_H
 
+#include "types.h"
+#include "macros.h"
+
 #include <vector>
 #include <string>
-#include <NvInfer.h>
-#include "macros.h"
 
 namespace Yolo
 {
     static constexpr int CHECK_COUNT = 3;
     static constexpr float IGNORE_THRESH = 0.1f;
-    struct YoloKernel
-    {
-        int width;
-        int height;
-        float anchors[CHECK_COUNT * 2];
-    };
     static constexpr int MAX_OUTPUT_BBOX_COUNT = 1000;
     static constexpr int CLASS_NUM = 80;
     static constexpr int INPUT_H = 640;  // yolov5's input height and width must be divisible by 32.
     static constexpr int INPUT_W = 640;
-
-    static constexpr int LOCATIONS = 4;
-    struct alignas(float) Detection {
-        //center_x center_y w h
-        float bbox[LOCATIONS];
-        float conf;  // bbox_conf * cls_conf
-        float class_id;
-        float mask[32];
-    };
 }
 
 namespace nvinfer1
@@ -36,7 +22,7 @@ namespace nvinfer1
     class API YoloLayerPlugin : public IPluginV2IOExt
     {
     public:
-        YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const std::vector<Yolo::YoloKernel>& vYoloKernel);
+        YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const std::vector<YoloKernel>& vYoloKernel);
         YoloLayerPlugin(const void* data, size_t length);
         ~YoloLayerPlugin();
 
@@ -98,7 +84,7 @@ namespace nvinfer1
         int mYoloV5NetHeight;
         int mMaxOutObject;
         bool is_segmentation_;
-        std::vector<Yolo::YoloKernel> mYoloKernel;
+        std::vector<YoloKernel> mYoloKernel;
         void** mAnchor;
     };
 
