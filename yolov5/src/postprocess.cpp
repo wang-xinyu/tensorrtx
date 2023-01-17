@@ -1,4 +1,5 @@
 #include "postprocess.h"
+#include "utils.h"
 
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
   float l, r, t, b;
@@ -87,6 +88,102 @@ void draw_bbox(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detectio
       cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
       cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
     }
+  }
+}
+
+static cv::Rect get_downscale_rect(float bbox[4], float scale) {
+  float left = bbox[0] - bbox[2] / 2;
+  float top = bbox[1] - bbox[3] / 2;
+  float right = bbox[0] + bbox[2] / 2;
+  float bottom = bbox[1] + bbox[3] / 2;
+  left /= scale;
+  top /= scale;
+  right /= scale;
+  bottom /= scale;
+  return cv::Rect(round(left), round(top), round(right - left), round(bottom - top));
+}
+
+std::vector<cv::Mat> process_mask(const float* proto, int proto_size, std::vector<Detection>& dets) {
+  std::vector<cv::Mat> masks;
+  for (size_t i = 0; i < dets.size(); i++) {
+    cv::Mat mask_mat = cv::Mat::zeros(kInputH / 4, kInputW / 4, CV_32FC1);
+    auto r = get_downscale_rect(dets[i].bbox, 4);
+    for (int x = r.x; x < r.x + r.width; x++) {
+      for (int y = r.y; y < r.y + r.height; y++) {
+        float e = 0.0f;
+        for (int j = 0; j < 32; j++) {
+          e += dets[i].mask[j] * proto[j * proto_size / 32 + y * mask_mat.cols + x];
+        }
+        e = 1.0f / (1.0f + expf(-e));
+        mask_mat.at<float>(y, x) = e;
+      }
+    }
+    cv::resize(mask_mat, mask_mat, cv::Size(kInputW, kInputH));
+    masks.push_back(mask_mat);
+  }
+  return masks;
+}
+
+cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
+  int x, y, w, h;
+  float r_w = kInputW / (img.cols * 1.0);
+  float r_h = kInputH / (img.rows * 1.0);
+  if (r_h > r_w) {
+    w = kInputW;
+    h = r_w * img.rows;
+    x = 0;
+    y = (kInputH - h) / 2;
+  } else {
+    w = r_h * img.cols;
+    h = kInputH;
+    x = (kInputW - w) / 2;
+    y = 0;
+  }
+  cv::Rect r(x, y, w, h);
+  cv::Mat res;
+  cv::resize(mask(r), res, img.size());
+  return res;
+}
+
+void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map) {
+  static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
+                                         0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
+                                         0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
+                                         0xFF95C8, 0xFF37C7};
+  for (size_t i = 0; i < dets.size(); i++) {
+    cv::Mat img_mask = scale_mask(masks[i], img);
+    auto color = colors[(int)dets[i].class_id % colors.size()];
+    auto bgr = cv::Scalar(color & 0xFF, color >> 8 & 0xFF, color >> 16 & 0xFF);
+
+    cv::Rect r = get_rect(img, dets[i].bbox);
+    for (int x = r.x; x < r.x + r.width; x++) {
+      for (int y = r.y; y < r.y + r.height; y++) {
+        float val = img_mask.at<float>(y, x);
+        if (val <= 0.5) continue;
+        img.at<cv::Vec3b>(y, x)[0] = img.at<cv::Vec3b>(y, x)[0] / 2 + bgr[0] / 2;
+        img.at<cv::Vec3b>(y, x)[1] = img.at<cv::Vec3b>(y, x)[1] / 2 + bgr[1] / 2;
+        img.at<cv::Vec3b>(y, x)[2] = img.at<cv::Vec3b>(y, x)[2] / 2 + bgr[2] / 2;
+      }
+    }
+
+    cv::rectangle(img, r, bgr, 2);
+    
+    // Get the size of the text
+    cv::Size textSize = cv::getTextSize(labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::FONT_HERSHEY_PLAIN, 1.2, 2, NULL);
+    // Set the top left corner of the rectangle
+    cv::Point topLeft(r.x, r.y - textSize.height);
+
+    // Set the bottom right corner of the rectangle
+    cv::Point bottomRight(r.x + textSize.width, r.y + textSize.height);
+
+    // Set the thickness of the rectangle lines
+    int lineThickness = 2;
+
+    // Draw the rectangle on the image
+    cv::rectangle(img, topLeft, bottomRight, bgr, -1);
+
+    cv::putText(img, labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::Point(r.x, r.y + 4), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
+
   }
 }
 

@@ -214,6 +214,7 @@ int main(int argc, char** argv) {
   CUDA_CHECK(cudaFree(gpu_buffers[0]));
   CUDA_CHECK(cudaFree(gpu_buffers[1]));
   delete[] cpu_output_buffer;
+  cuda_preprocess_destroy();
   // Destroy the engine
   context->destroy();
   engine->destroy();
