@@ -49,14 +49,8 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2, v7.
 
 ## Config
 
-- Choose the model n/s/m/l/x/n6/s6/m6/l6/x6 from command line arguments.
-- Input shape defined in yololayer.h
-- Number of classes defined in yololayer.h, **DO NOT FORGET TO ADAPT THIS, If using your own model**
-- INT8/FP16/FP32 can be selected by the macro in yolov5.cpp, **INT8 need more steps, pls follow `How to Run` first and then go the `INT8 Quantization` below**
-- GPU id can be selected by the macro in yolov5.cpp
-- NMS thresh in yolov5.cpp
-- BBox confidence thresh in yolov5.cpp
-- Batch size in yolov5.cpp
+- Choose the YOLOv5 sub-model n/s/m/l/x/n6/s6/m6/l6/x6 from command line arguments.
+- Other configs please check src/config.h
 
 ## Build and Run
 
@@ -83,14 +77,14 @@ cd build
 cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
 cmake ..
 make
-sudo ./yolov5_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
-sudo ./yolov5_det -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
+./yolov5_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
+./yolov5_det -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov5s
-sudo ./yolov5_det -s yolov5s.wts yolov5s.engine s
-sudo ./yolov5_det -d yolov5s.engine ../samples
+./yolov5_det -s yolov5s.wts yolov5s.engine s
+./yolov5_det -d yolov5s.engine ../images
 // For example Custom model with depth_multiple=0.17, width_multiple=0.25 in yolov5.yaml
-sudo ./yolov5_det -s yolov5_custom.wts yolov5.engine c 0.17 0.25
-sudo ./yolov5_det -d yolov5.engine ../samples
+./yolov5_det -s yolov5_custom.wts yolov5.engine c 0.17 0.25
+./yolov5_det -d yolov5.engine ../images
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
@@ -120,7 +114,7 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 ./yolov5_cls -s yolov5s-cls.wts yolov5s-cls.engine s
 
 # Run inference
-./yolov5_cls -d yolov5s-cls.engine ../samples
+./yolov5_cls -d yolov5s-cls.engine ../images
 ```
 
 ### Instance Segmentation
@@ -133,7 +127,7 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
 
 # Run inference with labels file
-./yolov5_seg -d yolov5s-seg.engine ../samples coco.txt
+./yolov5_seg -d yolov5s-seg.engine ../images coco.txt
 ```
 
 <p align="center">
@@ -146,7 +140,7 @@ wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/
 
 2. unzip it in yolov5/build
 
-3. set the macro `USE_INT8` in yolov5.cpp and make
+3. set the macro `USE_INT8` in src/config.h and make
 
 4. serialize the model and test
 
