@@ -50,7 +50,7 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2, v7.
 ## Config
 
 - Choose the YOLOv5 sub-model n/s/m/l/x/n6/s6/m6/l6/x6 from command line arguments.
-- Other configs please check src/config.h
+- Other configs please check [src/config.h](src/config.h)
 
 ## Build and Run
 
@@ -59,41 +59,45 @@ Currently, we support yolov5 v1.0, v2.0, v3.0, v3.1, v4.0, v5.0, v6.0, v6.2, v7.
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
 ```
-// clone code according to above #Different versions of yolov5
-// download https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
-cp {tensorrtx}/yolov5/gen_wts.py {ultralytics}/yolov5
-cd {ultralytics}/yolov5
+git clone -b v7.0 https://github.com/ultralytics/yolov5.git
+git clone -b yolov5-v7.0 https://github.com/wang-xinyu/tensorrtx.git
+cd yolov5/
+wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt
+cp [PATH-TO-TENSORRTX]/yolov5/gen_wts.py .
 python gen_wts.py -w yolov5s.pt -o yolov5s.wts
-// a file 'yolov5s.wts' will be generated.
+# A file 'yolov5s.wts' will be generated.
 ```
 
 2. build tensorrtx/yolov5 and run
 
 ```
-cd {tensorrtx}/yolov5/
-// update CLASS_NUM in yololayer.h if your model is trained on custom dataset
+cd [PATH-TO-TENSORRTX]/yolov5/
+# Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp {ultralytics}/yolov5/yolov5s.wts {tensorrtx}/yolov5/build
+cp [PATH-TO-ultralytics-yolov5]/yolov5s.wts . 
 cmake ..
 make
+
 ./yolov5_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6 or c/c6 gd gw]  // serialize model to plan file
 ./yolov5_det -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
-// For example yolov5s
+
+# For example yolov5s
 ./yolov5_det -s yolov5s.wts yolov5s.engine s
 ./yolov5_det -d yolov5s.engine ../images
-// For example Custom model with depth_multiple=0.17, width_multiple=0.25 in yolov5.yaml
+
+# For example Custom model with depth_multiple=0.17, width_multiple=0.25 in yolov5.yaml
 ./yolov5_det -s yolov5_custom.wts yolov5.engine c 0.17 0.25
 ./yolov5_det -d yolov5.engine ../images
 ```
 
-3. check the images generated, as follows. _zidane.jpg and _bus.jpg
+3. Check the images generated, _zidane.jpg and _bus.jpg
 
-4. optional, load and run the tensorrt model in python
+4. Optional, load and run the tensorrt model in Python
 
 ```
-// install python-tensorrt, pycuda, etc.
-// ensure the yolov5s.engine and libmyplugins.so have been built
+// Install python-tensorrt, pycuda, etc.
+// Ensure the yolov5s.engine and libmyplugins.so have been built
 python yolov5_det_trt.py
 
 // Another version of python script, which is using CUDA Python instead of pycuda.
