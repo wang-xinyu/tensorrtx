@@ -434,7 +434,7 @@ if __name__ == "__main__":
     try:
         print('batch size is', yolov5_wrapper.batch_size)
         
-        image_dir = "samples/"
+        image_dir = "images/"
         image_path_batches = get_img_path_batches(yolov5_wrapper.batch_size, image_dir)
 
         for i in range(10):
