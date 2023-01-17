@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
   // Init CUDA preprocessing
   cuda_preprocess_init(kMaxInputImageSize);
 
- // Prepare cpu and gpu buffers
+  // Prepare cpu and gpu buffers
   float* gpu_buffers[3];
   float* cpu_output_buffer1 = nullptr;
   float* cpu_output_buffer2 = nullptr;
