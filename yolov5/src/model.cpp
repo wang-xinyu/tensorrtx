@@ -476,3 +476,62 @@ ICudaEngine* build_det_p6_engine(unsigned int maxBatchSize, IBuilder* builder, I
   return engine;
 }
 
+ICudaEngine* build_cls_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, float& gd, float& gw, std::string& wts_name) {
+  INetworkDefinition* network = builder->createNetworkV2(0U);
+
+  // Create input tensor
+  ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kClsInputH, kClsInputW });
+  assert(data);
+  std::map<std::string, Weights> weightMap = loadWeights(wts_name);
+
+  // Backbone
+  auto conv0 = convBlock(network, weightMap, *data,  get_width(64, gw), 6, 2, 1,  "model.0");
+  assert(conv0);
+  auto conv1 = convBlock(network, weightMap, *conv0->getOutput(0), get_width(128, gw), 3, 2, 1, "model.1");
+  auto bottleneck_CSP2 = C3(network, weightMap, *conv1->getOutput(0), get_width(128, gw), get_width(128, gw), get_depth(3, gd), true, 1, 0.5, "model.2");
+  auto conv3 = convBlock(network, weightMap, *bottleneck_CSP2->getOutput(0), get_width(256, gw), 3, 2, 1, "model.3");
+  auto bottleneck_csp4 = C3(network, weightMap, *conv3->getOutput(0), get_width(256, gw), get_width(256, gw), get_depth(6, gd), true, 1, 0.5, "model.4");
+  auto conv5 = convBlock(network, weightMap, *bottleneck_csp4->getOutput(0), get_width(512, gw), 3, 2, 1, "model.5");
+  auto bottleneck_csp6 = C3(network, weightMap, *conv5->getOutput(0), get_width(512, gw), get_width(512, gw), get_depth(9, gd), true, 1, 0.5, "model.6");
+  auto conv7 = convBlock(network, weightMap, *bottleneck_csp6->getOutput(0), get_width(1024, gw), 3, 2, 1, "model.7");
+  auto bottleneck_csp8 = C3(network, weightMap, *conv7->getOutput(0), get_width(1024, gw), get_width(1024, gw), get_depth(3, gd), true, 1, 0.5, "model.8");
+
+  // Head
+  auto conv_class = convBlock(network, weightMap, *bottleneck_csp8->getOutput(0), 1280, 1, 1, 1, "model.9.conv");
+  IPoolingLayer* pool2 = network->addPoolingNd(*conv_class->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
+  assert(pool2);
+  IFullyConnectedLayer* yolo = network->addFullyConnected(*pool2->getOutput(0), kClsNumClass, weightMap["model.9.linear.weight"], weightMap["model.9.linear.bias"]);
+  assert(yolo);
+
+  yolo->getOutput(0)->setName(kOutputTensorName);
+  network->markOutput(*yolo->getOutput(0));
+
+  // Engine config
+  builder->setMaxBatchSize(maxBatchSize);
+  config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+
+#if defined(USE_FP16)
+  config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+  std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+  assert(builder->platformHasFastInt8());
+  config->setFlag(BuilderFlag::kINT8);
+  Int8EntropyCalibrator2* calibrator = new Int8EntropyCalibrator2(1, kClsInputW, kClsInputW, "./coco_calib/", "int8calib.table", kInputTensorName);
+  config->setInt8Calibrator(calibrator);
+#endif
+
+  std::cout << "Building engine, please wait for a while..." << std::endl;
+  ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+  std::cout << "Build engine successfully!" << std::endl;
+
+  // Don't need the network any more
+  network->destroy();
+
+  // Release host memory
+  for (auto& mem : weightMap) {
+    free((void*)(mem.second.values));
+  }
+
+  return engine;
+}
+

@@ -14,12 +14,21 @@
 const static char* kInputTensorName = "data";
 const static char* kOutputTensorName = "prob";
 
+// Detection model and Segmentation model' number of classes
 constexpr static int kNumClass = 80;
+
+// Classfication model's number of classes
+constexpr static int kClsNumClass = 1000;
+
 constexpr static int kBatchSize = 1;
 
 // Yolo's input width and height must by divisible by 32
 constexpr static int kInputH = 640;
 constexpr static int kInputW = 640;
+
+// Classfication model's input shape
+constexpr static int kClsInputH = 224;
+constexpr static int kClsInputW = 224;
 
 // Maximum number of output bounding boxes from yololayer plugin.
 // That is maximum number of output bounding boxes before NMS.
