@@ -11,9 +11,8 @@ Pytorch model from [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 
 ## Requirements
 
-Please use TensorRT 7.x.
-
-There is a bug with TensorRT 8.x, we are working on it.
+Now TensorRT 8.x is supported and you can use it.
+The key cause of the previous bug is the pooling layer Stride setting problem.
 
 ## Build and Run
 
