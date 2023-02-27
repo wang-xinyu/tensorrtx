@@ -8,6 +8,8 @@ Pytorch model from [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 <a href="https://github.com/East-Face"><img src="https://avatars.githubusercontent.com/u/35283869?v=4s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/irvingzhang0512"><img src="https://avatars.githubusercontent.com/u/22089207?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/wang-xinyu"><img src="https://avatars.githubusercontent.com/u/15235574?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/nengwp"><img src="https://avatars.githubusercontent.com/u/44516353?s=96&v=4" width="40px;" alt=""/></a>
+
 
 ## Requirements
 
