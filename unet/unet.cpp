@@ -41,6 +41,7 @@ ILayer* doubleConv(INetworkDefinition* network, std::map<std::string, Weights>& 
 
 ILayer* down(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, int p, std::string lname) {
   IPoolingLayer* pool1 = network->addPoolingNd(input, PoolingType::kMAX, DimsHW{ 2, 2 });
+  pool1->setStrideNd(DimsHW{ 2, 2 });
   assert(pool1);
   ILayer* dcov1 = doubleConv(network, weightMap, *pool1->getOutput(0), outch, 3, lname + ".maxpool_conv.1", outch);
   assert(dcov1);
