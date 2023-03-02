@@ -14,7 +14,8 @@ The basic workflow of TensorRTx is:
 4. Load the TensorRT engine and run inference.
 
 ## News
-
+- `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn)  upgrade to support TensorRT 8. 
+- `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [UNet](./unet)  upgrade to support TensorRT 8. 
 - `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
 - `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 - `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
