@@ -13,7 +13,7 @@ using namespace nvinfer1;
 
 namespace nvinfer1 {
 int batchedNms(int batchSize,
-    const void *const *inputs, void **outputs,
+    const void *const *inputs, void *const *outputs,
     size_t count, int detections_per_im, float nms_thresh,
     void *workspace, size_t workspace_size, cudaStream_t stream);
 
@@ -40,12 +40,12 @@ class BatchedNmsPlugin : public IPluginV2Ext {
         read(d, _count);
     }
 
-    size_t getSerializationSize() const override {
+    size_t getSerializationSize() const noexcept override {
         return sizeof(_nms_thresh) + sizeof(_detections_per_im)
             + sizeof(_count);
     }
 
-    void serialize(void *buffer) const override {
+    void serialize(void *buffer) const noexcept override {
         char* d = static_cast<char*>(buffer);
         write(d, _nms_thresh);
         write(d, _detections_per_im);
@@ -70,34 +70,34 @@ class BatchedNmsPlugin : public IPluginV2Ext {
         this->deserialize(data, length);
     }
 
-    const char *getPluginType() const override {
+    const char *getPluginType() const noexcept override {
         return PLUGIN_NAME;
     }
 
-    const char *getPluginVersion() const override {
+    const char *getPluginVersion() const noexcept override {
         return PLUGIN_VERSION;
     }
 
-    int getNbOutputs() const override {
+    int getNbOutputs() const noexcept override {
         return 3;
     }
 
     Dims getOutputDimensions(int index,
-        const Dims *inputs, int nbInputDims) override {
+        const Dims *inputs, int nbInputDims) noexcept override {
         assert(nbInputDims == 3);
         assert(index < this->getNbOutputs());
         return Dims2(_detections_per_im, index == 1 ? 4 : 1);
     }
 
-    bool supportsFormat(DataType type, PluginFormat format) const override {
+    bool supportsFormat(DataType type, PluginFormat format) const noexcept override {
         return type == DataType::kFLOAT && format == PluginFormat::kLINEAR;
     }
 
-    int initialize() override { return 0; }
+    int initialize() noexcept override { return 0; }
 
-    void terminate() override {}
+    void terminate() noexcept override {}
 
-    size_t getWorkspaceSize(int maxBatchSize) const override {
+    size_t getWorkspaceSize(int maxBatchSize) const noexcept override {
         static int size = -1;
         if (size < 0) {
             size = batchedNms(maxBatchSize, nullptr, nullptr, _count,
@@ -108,40 +108,40 @@ class BatchedNmsPlugin : public IPluginV2Ext {
     }
 
     int enqueue(int batchSize,
-        const void *const *inputs, void **outputs,
-        void *workspace, cudaStream_t stream) override {
+        const void *const *inputs, void *const *outputs,
+        void *workspace, cudaStream_t stream) noexcept override {
         return batchedNms(batchSize, inputs, outputs, _count,
             _detections_per_im, _nms_thresh,
             workspace, getWorkspaceSize(batchSize), stream);
     }
 
-    void destroy() override {
+    void destroy() noexcept override {
         delete this;
     }
 
-    const char *getPluginNamespace() const override {
+    const char *getPluginNamespace() const noexcept override {
         return PLUGIN_NAMESPACE;
     }
 
-    void setPluginNamespace(const char *N) override {
+    void setPluginNamespace(const char *N) noexcept override {
     }
 
     // IPluginV2Ext Methods
-    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const {
+    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const noexcept override {
         assert(index < 3);
         return DataType::kFLOAT;
     }
 
     bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted,
-        int nbInputs) const {
+        int nbInputs) const noexcept override {
         return false;
     }
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const { return false; }
+    bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override { return false; }
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) {
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept override {
         assert(*inputTypes == nvinfer1::DataType::kFLOAT &&
             floatFormat == nvinfer1::PluginFormat::kLINEAR);
         assert(nbInputs == 3);
@@ -150,7 +150,7 @@ class BatchedNmsPlugin : public IPluginV2Ext {
         _count = inputDims[0].d[0];
     }
 
-    IPluginV2Ext *clone() const override {
+    IPluginV2Ext *clone() const noexcept override {
         return new BatchedNmsPlugin(_nms_thresh, _detections_per_im, _count);
     }
 
@@ -170,24 +170,24 @@ class BatchedNmsPluginCreator : public IPluginCreator {
  public:
     BatchedNmsPluginCreator() {}
 
-    const char *getPluginNamespace() const override {
+    const char *getPluginNamespace() const noexcept override {
         return PLUGIN_NAMESPACE;
     }
-    const char *getPluginName() const override {
+    const char *getPluginName() const noexcept override {
         return PLUGIN_NAME;
     }
 
-    const char *getPluginVersion() const override {
+    const char *getPluginVersion() const noexcept override {
         return PLUGIN_VERSION;
     }
 
-    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) override {
+    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) noexcept override {
         return new BatchedNmsPlugin(serialData, serialLength);
     }
 
-    void setPluginNamespace(const char *N) override {}
-    const PluginFieldCollection *getFieldNames() override { return nullptr; }
-    IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) override { return nullptr; }
+    void setPluginNamespace(const char *N) noexcept override {}
+    const PluginFieldCollection *getFieldNames() noexcept override { return nullptr; }
+    IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) noexcept override { return nullptr; }
 };
 
 REGISTER_TENSORRT_PLUGIN(BatchedNmsPluginCreator);

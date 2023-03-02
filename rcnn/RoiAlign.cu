@@ -142,7 +142,7 @@ __global__ void RoIAlignForward(
     }
 }
 
-int roiAlign(int batchSize, const void *const *inputs, void **outputs, int pooler_resolution, float spatial_scale,
+int roiAlign(int batchSize, const void *const *inputs, void *const *outputs, int pooler_resolution, float spatial_scale,
     int sampling_ratio, int num_proposals, int out_channels, int feature_h, int feature_w, cudaStream_t stream) {
     for (int batch = 0; batch < batchSize; batch++) {
         auto in_boxes = static_cast<const float4 *>(inputs[0]) + batch * num_proposals;

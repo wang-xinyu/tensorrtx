@@ -1,17 +1,20 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "backbone.hpp"
-#include "RpnDecodePlugin.h"
-#include "RpnNmsPlugin.h"
-#include "RoiAlignPlugin.h"
-#include "PredictorDecodePlugin.h"
-#include "BatchedNmsPlugin.h"
-#include "MaskRcnnInferencePlugin.h"
+#include "backbone.hpp"   // 制作resnet主干网络
+#include "RpnDecodePlugin.h"  // 
+#include "RpnNmsPlugin.h"  //
+#include "RoiAlignPlugin.h"  //
+#include "PredictorDecodePlugin.h" //
+#include "BatchedNmsPlugin.h" //
+#include "MaskRcnnInferencePlugin.h" //
 #include "calibrator.hpp"
 
 #define DEVICE 0
 #define BATCH_SIZE 1
 #define BACKBONE_RESNETTYPE R50
+
+// using namespace nvinfer1;
+
 // data
 static const std::vector<float> PIXEL_MEAN = { 103.53, 116.28, 123.675 };
 static const std::vector<float> PIXEL_STD = {1.0, 1.0, 1.0};
@@ -120,7 +123,7 @@ std::map<std::string, Weights>& weightMap, ITensor& features) {
     weightMap["proposal_generator.rpn_head.anchor_deltas.weight"],
     weightMap["proposal_generator.rpn_head.anchor_deltas.bias"]);
     assert(rpn_head_deltas);
-    auto rpn_head_deltas_dim = rpn_head_deltas->getOutput(0)->getDimensions();
+    // auto rpn_head_deltas_dim = rpn_head_deltas->getOutput(0)->getDimensions();
     rpn_head_deltas->setStrideNd(DimsHW{ 1, 1 });
 
     auto anchors = GenerateAnchors(ANCHOR_SIZES, ASPECT_RATIOS);
