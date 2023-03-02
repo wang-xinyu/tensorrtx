@@ -1,7 +1,7 @@
 #include <cuda.h>
 #include <thrust/device_ptr.h>
 #include <thrust/gather.h>
-#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <cub/device/device_radix_sort.cuh>
 
 #include <algorithm>
 #include <iostream>
@@ -48,7 +48,7 @@ namespace nvinfer1 {
     }
 
     int rpnNms(int batch_size,
-        const void *const *inputs, void **outputs,
+        const void *const *inputs, void *const *outputs,
         size_t pre_nms_topk, int post_nms_topk, float nms_thresh,
         void *workspace, size_t workspace_size, cudaStream_t stream) {
         if (!workspace || !workspace_size) {
@@ -59,7 +59,7 @@ namespace nvinfer1 {
             workspace_size += get_size_aligned<float>(pre_nms_topk);  // scores_sorted
 
             size_t temp_size_sort = 0;
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+            cub::DeviceRadixSort::SortPairsDescending(
                 static_cast<void*>(nullptr), temp_size_sort,
                 static_cast<float*>(nullptr),
                 static_cast<float*>(nullptr),
@@ -88,7 +88,7 @@ namespace nvinfer1 {
             auto out_boxes = static_cast<float4 *>(outputs[0]) + batch * post_nms_topk;
 
             int num_detections = pre_nms_topk;
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
+            cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
                 in_scores, scores_sorted, indices, indices_sorted, num_detections, 0,
                 sizeof(*scores_sorted) * 8, stream);
 
@@ -100,7 +100,7 @@ namespace nvinfer1 {
                 indices_sorted, scores_sorted, in_boxes);
 
             // Re-sort with updated scores
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
+            cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
                 scores_sorted, scores, indices_sorted, indices, num_detections, 0, sizeof(*scores_sorted) * 8, stream);
 
             // Gather filtered scores, boxes, classes

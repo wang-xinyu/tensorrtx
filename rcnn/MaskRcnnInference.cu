@@ -20,8 +20,8 @@ __global__ void MaskRcnnInferenceKernel(
         if (ind_class == cur_class) {
             int w = index % output_size;
             int h = index / output_size % output_size;
-            int tmp = ind * num_classes * output_size * output_size +
-              cur_class * output_size*output_size + h * output_size + w;
+            // int tmp = ind * num_classes * output_size * output_size +
+            //   cur_class * output_size*output_size + h * output_size + w;
             float maskVal = masks[ind * num_classes * output_size *
               output_size + cur_class * output_size * output_size +
               h * output_size + w];
@@ -31,7 +31,7 @@ __global__ void MaskRcnnInferenceKernel(
 }
 
 int maskRcnnInference(int batchSize,
-    const void *const *inputs, void **outputs,
+    const void *const *inputs, void *const *outputs,
     int detections_per_im, int output_size, int num_classes, cudaStream_t stream) {
 
     for (int batch = 0; batch < batchSize; batch++) {

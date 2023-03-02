@@ -2,7 +2,7 @@
 #include <vector>
 #include <map>
 #include <string>
-#include "common.hpp"
+#include "common.hpp"   // 加载权重 读文件 检查内存 内存对齐 
 
 /* when stride>1, whether to put stride in the first 1x1 convolution or the bottleneck 3x3 convolution.
 set false when use backbone from torchvision*/
@@ -44,7 +44,7 @@ int group_num = 1) {
     auto max_pool2d = network->addPoolingNd(*r1->getOutput(0), PoolingType::kMAX, DimsHW{ 3, 3 });
     max_pool2d->setStrideNd(DimsHW{ 2, 2 });
     max_pool2d->setPaddingNd(DimsHW{ 1, 1 });
-    auto mp_dim = max_pool2d->getOutput(0)->getDimensions();
+    // auto mp_dim = max_pool2d->getOutput(0)->getDimensions();
     return max_pool2d;
 }
 
