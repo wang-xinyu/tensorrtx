@@ -1,7 +1,6 @@
 #include <cuda.h>
 #include <thrust/device_ptr.h>
 #include <thrust/gather.h>
-#include <cub/device/device_radix_sort.cuh>
 
 #include <algorithm>
 #include <iostream>
@@ -12,6 +11,16 @@
 
 #include "RpnNmsPlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+#endif
 
 namespace nvinfer1 {
 
@@ -48,7 +57,7 @@ namespace nvinfer1 {
     }
 
     int rpnNms(int batch_size,
-        const void *const *inputs, void *const *outputs,
+        const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
         size_t pre_nms_topk, int post_nms_topk, float nms_thresh,
         void *workspace, size_t workspace_size, cudaStream_t stream) {
         if (!workspace || !workspace_size) {

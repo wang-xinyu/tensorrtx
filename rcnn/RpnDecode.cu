@@ -5,18 +5,27 @@
 #include <thrust/tabulate.h>
 #include <thrust/count.h>
 #include <thrust/find.h>
-#include <cub/device/device_radix_sort.cuh>
 
 #include <algorithm>
 #include <cstdint>
 
 #include "RpnDecodePlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+#endif
 
 namespace nvinfer1 {
 
 int rpnDecode(int batch_size,
-    const void *const *inputs, void *const *outputs,
+    const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
     size_t height, size_t width, size_t image_height, size_t image_width, float stride,
     const std::vector<float> &anchors, int top_n,
     void *workspace, size_t workspace_size, cudaStream_t stream) {

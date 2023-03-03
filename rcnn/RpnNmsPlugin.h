@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <cassert>
+#include "macros.h"
 
 using namespace nvinfer1;
 
@@ -14,7 +15,7 @@ using namespace nvinfer1;
 namespace nvinfer1 {
 
 int rpnNms(int batchSize,
-    const void *const *inputs, void *const *outputs,
+    const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
     size_t pre_nms_topk, int post_nms_topk, float nms_thresh,
     void *workspace, size_t workspace_size, cudaStream_t stream);
 
@@ -39,12 +40,12 @@ class RpnNmsPlugin : public IPluginV2Ext {
         read(d, _pre_nms_topk);
     }
 
-    size_t getSerializationSize() const noexcept override {
+    size_t getSerializationSize() const TRT_NOEXCEPT override {
         return sizeof(_nms_thresh) + sizeof(_post_nms_topk)
             + sizeof(_pre_nms_topk);
     }
 
-    void serialize(void *buffer) const noexcept override {
+    void serialize(void *buffer) const TRT_NOEXCEPT override {
         char* d = static_cast<char*>(buffer);
         write(d, _nms_thresh);
         write(d, _post_nms_topk);
@@ -69,34 +70,34 @@ class RpnNmsPlugin : public IPluginV2Ext {
         this->deserialize(data, length);
     }
 
-    const char *getPluginType() const noexcept override {
+    const char *getPluginType() const TRT_NOEXCEPT override {
         return PLUGIN_NAME;
     }
 
-    const char *getPluginVersion() const noexcept override {
+    const char *getPluginVersion() const TRT_NOEXCEPT override {
         return PLUGIN_VERSION;
     }
 
-    int getNbOutputs() const noexcept override {
+    int getNbOutputs() const TRT_NOEXCEPT override {
         return 1;
     }
 
     Dims getOutputDimensions(int index,
-        const Dims *inputs, int nbInputDims) noexcept override {
+        const Dims *inputs, int nbInputDims) TRT_NOEXCEPT override {
         assert(nbInputDims == 2);
         assert(index < this->getNbOutputs());
         return Dims2(_post_nms_topk, 4);
     }
 
-    bool supportsFormat(DataType type, PluginFormat format) const noexcept override {
+    bool supportsFormat(DataType type, PluginFormat format) const TRT_NOEXCEPT override {
         return type == DataType::kFLOAT && format == PluginFormat::kLINEAR;
     }
 
-    int initialize() noexcept override { return 0; }
+    int initialize() TRT_NOEXCEPT override { return 0; }
 
-    void terminate() noexcept override {}
+    void terminate() TRT_NOEXCEPT override {}
 
-    size_t getWorkspaceSize(int maxBatchSize) const noexcept override {
+    size_t getWorkspaceSize(int maxBatchSize) const TRT_NOEXCEPT override {
         if (size < 0) {
             size = rpnNms(maxBatchSize, nullptr, nullptr, _pre_nms_topk,
                 _post_nms_topk, _nms_thresh,
@@ -106,40 +107,40 @@ class RpnNmsPlugin : public IPluginV2Ext {
     }
 
     int enqueue(int batchSize,
-        const void *const *inputs, void *const *outputs,
-        void *workspace, cudaStream_t stream) noexcept override {
+        const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
+        void *workspace, cudaStream_t stream) TRT_NOEXCEPT override {
         return rpnNms(batchSize, inputs, outputs, _pre_nms_topk,
             _post_nms_topk, _nms_thresh,
             workspace, getWorkspaceSize(batchSize), stream);
     }
 
-    void destroy() noexcept override {
+    void destroy() TRT_NOEXCEPT override {
         delete this;
     }
 
-    const char *getPluginNamespace() const noexcept override {
+    const char *getPluginNamespace() const TRT_NOEXCEPT override {
         return PLUGIN_NAMESPACE;
     }
 
-    void setPluginNamespace(const char *N) noexcept override {
+    void setPluginNamespace(const char *N) TRT_NOEXCEPT override {
     }
 
     // IPluginV2Ext Methods
-    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const noexcept override {
+    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const TRT_NOEXCEPT override {
         assert(index < 1);
         return DataType::kFLOAT;
     }
 
     bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted,
-        int nbInputs) const noexcept override {
+        int nbInputs) const TRT_NOEXCEPT override {
         return false;
     }
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override { return false; }
+    bool canBroadcastInputAcrossBatch(int inputIndex) const TRT_NOEXCEPT override { return false; }
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept override {
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) TRT_NOEXCEPT override {
         assert(*inputTypes == nvinfer1::DataType::kFLOAT &&
             floatFormat == nvinfer1::PluginFormat::kLINEAR);
         assert(nbInputs == 2);
@@ -147,7 +148,7 @@ class RpnNmsPlugin : public IPluginV2Ext {
         _pre_nms_topk = inputDims[0].d[0];
     }
 
-    IPluginV2Ext *clone() const noexcept override {
+    IPluginV2Ext *clone() const TRT_NOEXCEPT override {
         return new RpnNmsPlugin(_nms_thresh, _post_nms_topk, _pre_nms_topk);
     }
 
@@ -167,24 +168,24 @@ class RpnNmsPluginCreator : public IPluginCreator {
  public:
     RpnNmsPluginCreator() {}
 
-    const char *getPluginNamespace() const noexcept override {
+    const char *getPluginNamespace() const TRT_NOEXCEPT override {
         return PLUGIN_NAMESPACE;
     }
-    const char *getPluginName() const noexcept override {
+    const char *getPluginName() const TRT_NOEXCEPT override {
         return PLUGIN_NAME;
     }
 
-    const char *getPluginVersion() const noexcept override {
+    const char *getPluginVersion() const TRT_NOEXCEPT override {
         return PLUGIN_VERSION;
     }
 
-    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) noexcept override {
+    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) TRT_NOEXCEPT override {
         return new RpnNmsPlugin(serialData, serialLength);
     }
 
-    void setPluginNamespace(const char *N) noexcept override {}
-    const PluginFieldCollection *getFieldNames() noexcept override { return nullptr; }
-    IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) noexcept override { return nullptr; }
+    void setPluginNamespace(const char *N) TRT_NOEXCEPT override {}
+    const PluginFieldCollection *getFieldNames() TRT_NOEXCEPT override { return nullptr; }
+    IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) TRT_NOEXCEPT override { return nullptr; }
 };
 
 REGISTER_TENSORRT_PLUGIN(RpnNmsPluginCreator);

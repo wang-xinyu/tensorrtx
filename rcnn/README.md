@@ -10,18 +10,18 @@ The Pytorch implementation is [facebookresearch/detectron2](https://github.com/f
 
 ## Test Environment
 
-- GTX3090 / Ubuntu20.04 / cuda11.2 / cudnn8.0.4 / TensorRT8.2 / OpenCV4.5 form docker hakuyyf/tensorrtx:trt8_cuda11
+- GTX3090 / Ubuntu20.04 / cuda11 / cudnn8.0.4 / TensorRT8.1.1 / OpenCV4.5  form docker hakuyyf/tensorrtx:trt8_cuda11
+- GTX2080Ti / Ubuntu16.04 / cuda10.2 / cudnn8.0.4 / TensorRT7.2.1 / OpenCV4.2
+- GTX2080Ti / win10 / cuda10.2 / cudnn8.0.4 / TensorRT7.2.1 / OpenCV4.2 / VS2017 (need to replace function corresponding to the dirent.h and add "--extended-lambda" in CUDA C/C++ -> Command Line -> Other options)
+
+TensorRT7.2 is recomended because Resize layer in 7.0 with kLINEAR mode is a little different with opencv. You can also implement data preprocess out of tensorrt if you want to use TensorRT7.0 or more previous version. 
+TensorRT 8.x is supported and you can use it.
+
+**The result under fp32 is same to pytorch about 4 decimal places**!
 
 ## Contributors
 
 <a href="https://github.com/nengwp"><img src="https://avatars.githubusercontent.com/u/44516353?s=96&v=4" width="40px;" alt=""/></a>
-
-## Requirements
-
-Now TensorRT 8.x is supported and you can use it.
-
-
-**The result under fp32 is same to pytorch about 4 decimal places**!
 
 ## How to Run
 
@@ -30,10 +30,7 @@ Now TensorRT 8.x is supported and you can use it.
 ```
 // git clone -b v0.4 https://github.com/facebookresearch/detectron2.git
 // go to facebookresearch/detectron2
-python setup.py build develop // more install information see https://github.com/facebookresearch/detectron2/blob/master/INSTALL.md 
-// When you use a docker image like mine you probably just need:
-python -m pip install detectron2 -f \
-https://dl.fbaipublicfiles.com/detectron2/wheels/cpu/torch1.9/index.html
+python setup.py build develop // more install information see https://github.com/facebookresearch/detectron2/blob/master/INSTALL.md
 // download https://dl.fbaipublicfiles.com/detectron2/COCO-Detection/faster_rcnn_R_50_C4_1x/137257644/model_final_721ade.pkl
 // download https://raw.githubusercontent.com/freedenS/TestImage/main/demo.jpg
 // copy tensorrtx/rcnn/gen_wts.py and demo.jpg into facebookresearch/detectron2

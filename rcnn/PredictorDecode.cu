@@ -1,25 +1,28 @@
-#include <cuda.h>
 #include <thrust/device_ptr.h>
+#include <thrust/sequence.h>
+#include <thrust/execution_policy.h>
 #include <thrust/gather.h>
-#include <cub/device/device_radix_sort.cuh>
-
-#include <algorithm>
-#include <iostream>
-#include <stdexcept>
-#include <cstdint>
-#include <vector>
-#include <cmath>
 
 #include <algorithm>
 #include <cstdint>
 
 #include "PredictorDecodePlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+#endif
 
 namespace nvinfer1 {
 
 int predictorDecode(int batchSize, const void *const *inputs,
-void *const *outputs, unsigned int num_boxes, unsigned int num_classes,
+void *TRT_CONST_ENQUEUE*outputs, unsigned int num_boxes, unsigned int num_classes,
 unsigned int image_height, unsigned int image_width,
 const std::vector<float>& bbox_reg_weights, void *workspace,
 size_t workspace_size, cudaStream_t stream) {
