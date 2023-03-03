@@ -1,12 +1,12 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "backbone.hpp"   
-#include "RpnDecodePlugin.h" 
-#include "RpnNmsPlugin.h"  
-#include "RoiAlignPlugin.h"  
-#include "PredictorDecodePlugin.h" 
-#include "BatchedNmsPlugin.h" 
-#include "MaskRcnnInferencePlugin.h" 
+#include "backbone.hpp"
+#include "RpnDecodePlugin.h"
+#include "RpnNmsPlugin.h"
+#include "RoiAlignPlugin.h"
+#include "PredictorDecodePlugin.h"
+#include "BatchedNmsPlugin.h"
+#include "MaskRcnnInferencePlugin.h"
 #include "calibrator.hpp"
 
 #define DEVICE 0
