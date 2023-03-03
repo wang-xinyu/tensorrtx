@@ -12,7 +12,6 @@
 #define DEVICE 0
 #define BATCH_SIZE 1
 #define BACKBONE_RESNETTYPE R50
-
 // data
 static const std::vector<float> PIXEL_MEAN = { 103.53, 116.28, 123.675 };
 static const std::vector<float> PIXEL_STD = {1.0, 1.0, 1.0};
