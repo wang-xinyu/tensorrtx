@@ -2,7 +2,7 @@
 #include <vector>
 #include <map>
 #include <string>
-#include "common.hpp"   // 加载权重 读文件 检查内存 内存对齐 
+#include "common.hpp"  
 
 /* when stride>1, whether to put stride in the first 1x1 convolution or the bottleneck 3x3 convolution.
 set false when use backbone from torchvision*/
