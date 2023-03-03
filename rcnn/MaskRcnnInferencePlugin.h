@@ -106,11 +106,6 @@ class MaskRcnnInferencePlugin : public IPluginV2Ext {
     }
     bool canBroadcastInputAcrossBatch(int inputIndex) const noexcept override { return false; }
 
-    // void configurePlugin(Dims const* inputDims, int32_t nbInputs, Dims const* outputDims, int32_t nbOutputs,
-    //     DataType const* inputTypes, DataType const* outputTypes, bool const* inputIsBroadcast,
-    //     bool const* outputIsBroadcast, PluginFormat floatFormat, int32_t maxBatchSize) noexcept override
-    //     {}
-
     void configurePlugin(Dims const* inputDims, int32_t nbInputs, Dims const* outputDims, int32_t nbOutputs,
         DataType const* inputTypes, DataType const* outputTypes, bool const* inputIsBroadcast,
         bool const* outputIsBroadcast, PluginFormat floatFormat, int32_t maxBatchSize) noexcept override {
@@ -124,18 +119,6 @@ class MaskRcnnInferencePlugin : public IPluginV2Ext {
         _num_classes = inputDims[1].d[1];
     }
 
-    // void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
-    //     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    //     const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept override {
-    //     assert(*inputTypes == nvinfer1::DataType::kFLOAT &&
-    //         floatFormat == nvinfer1::PluginFormat::kLINEAR);
-    //     assert(nbInputs == 2);
-    //     assert(inputDims[0].d[0] == _detections_per_im);
-    //     assert(inputDims[1].d[0] == _detections_per_im);
-    //     assert(inputDims[1].d[2] == _output_size);
-    //     assert(inputDims[1].d[3] == _output_size);
-    //     _num_classes = inputDims[1].d[1];
-    // }
     IPluginV2Ext *clone() const noexcept override {
         return new MaskRcnnInferencePlugin(_detections_per_im, _output_size, _num_classes);
     }
