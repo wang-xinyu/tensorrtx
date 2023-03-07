@@ -44,7 +44,7 @@ int group_num = 1) {
     auto max_pool2d = network->addPoolingNd(*r1->getOutput(0), PoolingType::kMAX, DimsHW{ 3, 3 });
     max_pool2d->setStrideNd(DimsHW{ 2, 2 });
     max_pool2d->setPaddingNd(DimsHW{ 1, 1 });
-    auto mp_dim = max_pool2d->getOutput(0)->getDimensions();
+    // auto mp_dim = max_pool2d->getOutput(0)->getDimensions();
     return max_pool2d;
 }
 

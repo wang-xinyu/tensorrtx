@@ -9,6 +9,7 @@
 #include <algorithm>
 #include "./cuda_utils.h"
 #include "common.hpp"
+#include "macros.h"
 
 //! \class Int8EntropyCalibrator2
 //!
@@ -22,10 +23,10 @@ class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
     const char* input_blob_name, bool read_cache = true);
 
     virtual ~Int8EntropyCalibrator2();
-    int getBatchSize() const override;
-    bool getBatch(void* bindings[], const char* names[], int nbBindings) override;
-    const void* readCalibrationCache(size_t& length) override;
-    void writeCalibrationCache(const void* cache, size_t length) override;
+    int getBatchSize() const  TRT_NOEXCEPT override;
+    bool getBatch(void* bindings[], const char* names[], int nbBindings) TRT_NOEXCEPT override;
+    const void* readCalibrationCache(size_t& length) TRT_NOEXCEPT override;
+    void writeCalibrationCache(const void* cache, size_t length) TRT_NOEXCEPT override;
 
  private:
     int batchsize_;
@@ -63,11 +64,11 @@ Int8EntropyCalibrator2::~Int8EntropyCalibrator2() {
     CUDA_CHECK(cudaFree(device_input_));
 }
 
-int Int8EntropyCalibrator2::getBatchSize() const {
+int Int8EntropyCalibrator2::getBatchSize() const TRT_NOEXCEPT {
     return batchsize_;
 }
 
-bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int nbBindings) {
+bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int nbBindings) TRT_NOEXCEPT {
     if (img_idx_ + batchsize_ > static_cast<int>(img_files_.size())) {
         return false;
     }
@@ -97,7 +98,7 @@ bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int
     return true;
 }
 
-const void* Int8EntropyCalibrator2::readCalibrationCache(size_t& length) {
+const void* Int8EntropyCalibrator2::readCalibrationCache(size_t& length)  TRT_NOEXCEPT {
     std::cout << "reading calib cache: " << calib_table_name_ << std::endl;
     calib_cache_.clear();
     std::ifstream input(calib_table_name_, std::ios::binary);
@@ -109,7 +110,7 @@ const void* Int8EntropyCalibrator2::readCalibrationCache(size_t& length) {
     return length ? calib_cache_.data() : nullptr;
 }
 
-void Int8EntropyCalibrator2::writeCalibrationCache(const void* cache, size_t length) {
+void Int8EntropyCalibrator2::writeCalibrationCache(const void* cache, size_t length)  TRT_NOEXCEPT {
     std::cout << "writing calib cache: " << calib_table_name_ << " size: " << length << std::endl;
     std::ofstream output(calib_table_name_, std::ios::binary);
     output.write(reinterpret_cast<const char*>(cache), length);

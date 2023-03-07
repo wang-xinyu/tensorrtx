@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <vector>
+#include "macros.h"
 
 using namespace nvinfer1;
 
@@ -12,7 +13,7 @@ using namespace nvinfer1;
 #define PLUGIN_NAMESPACE ""
 
 namespace nvinfer1 {
-int roiAlign(int batchSize, const void *const *inputs, void **outputs,
+int roiAlign(int batchSize, const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
 int pooler_resolution, float spatial_scale, int sampling_ratio,
 int num_proposals, int out_channels, int feature_h, int feature_w,
 cudaStream_t stream);
@@ -44,12 +45,12 @@ class RoiAlignPlugin : public IPluginV2Ext {
         read(d, _feature_w);
     }
 
-    size_t getSerializationSize() const override {
+    size_t getSerializationSize() const TRT_NOEXCEPT override {
         return sizeof(_pooler_resolution) + sizeof(_spatial_scale) + sizeof(_sampling_ratio) +
             sizeof(_num_proposals) + sizeof(_out_channels) + sizeof(_feature_h) + sizeof(_feature_w);
     }
 
-    void serialize(void *buffer) const override {
+    void serialize(void *buffer) const TRT_NOEXCEPT override {
         char* d = static_cast<char*>(buffer);
         write(d, _pooler_resolution);
         write(d, _spatial_scale);
@@ -75,70 +76,70 @@ class RoiAlignPlugin : public IPluginV2Ext {
         this->deserialize(data, length);
     }
 
-    const char *getPluginType() const override {
+    const char *getPluginType() const TRT_NOEXCEPT override {
         return PLUGIN_NAME;
     }
 
-    const char *getPluginVersion() const override {
+    const char *getPluginVersion() const TRT_NOEXCEPT override {
         return PLUGIN_VERSION;
     }
 
-    int getNbOutputs() const override {
+    int getNbOutputs() const TRT_NOEXCEPT override {
         return 1;
     }
 
     Dims getOutputDimensions(int index,
-        const Dims *inputs, int nbInputDims) override {
+        const Dims *inputs, int nbInputDims) TRT_NOEXCEPT override {
         assert(index < this->getNbOutputs());
         return Dims4(_num_proposals, _out_channels, _pooler_resolution, _pooler_resolution);
     }
 
-    bool supportsFormat(DataType type, PluginFormat format) const override {
+    bool supportsFormat(DataType type, PluginFormat format) const TRT_NOEXCEPT override {
         return type == DataType::kFLOAT && format == PluginFormat::kLINEAR;
     }
 
-    int initialize() override { return 0; }
+    int initialize() TRT_NOEXCEPT override { return 0; }
 
-    void terminate() override {}
+    void terminate() TRT_NOEXCEPT override {}
 
-    size_t getWorkspaceSize(int maxBatchSize) const override {
+    size_t getWorkspaceSize(int maxBatchSize) const TRT_NOEXCEPT override {
         return 0;
     }
 
     int enqueue(int batchSize,
-        const void *const *inputs, void **outputs,
-        void *workspace, cudaStream_t stream) override {
+        const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
+        void *workspace, cudaStream_t stream) TRT_NOEXCEPT override {
         return roiAlign(batchSize, inputs, outputs, _pooler_resolution, _spatial_scale, _sampling_ratio,
             _num_proposals, _out_channels, _feature_h, _feature_w, stream);
     }
 
-    void destroy() override {
+    void destroy() TRT_NOEXCEPT override {
         delete this;
     };
 
-    const char *getPluginNamespace() const override {
+    const char *getPluginNamespace() const TRT_NOEXCEPT override {
         return PLUGIN_NAMESPACE;
     }
 
-    void setPluginNamespace(const char *N) override {
+    void setPluginNamespace(const char *N) TRT_NOEXCEPT override {
     }
 
     // IPluginV2Ext Methods
-    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const {
+    DataType getOutputDataType(int index, const DataType* inputTypes, int nbInputs) const TRT_NOEXCEPT override {
         assert(index < this->getNbOutputs());
         return DataType::kFLOAT;
     }
 
     bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted,
-        int nbInputs) const {
+        int nbInputs) const TRT_NOEXCEPT override {
         return false;
     }
 
-    bool canBroadcastInputAcrossBatch(int inputIndex) const { return false; }
+    bool canBroadcastInputAcrossBatch(int inputIndex) const TRT_NOEXCEPT override { return false; }
 
     void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
         const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) {
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) TRT_NOEXCEPT override {
         assert(*inputTypes == nvinfer1::DataType::kFLOAT &&
             floatFormat == nvinfer1::PluginFormat::kLINEAR);
         assert(nbInputs == 2);
@@ -151,7 +152,7 @@ class RoiAlignPlugin : public IPluginV2Ext {
         _feature_w = feature_dims.d[2];
     }
 
-    IPluginV2Ext *clone() const override {
+    IPluginV2Ext *clone() const TRT_NOEXCEPT override {
         return new RoiAlignPlugin(_pooler_resolution, _spatial_scale, _sampling_ratio, _num_proposals,
             _out_channels, _feature_h, _feature_w);
     }
@@ -172,25 +173,25 @@ class RoiAlignPluginCreator : public IPluginCreator {
  public:
     RoiAlignPluginCreator() {}
 
-    const char *getPluginName() const override {
+    const char *getPluginName() const TRT_NOEXCEPT override {
         return PLUGIN_NAME;
     }
 
-    const char *getPluginVersion() const override {
+    const char *getPluginVersion() const TRT_NOEXCEPT override {
         return PLUGIN_VERSION;
     }
 
-    const char *getPluginNamespace() const override {
+    const char *getPluginNamespace() const TRT_NOEXCEPT override {
         return PLUGIN_NAMESPACE;
     }
 
-    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) override {
+    IPluginV2 *deserializePlugin(const char *name, const void *serialData, size_t serialLength) TRT_NOEXCEPT override {
         return new RoiAlignPlugin(serialData, serialLength);
     }
 
-    void setPluginNamespace(const char *N) override {}
-    const PluginFieldCollection *getFieldNames() override { return nullptr; }
-    IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) override { return nullptr; }
+    void setPluginNamespace(const char *N) TRT_NOEXCEPT override {}
+    const PluginFieldCollection *getFieldNames() TRT_NOEXCEPT override { return nullptr; }
+    IPluginV2 *createPlugin(const char *name, const PluginFieldCollection *fc) TRT_NOEXCEPT override { return nullptr; }
 };
 
 REGISTER_TENSORRT_PLUGIN(RoiAlignPluginCreator);

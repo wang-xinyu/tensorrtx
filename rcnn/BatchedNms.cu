@@ -3,7 +3,6 @@
 #include <thrust/sequence.h>
 #include <thrust/execution_policy.h>
 #include <thrust/gather.h>
-#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -12,6 +11,17 @@
 #include <vector>
 #include "BatchedNmsPlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+
+#endif
 
 namespace nvinfer1 {
 
@@ -52,7 +62,7 @@ __global__ void batched_nms_kernel(
 }
 
 int batchedNms(int batch_size,
-    const void *const *inputs, void **outputs,
+    const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
     size_t count, int detections_per_im, float nms_thresh,
     void *workspace, size_t workspace_size, cudaStream_t stream) {
 
@@ -63,7 +73,7 @@ int batchedNms(int batch_size,
         workspace_size += get_size_aligned<float>(count);  // scores_sorted
 
         size_t temp_size_sort = 0;
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+        cub::DeviceRadixSort::SortPairsDescending(
             static_cast<void*>(nullptr), temp_size_sort,
             static_cast<float*>(nullptr),
             static_cast<float*>(nullptr),
@@ -95,7 +105,7 @@ int batchedNms(int batch_size,
 
         // Sort scores and corresponding indices
         int num_detections = count;
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
+        cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
             in_scores, scores_sorted, indices, indices_sorted, num_detections, 0, sizeof(*scores_sorted) * 8, stream);
 
         // Launch actual NMS kernel - 1 block with each thread handling n detections
@@ -106,7 +116,7 @@ int batchedNms(int batch_size,
             indices_sorted, scores_sorted, in_classes, in_boxes);
 
         // Re-sort with updated scores
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
+        cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
             scores_sorted, scores_sorted, indices_sorted, indices,
             num_detections, 0, sizeof(*scores_sorted) * 8, stream);
 
