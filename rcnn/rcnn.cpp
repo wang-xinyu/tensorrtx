@@ -9,7 +9,7 @@
 #include "MaskRcnnInferencePlugin.h"
 #include "calibrator.hpp"
 
-#define DEVICE 0
+#define DEVICE 1
 #define BATCH_SIZE 1
 #define BACKBONE_RESNETTYPE R50
 // data

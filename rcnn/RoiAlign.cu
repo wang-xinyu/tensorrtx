@@ -14,6 +14,16 @@
 
 #include "RoiAlignPlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+#endif
 
 namespace nvinfer1 {
 template <typename T>
@@ -118,7 +128,7 @@ __global__ void RoIAlignForward(
         const float count = roi_bin_grid_h * roi_bin_grid_w;  // e.g. = 4
 
         float output_val = 0.f;
-        bool max_flag = false;
+        // bool max_flag = false;
         // e.g., iy = 0, 1
         for (int iy = 0; iy < roi_bin_grid_h; iy++) {
             const float y = roi_start_h + ph * bin_size_h +
@@ -142,7 +152,7 @@ __global__ void RoIAlignForward(
     }
 }
 
-int roiAlign(int batchSize, const void *const *inputs, void **outputs, int pooler_resolution, float spatial_scale,
+int roiAlign(int batchSize, const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs, int pooler_resolution, float spatial_scale,
     int sampling_ratio, int num_proposals, int out_channels, int feature_h, int feature_w, cudaStream_t stream) {
     for (int batch = 0; batch < batchSize; batch++) {
         auto in_boxes = static_cast<const float4 *>(inputs[0]) + batch * num_proposals;

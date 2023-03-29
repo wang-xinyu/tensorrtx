@@ -1,8 +1,15 @@
 # arcface
+### TensortRT 8
 
 The mxnet implementation is from [deepinsight/insightface.](https://github.com/deepinsight/insightface)
 
-The pretrained models are from [LResNet50E-IR,ArcFace@ms1m-refine-v1](https://github.com/deepinsight/insightface/wiki/Model-Zoo#32-lresnet50e-irarcfacems1m-refine-v1), [LResNet100E-IR,ArcFace@ms1m-refine-v2](https://github.com/deepinsight/insightface/wiki/Model-Zoo#31-lresnet100e-irarcfacems1m-refine-v2) and [MobileFaceNet,ArcFace@ms1m-refine-v1](https://github.com/deepinsight/insightface/wiki/Model-Zoo#34-mobilefacenetarcfacems1m-refine-v1)
+**Updated Pretrained Weights:** ArcFace-R100 [Insight Face Google Drive](https://drive.google.com/file/d/1Hc5zUfBATaXUgcU2haUNa7dcaZSw95h2/view)
+
+---
+
+**Previous Pre-trained models:** The pretrained models are from [LResNet50E-IR,ArcFace@ms1m-refine-v1](https://github.com/deepinsight/insightface/wiki/Model-Zoo#32-lresnet50e-irarcfacems1m-refine-v1), [LResNet100E-IR,ArcFace@ms1m-refine-v2](https://github.com/deepinsight/insightface/wiki/Model-Zoo#31-lresnet100e-irarcfacems1m-refine-v2) and [MobileFaceNet,ArcFace@ms1m-refine-v1](https://github.com/deepinsight/insightface/wiki/Model-Zoo#34-mobilefacenetarcfacems1m-refine-v1)
+
+---
 
 The two input images used in this project are joey0.ppm and joey1.ppm, download them from [Google Drive.](https://drive.google.com/drive/folders/1ctqpkRCRKyBZRCNwo9Uq4eUoMRLtFq1e). The input image is 112x112, and generated from `get_input()` in `insightface/deploy/face_model.py`, which is cropped and aligned face image.
 
@@ -17,18 +24,18 @@ The two input images used in this project are joey0.ppm and joey1.ppm, download 
 
 ## Run
 
-1.Generate .wts file from mxnet implementation of pretrained model. The following example described how to generate arcface-r50.wts from mxnet implementation of LResNet50E-IR,ArcFace@ms1m-refine-v1.
+1.Generate .wts file from mxnet implementation of pretrained model. The following example described how to generate arcface-r100.wts from mxnet implementation of LResNet100E-IR,ArcFace@ms1m-refine-v1.
 ```
 git clone https://github.com/deepinsight/insightface
 cd insightface
 git checkout 3866cd77a6896c934b51ed39e9651b791d78bb57
 cd deploy
 // copy tensorrtx/arcface/gen_wts.py to here(insightface/deploy)
-// download model-r50-am-lfw.zip and unzip here(insightface/deploy)
+// download model-r100-ii.zip and unzip here(insightface/deploy)
 python gen_wts.py
-// a file 'arcface-r50.wts' will be generated.
+// a file 'arcface-r100.wts' will be generated.
 // the master branch of insightface should work, if not, you can checkout 94ad870abb3203d6f31b049b70dd080dc8f33fca
-// arcface-r100.wts/arcface-mobilefacenet.wts can be generated in similar way from mxnet implementation of LResNet100E-IR,ArcFace@ms1m-refine-v1/MobileFaceNet,ArcFace@ms1m-refine-v1 pretrained model.
+// arcface-r50.wts/arcface-mobilefacenet.wts can be generated in similar way from mxnet implementation of LResNet50E-IR,ArcFace@ms1m-refine-v1/MobileFaceNet,ArcFace@ms1m-refine-v1 pretrained model.
 
 ```
 2.Put .wts file into tensorrtx/arcface, build and run
@@ -40,13 +47,13 @@ mkdir build
 cd build
 cmake ..
 make
-sudo ./arcface-r50 -s    // serialize model to plan file i.e. 'arcface-r50.engine'
-sudo ./arcface-r50 -d    // deserialize plan file and run inference
+sudo ./arcface-r100 -s    // serialize model to plan file i.e. 'arcface-r100.engine'
+sudo ./arcface-r100 -d    // deserialize plan file and run inference
 
 or
 
-sudo ./arcface-r100 -s   // serialize model to plan file i.e. 'arcface-r100.engine'
-sudo ./arcface-r100 -d   // deserialize plan file and run inference
+sudo ./arcface-r50 -s   // serialize model to plan file i.e. 'arcface-r50.engine'
+sudo ./arcface-r50 -d   // deserialize plan file and run inference
 
 
 or

@@ -1,64 +1,62 @@
-# tensorrt-unet
-This is a TensorRT version Unet, inspired by [tensorrtx](https://github.com/wang-xinyu/tensorrtx) and [pytorch-unet](https://github.com/milesial/Pytorch-UNet).<br>
-You can generate TensorRT engine file using this script and customize some params and network structure based on network you trained (FP32/16 precision, input size, different conv, activation function...)<br>
+# UNet
 
-# requirements
+Pytorch model from [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 
-TensorRT 7.0 (you need to install tensorrt first)<br>
-Cuda 10.2<br>
-Python3.7<br>
-opencv 4.4<br>
-cmake 3.18<br>
-# train .pth file and convert .wts
+## Contributors
 
-## create env
+<a href="https://github.com/YuzhouPeng"><img src="https://avatars.githubusercontent.com/u/13601004?v=4?s=48" width="40px;" alt=""/></a>
+<a href="https://github.com/East-Face"><img src="https://avatars.githubusercontent.com/u/35283869?v=4s=48" width="40px;" alt=""/></a>
+<a href="https://github.com/irvingzhang0512"><img src="https://avatars.githubusercontent.com/u/22089207?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/wang-xinyu"><img src="https://avatars.githubusercontent.com/u/15235574?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/nengwp"><img src="https://avatars.githubusercontent.com/u/44516353?s=96&v=4" width="40px;" alt=""/></a>
 
+
+## Requirements
+
+Now TensorRT 8.x is supported and you can use it.
+The key cause of the previous bug is the pooling layer Stride setting problem.
+
+## Build and Run
+
+1. Generate .wts
 ```
-pip install -r requirements.txt
+cp {path-of-tensorrtx}/unet/gen_wts.py Pytorch-UNet/
+cd Pytorch-UNet/
+wget https://github.com/milesial/Pytorch-UNet/releases/download/v3.0/unet_carvana_scale0.5_epoch2.pth
+python gen_wts.py unet_carvana_scale0.5_epoch2.pth
 ```
 
-## train .pth file
-
-train your dataset by following [pytorch-unet](https://github.com/milesial/Pytorch-UNet) and generate .pth file.<br>
-
-## convert .wts
-
-run gen_wts from utils folder, and move it to project folder<br>
-
-# generate engine file and infer
-
-## create build folder in project folder
+2. Generate TensorRT engine
 ```
+cd tensorrtx/unet/
 mkdir build
-```
-
-## make file, generate exec file
-```
 cd build
 cmake ..
 make
+cp {path-of-Pytorch-UNet}/unet.wts .
+./unet -s
 ```
 
-## generate TensorRT engine file and infer image
+3. Run inference
 ```
-unet -s
-```
-then a unet exec file will generated, you can use unet -d to infer files in a folder<br>
-```
-unet -d ../samples
+wget https://raw.githubusercontent.com/wang-xinyu/tensorrtx/f60dcc7bec28846cd973fc95ac829c4e57a11395/unet/samples/0cdf5b5d0ce1_01.jpg
+./unet -d 0cdf5b5d0ce1_01.jpg
 ```
 
-# efficiency
-the speed of tensorRT engine is much faster
+4. Check result.jpg
 
- pytorch | TensorRT FP32 | TensorRT FP16
- ---- | ----- | ------  
- 816x672  | 816x672 | 816x672 
- 58ms  | 43ms (batchsize 8) | 14ms (batchsize 8) 
+<p align="center">
+<img src="https://user-images.githubusercontent.com/15235574/207358769-dacf908e-f65d-4b2e-bc53-4fa2a9114c2a.jpg" height="360px;">
+</p>
 
+# Benchmark
 
-# Further development
+Pytorch | TensorRT FP32 | TensorRT FP16
+---- | ----- | ------ 
+816x672  | 816x672 | 816x672
+58ms  | 43ms (batchsize 8) | 14ms (batchsize 8)
 
-1. add INT8 calibrator<br>
-2. add custom plugin<br>
-etc
+## More Information
+
+See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
+

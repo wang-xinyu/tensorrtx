@@ -5,18 +5,27 @@
 #include <thrust/tabulate.h>
 #include <thrust/count.h>
 #include <thrust/find.h>
-#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
 
 #include <algorithm>
 #include <cstdint>
 
 #include "RpnDecodePlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+#endif
 
 namespace nvinfer1 {
 
 int rpnDecode(int batch_size,
-    const void *const *inputs, void **outputs,
+    const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
     size_t height, size_t width, size_t image_height, size_t image_width, float stride,
     const std::vector<float> &anchors, int top_n,
     void *workspace, size_t workspace_size, cudaStream_t stream) {
@@ -33,7 +42,7 @@ int rpnDecode(int batch_size,
 
         size_t temp_size_sort = 0;
         if (scores_size > top_n) {
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+            cub::DeviceRadixSort::SortPairsDescending(
                 static_cast<void*>(nullptr), temp_size_sort,
                 static_cast<float*>(nullptr),
                 static_cast<float*>(nullptr),
@@ -70,7 +79,7 @@ int rpnDecode(int batch_size,
         int num_detections = scores_size;
         auto indices_filtered = indices;
         if (num_detections > top_n) {
-            thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
+            cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
                 in_scores, scores_sorted, indices, indices_sorted, scores_size, 0, sizeof(*scores_sorted) * 8, stream);
             indices_filtered = indices_sorted;
             num_detections = top_n;

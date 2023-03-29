@@ -44,7 +44,7 @@ lenet out: tensor([[0.0950, 0.0998, 0.1101, 0.0975, 0.0966, 0.1097, 0.0948, 0.10
 
 Clone the wang-xinyu/tensorrtx in your machine. Enter lenet folder, copy lenet5.wts generated above, and cmake&make c++ code. 
 
-And of course you should install cuda/cudnn/tensorrt first.
+And of course you should install cuda/cudnn/tensorrt first. You might need to adapt the tensorrt path in CMakeLists.txt if you install tensorrt from tar package.
 
 ```
 git clone https://github.com/wang-xinyu/tensorrtx

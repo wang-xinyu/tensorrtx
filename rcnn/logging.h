@@ -18,6 +18,7 @@
 #define TENSORRT_LOGGING_H
 
 #include "NvInferRuntimeCommon.h"
+#include "macros.h"
 #include <cassert>
 #include <ctime>
 #include <iomanip>
@@ -208,7 +209,7 @@ class Logger : public nvinfer1::ILogger {
     //! Note samples should not be calling this function directly; it will eventually go away once we eliminate the
     //! inheritance from nvinfer1::ILogger
     //!
-    void log(Severity severity, const char* msg) override {
+    void log(Severity severity, const char* msg) TRT_NOEXCEPT override {
         LogStreamConsumer(mReportableSeverity, severity) << "[TRT] " << std::string(msg) << std::endl;
     }
 

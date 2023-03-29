@@ -2,19 +2,27 @@
 #include <thrust/sequence.h>
 #include <thrust/execution_policy.h>
 #include <thrust/gather.h>
-#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
-#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
 
 #include <algorithm>
 #include <cstdint>
 
 #include "PredictorDecodePlugin.h"
 #include "./cuda_utils.h"
+#include "macros.h"
+
+#ifdef CUDA_11
+#include <cub/device/device_radix_sort.cuh>
+#include <cub/iterator/counting_input_iterator.cuh>
+#else
+#include <thrust/system/cuda/detail/cub/device/device_radix_sort.cuh>
+#include <thrust/system/cuda/detail/cub/iterator/counting_input_iterator.cuh>
+namespace cub = thrust::cuda_cub::cub;
+#endif
 
 namespace nvinfer1 {
 
 int predictorDecode(int batchSize, const void *const *inputs,
-void **outputs, unsigned int num_boxes, unsigned int num_classes,
+void *TRT_CONST_ENQUEUE*outputs, unsigned int num_boxes, unsigned int num_classes,
 unsigned int image_height, unsigned int image_width,
 const std::vector<float>& bbox_reg_weights, void *workspace,
 size_t workspace_size, cudaStream_t stream) {
@@ -28,7 +36,7 @@ size_t workspace_size, cudaStream_t stream) {
         workspace_size += get_size_aligned<float>(scores_size);    // scores_sorted
 
         size_t temp_size_sort = 0;
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(
+        cub::DeviceRadixSort::SortPairsDescending(
             static_cast<void*>(nullptr), temp_size_sort,
             static_cast<float*>(nullptr),
             static_cast<float*>(nullptr),
@@ -64,7 +72,7 @@ size_t workspace_size, cudaStream_t stream) {
         auto out_classes = static_cast<float *>(outputs[2]) + batch * num_boxes;
 
         // Only keep top n scores
-        thrust::cuda_cub::cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
+        cub::DeviceRadixSort::SortPairsDescending(workspace, workspace_size,
             in_scores, scores_sorted, indices, indices_sorted, scores_size, 0, sizeof(*scores_sorted) * 8, stream);
 
         // Gather boxes

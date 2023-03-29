@@ -37,7 +37,7 @@ namespace nvinfer1
         assert(d == a + length);
     }
 
-    void YoloLayerPlugin::serialize(void* buffer) const
+    void YoloLayerPlugin::serialize(void* buffer) const TRT_NOEXCEPT
     {
         using namespace Tn;
         char* d = static_cast<char*>(buffer), *a = d;
@@ -51,17 +51,17 @@ namespace nvinfer1
         assert(d == a + getSerializationSize());
     }
     
-    size_t YoloLayerPlugin::getSerializationSize() const
+    size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT
     {  
         return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mKernelCount)  + sizeof(Yolo::YoloKernel) * mYoloKernel.size();
     }
 
-    int YoloLayerPlugin::initialize()
+    int YoloLayerPlugin::initialize() TRT_NOEXCEPT
     { 
         return 0;
     }
     
-    Dims YoloLayerPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+    Dims YoloLayerPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) TRT_NOEXCEPT
     {
         //output the result to channel
         int totalsize = MAX_OUTPUT_BBOX_COUNT * sizeof(Detection) / sizeof(float);
@@ -70,63 +70,63 @@ namespace nvinfer1
     }
 
     // Set plugin namespace
-    void YoloLayerPlugin::setPluginNamespace(const char* pluginNamespace)
+    void YoloLayerPlugin::setPluginNamespace(const char* pluginNamespace) TRT_NOEXCEPT
     {
         mPluginNamespace = pluginNamespace;
     }
 
-    const char* YoloLayerPlugin::getPluginNamespace() const
+    const char* YoloLayerPlugin::getPluginNamespace() const TRT_NOEXCEPT
     {
         return mPluginNamespace;
     }
 
     // Return the DataType of the plugin output at the requested index
-    DataType YoloLayerPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+    DataType YoloLayerPlugin::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const TRT_NOEXCEPT
     {
         return DataType::kFLOAT;
     }
 
     // Return true if output tensor is broadcast across a batch.
-    bool YoloLayerPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+    bool YoloLayerPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const TRT_NOEXCEPT
     {
         return false;
     }
 
     // Return true if plugin can use input that is broadcast across batch without replication.
-    bool YoloLayerPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
+    bool YoloLayerPlugin::canBroadcastInputAcrossBatch(int inputIndex) const TRT_NOEXCEPT
     {
         return false;
     }
 
-    void YoloLayerPlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput)
+    void YoloLayerPlugin::configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) TRT_NOEXCEPT
     {
     }
 
     // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-    void YoloLayerPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+    void YoloLayerPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) TRT_NOEXCEPT
     {
     }
 
     // Detach the plugin object from its execution context.
-    void YoloLayerPlugin::detachFromContext() {}
+    void YoloLayerPlugin::detachFromContext() TRT_NOEXCEPT {}
 
-    const char* YoloLayerPlugin::getPluginType() const
+    const char* YoloLayerPlugin::getPluginType() const TRT_NOEXCEPT
     {
         return "YoloLayer_TRT";
     }
 
-    const char* YoloLayerPlugin::getPluginVersion() const
+    const char* YoloLayerPlugin::getPluginVersion() const TRT_NOEXCEPT
     {
         return "1";
     }
 
-    void YoloLayerPlugin::destroy()
+    void YoloLayerPlugin::destroy() TRT_NOEXCEPT
     {
         delete this;
     }
 
     // Clone the plugin
-    IPluginV2IOExt* YoloLayerPlugin::clone() const
+    IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT
     {
         YoloLayerPlugin *p = new YoloLayerPlugin();
         p->setPluginNamespace(mPluginNamespace);
@@ -206,7 +206,7 @@ namespace nvinfer1
     }
 
 
-    int YoloLayerPlugin::enqueue(int batchSize, const void*const * inputs, void** outputs, void* workspace, cudaStream_t stream)
+    int YoloLayerPlugin::enqueue(int batchSize, const void*const * inputs, void* TRT_CONST_ENQUEUE* outputs, void* workspace, cudaStream_t stream) TRT_NOEXCEPT
     {
         //assert(batchSize == 1);
         //GPU
@@ -227,29 +227,29 @@ namespace nvinfer1
         mFC.fields = mPluginAttributes.data();
     }
 
-    const char* YoloPluginCreator::getPluginName() const
+    const char* YoloPluginCreator::getPluginName() const TRT_NOEXCEPT
     {
             return "YoloLayer_TRT";
     }
 
-    const char* YoloPluginCreator::getPluginVersion() const
+    const char* YoloPluginCreator::getPluginVersion() const TRT_NOEXCEPT
     {
             return "1";
     }
 
-    const PluginFieldCollection* YoloPluginCreator::getFieldNames()
+    const PluginFieldCollection* YoloPluginCreator::getFieldNames() TRT_NOEXCEPT
     {
             return &mFC;
     }
 
-    IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+    IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) TRT_NOEXCEPT
     {
         YoloLayerPlugin* obj = new YoloLayerPlugin();
         obj->setPluginNamespace(mNamespace.c_str());
         return obj;
     }
 
-    IPluginV2IOExt* YoloPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
+    IPluginV2IOExt* YoloPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength) TRT_NOEXCEPT
     {
         // This object will be deleted when the network is destroyed, which will
         // call MishPlugin::destroy()

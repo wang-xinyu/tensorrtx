@@ -1,30 +1,34 @@
 # TensorRTx
 
-TensorRTx aims to implement popular deep learning networks with tensorrt network definition APIs. As we know, tensorrt has builtin parsers, including caffeparser, uffparser, onnxparser, etc. But when we use these parsers, we often run into some "unsupported operations or layers" problems, especially some state-of-the-art models are using new type of layers.
+TensorRTx aims to implement popular deep learning networks with TensorRT network definition API.
 
-So why don't we just skip all parsers? We just use TensorRT network definition APIs to build the whole network, it's not so complicated.
+Why don't we use a parser (ONNX parser, UFF parser, caffe parser, etc), but use complex APIs to build a network from scratch? I have summarized the advantages in the following aspects.
+- **Flexible**, easy to modify the network, add/delete a layer or input/output tensor, replace a layer, merge layers, integrate preprocessing and postprocessing into network, etc.
+- **Debuggable**, construct the entire network in an incremental development manner, easy to get middle layer results.
+- **Chance to learn**, learn about the network structure during this development, rather than treating everything as a black box.
 
-I wrote this project to get familiar with tensorrt API, and also to share and learn from the community.
-
-All the models are implemented in pytorch/mxnet/tensorflown first, and export a weights file xxx.wts, and then use tensorrt to load weights, define network and do inference. Some pytorch implementations can be found in my repo [Pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from polular open-source implementations.
+The basic workflow of TensorRTx is:
+1. Get the trained models from pytorch, mxnet or tensorflow, etc. Some pytorch models can be found in my repo [pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from popular open-source repos.
+2. Export the weights to a plain text file -- [.wts file](./tutorials/getting_started.md#the-wts-content-format).
+3. Load weights in TensorRT, define the network, build a TensorRT engine.
+4. Load the TensorRT engine and run inference.
 
 ## News
-
+- `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn) and [UNet](./unet) upgrade to support TensorRT 8.
+- `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
+- `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
+- `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
+- `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.
+- `7 Sep 2022`. [xiang-wuu](https://github.com/xiang-wuu): YOLOv5 v6.2 classification models.
+- `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
+- `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
+- `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
+- `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
+- `19 May 2022`. [vjsrinivas](https://github.com/vjsrinivas): YOLOv3 TRT8 support and Python script.
+- `15 Mar 2022`. [sky_hole](https://github.com/wdhao): Swin Transformer - Semantic Segmentation.
 - `19 Oct 2021`. [liuqi123123](https://github.com/liuqi123123) added cuda preprossing for yolov5, preprocessing + inference is 3x faster when batchsize=8.
 - `18 Oct 2021`. [xupengao](https://github.com/xupengao): YOLOv5 updated to v6.0, supporting n/s/m/l/x/n6/s6/m6/l6/x6.
 - `31 Aug 2021`. [FamousDirector](https://github.com/FamousDirector): update retinaface to support TensorRT 8.0.
-- `27 Aug 2021`. [HaiyangPeng](https://github.com/HaiyangPeng): add a python wrapper for hrnet segmentation.
-- `1 Jul 2021`. [freedenS](https://github.com/freedenS): DE⫶TR: End-to-End Object Detection with Transformers. First Transformer model!
-- `10 Jun 2021`. [upczww](https://github.com/upczww): EfficientNet b0-b8 and l2.
-- `23 May 2021`. [SsisyphusTao](https://github.com/SsisyphusTao): CenterNet DLA-34 with DCNv2 plugin.
-- `17 May 2021`. [ybw108](https://github.com/ybw108): arcface LResNet100E-IR and MobileFaceNet.
-- `6 May 2021`. [makaveli10](https://github.com/makaveli10): scaled-yolov4 yolov4-csp.
-- `29 Apr 2021`. [upczww](https://github.com/upczww): hrnet segmentation w18/w32/w48, ocr branch also.
-- `28 Apr 2021`. [aditya-dl](https://github.com/aditya-dl): mobilenetv2, alexnet, densenet121, mobilenetv3 with python API.
-- `26 Apr 2021`. [makaveli10](https://github.com/makaveli10) add Inceptionv4.
-- `25 Apr 2021`. YOLOv5 updated to v5.0, supporting s/m/l/x/s6/m6/l6/x6.
-- `23 Apr 2021`. [irvingzhang0512](https://github.com/irvingzhang0512) add TSM: Temporal Shift Module for Efficient Video Understanding, ICCV2019.
-- `23 Apr 2021`. [freedenS](https://github.com/freedenS) implement MaskRCNN, till now the MOST complicated model in this repo.
 
 ## Tutorials
 
@@ -41,7 +45,8 @@ All the models are implemented in pytorch/mxnet/tensorflown first, and export a 
 
 ## Test Environment
 
-1. GTX1080 / Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / nvinfer7.0.0 / opencv3.3
+1. TensorRT 7.x
+2. TensorRT 8.x(Some of the models support 8.x)
 
 ## How to run
 
@@ -69,7 +74,9 @@ Following models are implemented.
 |[yolov3](./yolov3)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov3-spp](./yolov3-spp)| darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
-|[yolov5](./yolov5)| yolov5 v1.0-v6.0, pytorch implementation from [ultralytics/yolov5](https://github.com/ultralytics/yolov5) |
+|[yolov5](./yolov5)| yolov5 v1.0-v7.0 of [ultralytics/yolov5](https://github.com/ultralytics/yolov5), detection, classification and instance segmentation |
+|[yolov7](./yolov7)| yolov7 v0.1, pytorch implementation from [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7) |
+|[yolop](./yolop)| yolop, pytorch implementation from [hustvl/YOLOP](https://github.com/hustvl/YOLOP) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, LResNet100E-IR and MobileFaceNet, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
 |[retinafaceAntiCov](./retinafaceAntiCov)| mobilenet0.25, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface), retinaface anti-COVID-19, detect face and mask attribute |
@@ -90,6 +97,9 @@ Following models are implemented.
 |[centernet](./centernet)| CenterNet DLA-34, pytorch from [xingyizhou/CenterNet](https://github.com/xingyizhou/CenterNet) |
 |[efficientnet](./efficientnet)| EfficientNet b0-b8 and l2, pytorch from [lukemelas/EfficientNet-PyTorch](https://github.com/lukemelas/EfficientNet-PyTorch) |
 |[detr](./detr)| DE⫶TR, pytorch from [facebookresearch/detr](https://github.com/facebookresearch/detr) |
+|[swin-transformer](./swin-transformer)| Swin Transformer - Semantic Segmentation, only support Swin-T. The Pytorch implementation is [microsoft/Swin-Transformer](https://github.com/microsoft/Swin-Transformer.git) |
+|[real-esrgan](./real-esrgan)| Real-ESRGAN. The Pytorch implementation is [real-esrgan](https://github.com/xinntao/Real-ESRGAN) |
+|[superpoint](./superpoint)| SuperPoint. The Pytorch model is from [magicleap/SuperPointPretrainedNetwork](https://github.com/magicleap/SuperPointPretrainedNetwork) |
 
 ## Model Zoo
 

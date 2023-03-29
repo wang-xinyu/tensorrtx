@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
 
 project(rcnn)
 
@@ -15,8 +15,8 @@ find_package(CUDA REQUIRED)
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # include and link dirs of cuda and tensorrt, you need adapt them if yours are different
 # cuda
-include_directories(/usr/local/cuda-10.2/include)
-link_directories(/usr/local/cuda-10.2/lib64)
+include_directories(/usr/local/cuda/include)
+link_directories(/usr/local/cuda/lib64)
 # tensorrt
 include_directories(/mnt/share/phy/TensorRT-7.0.0.11/include)
 link_directories(/mnt/share/phy/TensorRT-7.0.0.11/lib)

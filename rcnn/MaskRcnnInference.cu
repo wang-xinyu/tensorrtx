@@ -1,4 +1,5 @@
 #include "MaskRcnnInferencePlugin.h"
+#include "macros.h"
 
 namespace nvinfer1 {
 
@@ -31,7 +32,7 @@ __global__ void MaskRcnnInferenceKernel(
 }
 
 int maskRcnnInference(int batchSize,
-    const void *const *inputs, void **outputs,
+    const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
     int detections_per_im, int output_size, int num_classes, cudaStream_t stream) {
 
     for (int batch = 0; batch < batchSize; batch++) {
