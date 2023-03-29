@@ -18,8 +18,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 # tensorrt
-include_directories(/mnt/share/phy/TensorRT-7.0.0.11/include)
-link_directories(/mnt/share/phy/TensorRT-7.0.0.11/lib)
+include_directories(/xxx/TensorRT-7.0.0.11/include)
+link_directories(/xxx/TensorRT-7.0.0.11/lib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
