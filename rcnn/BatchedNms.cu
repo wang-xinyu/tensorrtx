@@ -61,32 +61,23 @@ __global__ void batched_nms_kernel(
                 {
                 case 0:
                     if (overlap > threshold) {
-                        printf("ori: %f", scores[i]);
                         scores[i] = 0.0f;
-                        printf("new: %f", scores[i]);
-                        printf("0");
                     }
                     break;
                 case 1:
                     if (overlap > threshold) {
-                        printf("ori: %f", scores[i]);
                         scores[i] = (1 - overlap) * scores[i];
-                        printf("new: %f", scores[i]);
-                        printf("iou: %f", overlap);
-                        printf("1");
                     }
                     break;        
                 case 2:
                     if (overlap > threshold) {
-                        printf("ori: %f", scores[i]);
                         scores[i] = std::exp(-(overlap * overlap) / sigma) * scores[i];
-                        printf("new: %f", scores[i]);
-                        printf("2");
                     }
                     break;           
                 default:
                     break;
                 }
+                break;
             }
         }
 
@@ -147,7 +138,6 @@ int batchedNms(int nms_method, int batch_size,
         const int max_threads = 1024;
         
         int num_per_thread = ceil(static_cast<float>(num_detections) / max_threads);
-        printf("detections_per_im: ", detections_per_im);
         batched_nms_kernel << <num_per_thread, max_threads, 0, stream >> > (nms_method, nms_thresh, num_detections,
             indices_sorted, scores_sorted, in_classes, in_boxes);
 

@@ -17,7 +17,7 @@ static const std::vector<float> PIXEL_MEAN = { 103.53, 116.28, 123.675 };
 static const std::vector<float> PIXEL_STD = {1.0, 1.0, 1.0};
 static constexpr float MIN_SIZE = 800.0;
 static constexpr float MAX_SIZE = 1333.0;
-static constexpr int NUM_CLASSES = 80;
+static constexpr int NUM_CLASSES = 1;
 static int INPUT_H;  // size of model input
 static int INPUT_W;
 static constexpr int INPUT_H_ = 480;  // size of original image, you can change it to arbitrary size
