@@ -8,7 +8,7 @@ option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--extended-lambda)
+set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--expt-extended-lambda)
 
 find_package(CUDA REQUIRED)
 
@@ -18,15 +18,15 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(/usr/local/cuda-10.2/include)
 link_directories(/usr/local/cuda-10.2/lib64)
 # tensorrt
-include_directories(/home/jushi/TensorRT-7.2.1.6/include)
-link_directories(/home/jushi/TensorRT-7.2.1.6/lib)
+include_directories(/mnt/share/phy/TensorRT-7.0.0.11/include)
+link_directories(/mnt/share/phy/TensorRT-7.0.0.11/lib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
 cuda_add_library(myplugins SHARED ${PROJECT_SOURCE_DIR}/BatchedNms.cu ${PROJECT_SOURCE_DIR}/PredictorDecode.cu ${PROJECT_SOURCE_DIR}/RoiAlign.cu ${PROJECT_SOURCE_DIR}/RpnDecode.cu ${PROJECT_SOURCE_DIR}/RpnNms.cu ${PROJECT_SOURCE_DIR}/MaskRcnnInference.cu)
 target_link_libraries(myplugins nvinfer cudart)
 
-find_package(OpenCV)
+find_package(OpenCV 3.4.2)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_executable(rcnn ${PROJECT_SOURCE_DIR}/rcnn.cpp)

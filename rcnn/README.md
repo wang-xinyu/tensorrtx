@@ -1,6 +1,6 @@
 # Rcnn
 
-The Pytorch implementation is [facebookresearch/detectron2](https://github.com/facebookresearch/detectron2).
+The Pytorch implementation is [facebookresearch/detectron2](https://github.com/facebookresearch/detectron2). Now, outputting instance segmentation results on the original image size is available, which is more convenient for engineering applications.
 
 ## Models
 
@@ -114,9 +114,10 @@ sudo ./rcnn -d faster.engine ../samples
   error: __host__ or __device__ annotation on lambda requires --extended-lambda nvcc flag
   ```
 
-- the image preprocess was moved into tensorrt, see DataPreprocess in rcnn.cpp, so the input data is {H, W, C}
+- the image preprocess of sizing and padding was moved out from tensorrt, see DataPreprocess in rcnn.cpp, so the input data is {H, W, C}
+- now, left-right and top-bottom padding preprocessings are optionally available in preprocessImg of common.hpp, and you can set arbitrary sizes of INPUT_H_ and INPUT_W_
 
-- the predicted boxes is corresponding to new image size, so the final boxes need to multiply with the ratio, see calculateRatio in rcnn.cpp
+- the predicted boxes is corresponding to new image size containing padding, so the final boxes need to subtract padding size and multiply with the ratio, see preprocessImg in common.hpp and calculateSize in rcnn.cpp
 
 - tensorrt use fixed input size, if the size of your data is different from the engine, you need to adjust your data and the result.
 

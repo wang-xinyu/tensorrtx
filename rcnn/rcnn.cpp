@@ -20,8 +20,8 @@ static constexpr float MAX_SIZE = 1333.0;
 static constexpr int NUM_CLASSES = 1;
 static int INPUT_H;  // size of model input
 static int INPUT_W;
-static constexpr int INPUT_H_ = 1024;  // size of original image, you can change it to arbitrary size
-static constexpr int INPUT_W_ = 2048;
+static constexpr int INPUT_H_ = 480;  // size of original image, you can change it to arbitrary size
+static constexpr int INPUT_W_ = 640;
 static int X_LEFT_PAD;  // pad in preprocessImg
 static int X_RIGHT_PAD;
 static int Y_TOP_PAD;
@@ -51,6 +51,12 @@ static bool MASK_ON = false;
 static const char* INPUT_NODE_NAME = "images";
 static const std::vector<std::string> OUTPUT_NAMES = { "scores", "boxes",
 "labels", "masks" };
+
+//nms methods selection in the second stage
+// 0: original nms
+// 1: soft-nms (linear)
+// 2: soft-nms (gaussian) 
+static int NMS_METHOD = 1;
 
 std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes,
 const std::vector<float>& aspect_ratios) {
@@ -185,7 +191,7 @@ void BoxHead(INetworkDefinition *network, std::map<std::string, Weights>& weight
     // nms
     std::vector<ITensor*> nmsInput = { predictorDecodeLayer->getOutput(0),
     predictorDecodeLayer->getOutput(1), predictorDecodeLayer->getOutput(2) };
-    auto batchedNmsPlugin = BatchedNmsPlugin(NMS_THRESH_TEST, DETECTIONS_PER_IMAGE);
+    auto batchedNmsPlugin = BatchedNmsPlugin(NMS_METHOD, NMS_THRESH_TEST, DETECTIONS_PER_IMAGE);
     auto batchedNmsLayer = network->addPluginV2(nmsInput.data(), nmsInput.size(), batchedNmsPlugin);
 
     // instances

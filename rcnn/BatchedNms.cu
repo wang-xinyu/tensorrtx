@@ -16,7 +16,7 @@
 namespace nvinfer1 {
 
 __global__ void batched_nms_kernel(
-    const float threshold, const int num_detections,
+    const int nms_method, const float threshold, const int num_detections,
     const int *indices, float *scores, const float *classes, const float4 *boxes) {
 
     // Go through detections by descending score
@@ -40,8 +40,42 @@ __global__ void batched_nms_kernel(
                 float marea = (mbox.z - mbox.x) * (mbox.w - mbox.y);
                 float inter = w * h;
                 float overlap = inter / (iarea + marea - inter);
-                if (overlap > threshold) {
-                    scores[i] = 0.0f;
+                float sigma = 0.5;  // this is an empirical value
+                // printf("nms_method: %d", nms_method);
+                //nms methods selection in the second stage
+                // 0: original nms
+                // 1: soft-nms (linear)
+                // 2: soft-nms (gaussian)
+                // printf("nms_method: ", nms_method);
+                switch (nms_method)
+                {
+                case 0:
+                    if (overlap > threshold) {
+                        printf("ori: %f", scores[i]);
+                        scores[i] = 0.0f;
+                        printf("new: %f", scores[i]);
+                        printf("0");
+                    }
+                    break;
+                case 1:
+                    if (overlap > threshold) {
+                        printf("ori: %f", scores[i]);
+                        scores[i] = (1 - overlap) * scores[i];
+                        printf("new: %f", scores[i]);
+                        printf("iou: %f", overlap);
+                        printf("1");
+                    }
+                    break;        
+                case 2:
+                    if (overlap > threshold) {
+                        printf("ori: %f", scores[i]);
+                        scores[i] = std::exp(-(overlap * overlap) / sigma) * scores[i];
+                        printf("new: %f", scores[i]);
+                        printf("2");
+                    }
+                    break;           
+                default:
+                    break;
                 }
             }
         }
@@ -51,7 +85,7 @@ __global__ void batched_nms_kernel(
     }
 }
 
-int batchedNms(int batch_size,
+int batchedNms(int nms_method, int batch_size,
     const void *const *inputs, void **outputs,
     size_t count, int detections_per_im, float nms_thresh,
     void *workspace, size_t workspace_size, cudaStream_t stream) {
@@ -101,8 +135,10 @@ int batchedNms(int batch_size,
         // Launch actual NMS kernel - 1 block with each thread handling n detections
         // TODO: different device has differnet max threads
         const int max_threads = 1024;
+        
         int num_per_thread = ceil(static_cast<float>(num_detections) / max_threads);
-        batched_nms_kernel << <num_per_thread, max_threads, 0, stream >> > (nms_thresh, num_detections,
+        printf("detections_per_im: ", detections_per_im);
+        batched_nms_kernel << <num_per_thread, max_threads, 0, stream >> > (nms_method, nms_thresh, num_detections,
             indices_sorted, scores_sorted, in_classes, in_boxes);
 
         // Re-sort with updated scores
