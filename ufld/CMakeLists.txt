@@ -12,6 +12,11 @@ find_package(CUDA REQUIRED)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 
+# cuda_runtime_api
+include_directories(/usr/local/cuda-10.2/targets/aarch64-linux/include)
+link_directories(/usr/local/cuda-10.2/targets/aarch64-linux/lib)
+
+
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
