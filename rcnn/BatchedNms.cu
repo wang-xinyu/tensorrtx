@@ -75,12 +75,13 @@ __global__ void batched_nms_kernel(
                     }
                     break;           
                 default:
+                    if (overlap > threshold) {
+                        scores[i] = 0.0f;
+                    }
                     break;
                 }
-                break;
             }
         }
-
         // Sync discarded detections
         __syncthreads();
     }

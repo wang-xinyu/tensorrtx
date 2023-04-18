@@ -57,6 +57,7 @@ static const std::vector<std::string> OUTPUT_NAMES = { "scores", "boxes",
 // 1: soft-nms (linear)
 // 2: soft-nms (gaussian) 
 static int NMS_METHOD = 1;
+static std::vector<int> NMS_METHOD_VEC = {0, 1, 2};
 
 std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes,
 const std::vector<float>& aspect_ratios) {
@@ -381,6 +382,20 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
 }
 
 int main(int argc, char** argv) {
+    
+    int flag = 0;
+    for (int &item : NMS_METHOD_VEC) {
+        if (item == NMS_METHOD) {
+            flag = 1;
+            printf("The nms method %d is applied.\n", NMS_METHOD);
+            break;
+        }
+    }
+    if (flag == 0) {
+        printf("[WARNING] The nms_method %d is not supported, please choose from [0, 1, 2].\n", NMS_METHOD);
+        printf("[WARNING] To make the nms robust, the default nms method 0 is applied.\n");
+        NMS_METHOD = 0;
+    }
 
     // calculate size
     calculateSize();
