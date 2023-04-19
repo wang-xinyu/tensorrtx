@@ -13,7 +13,7 @@ using namespace nvinfer1;
 #define PLUGIN_NAMESPACE ""
 
 namespace nvinfer1 {
-int batchedNms(int batchSize,
+int batchedNms(int nms_method, int batchSize,
     const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
     size_t count, int detections_per_im, float nms_thresh,
     void *workspace, size_t workspace_size, cudaStream_t stream);
@@ -28,6 +28,7 @@ int batchedNms(int batchSize,
     Description: implement batched nms
 */
 class BatchedNmsPlugin : public IPluginV2Ext {
+    int _nms_method;
     float _nms_thresh;
     int _detections_per_im;
 
@@ -36,32 +37,36 @@ class BatchedNmsPlugin : public IPluginV2Ext {
  protected:
     void deserialize(void const* data, size_t length) {
         const char* d = static_cast<const char*>(data);
+        read(d, _nms_method);
         read(d, _nms_thresh);
         read(d, _detections_per_im);
         read(d, _count);
     }
 
-    size_t getSerializationSize() const TRT_NOEXCEPT override {
-        return sizeof(_nms_thresh) + sizeof(_detections_per_im)
+    size_t getSerializationSize() const override {
+        return sizeof(_nms_method) + sizeof(_nms_thresh) + sizeof(_detections_per_im)
             + sizeof(_count);
     }
 
     void serialize(void *buffer) const TRT_NOEXCEPT override {
         char* d = static_cast<char*>(buffer);
+        write(d, _nms_method);
         write(d, _nms_thresh);
         write(d, _detections_per_im);
         write(d, _count);
     }
 
  public:
-    BatchedNmsPlugin(float nms_thresh, int detections_per_im)
-        : _nms_thresh(nms_thresh), _detections_per_im(detections_per_im) {
+    BatchedNmsPlugin(int nms_method, float nms_thresh, int detections_per_im)
+        : _nms_method(nms_method), _nms_thresh(nms_thresh), _detections_per_im(detections_per_im) {
+        assert(nms_method >= 0);
         assert(nms_thresh > 0);
         assert(detections_per_im > 0);
     }
 
-    BatchedNmsPlugin(float nms_thresh, int detections_per_im, size_t count)
-        : _nms_thresh(nms_thresh), _detections_per_im(detections_per_im), _count(count) {
+    BatchedNmsPlugin(int nms_method, float nms_thresh, int detections_per_im, size_t count)
+        : _nms_method(nms_method), _nms_thresh(nms_thresh), _detections_per_im(detections_per_im), _count(count) {
+        assert(nms_method >= 0);
         assert(nms_thresh > 0);
         assert(detections_per_im > 0);
         assert(count > 0);
@@ -101,7 +106,7 @@ class BatchedNmsPlugin : public IPluginV2Ext {
     size_t getWorkspaceSize(int maxBatchSize) const TRT_NOEXCEPT override {
         static int size = -1;
         if (size < 0) {
-            size = batchedNms(maxBatchSize, nullptr, nullptr, _count,
+            size = batchedNms(_nms_method, maxBatchSize, nullptr, nullptr, _count,
                 _detections_per_im, _nms_thresh,
                 nullptr, 0, nullptr);
         }
@@ -111,7 +116,7 @@ class BatchedNmsPlugin : public IPluginV2Ext {
     int enqueue(int batchSize,
         const void *const *inputs, void *TRT_CONST_ENQUEUE*outputs,
         void *workspace, cudaStream_t stream) TRT_NOEXCEPT override {
-        return batchedNms(batchSize, inputs, outputs, _count,
+        return batchedNms(_nms_method, batchSize, inputs, outputs, _count,
             _detections_per_im, _nms_thresh,
             workspace, getWorkspaceSize(batchSize), stream);
     }
@@ -152,7 +157,7 @@ class BatchedNmsPlugin : public IPluginV2Ext {
     }
 
     IPluginV2Ext *clone() const TRT_NOEXCEPT override {
-        return new BatchedNmsPlugin(_nms_thresh, _detections_per_im, _count);
+        return new BatchedNmsPlugin(_nms_method, _nms_thresh, _detections_per_im, _count);
     }
 
  private:

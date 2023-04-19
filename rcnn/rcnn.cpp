@@ -52,6 +52,13 @@ static const char* INPUT_NODE_NAME = "images";
 static const std::vector<std::string> OUTPUT_NAMES = { "scores", "boxes",
 "labels", "masks" };
 
+//nms methods selection in the second stage
+// 0: original nms
+// 1: soft-nms (linear)
+// 2: soft-nms (gaussian) 
+static int NMS_METHOD = 1;
+static std::vector<int> NMS_METHOD_VEC = {0, 1, 2};
+
 std::vector<float> GenerateAnchors(const std::vector<float>& anchor_sizes,
 const std::vector<float>& aspect_ratios) {
     std::vector<float> res;
@@ -185,7 +192,7 @@ void BoxHead(INetworkDefinition *network, std::map<std::string, Weights>& weight
     // nms
     std::vector<ITensor*> nmsInput = { predictorDecodeLayer->getOutput(0),
     predictorDecodeLayer->getOutput(1), predictorDecodeLayer->getOutput(2) };
-    auto batchedNmsPlugin = BatchedNmsPlugin(NMS_THRESH_TEST, DETECTIONS_PER_IMAGE);
+    auto batchedNmsPlugin = BatchedNmsPlugin(NMS_METHOD, NMS_THRESH_TEST, DETECTIONS_PER_IMAGE);
     auto batchedNmsLayer = network->addPluginV2(nmsInput.data(), nmsInput.size(), batchedNmsPlugin);
 
     // instances
@@ -375,6 +382,20 @@ bool parse_args(int argc, char** argv, std::string& wtsFile, std::string& engine
 }
 
 int main(int argc, char** argv) {
+    
+    int flag = 0;
+    for (int &item : NMS_METHOD_VEC) {
+        if (item == NMS_METHOD) {
+            flag = 1;
+            printf("The nms method %d is applied.\n", NMS_METHOD);
+            break;
+        }
+    }
+    if (flag == 0) {
+        printf("[WARNING] The nms_method %d is not supported, please choose from [0, 1, 2].\n", NMS_METHOD);
+        printf("[WARNING] To make the nms robust, the default nms method 0 is applied.\n");
+        NMS_METHOD = 0;
+    }
 
     // calculate size
     calculateSize();

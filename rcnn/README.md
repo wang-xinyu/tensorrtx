@@ -1,6 +1,6 @@
 # Rcnn
 
-The Pytorch implementation is [facebookresearch/detectron2](https://github.com/facebookresearch/detectron2). Now, outputting instance segmentation results on the original image size is available, which is more convenient for engineering applications.
+The Pytorch implementation is [facebookresearch/detectron2](https://github.com/facebookresearch/detectron2). Now, outputting instance segmentation results on the original image size and selecting different nms methods are available, which is more convenient for engineering applications.
 
 ## Models
 
@@ -21,7 +21,9 @@ TensorRT 8.x is supported and you can use it.
 
 ## Contributors
 
+<a href="https://github.com/HaiyangPeng"><img src="https://avatars.githubusercontent.com/u/46739135?v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/nengwp"><img src="https://avatars.githubusercontent.com/u/44516353?s=96&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/freedenS"><img src="https://avatars.githubusercontent.com/u/26213470?v=4" width="40px;" alt=""/></a>
 
 ## How to Run
 
