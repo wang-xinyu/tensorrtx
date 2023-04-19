@@ -8,13 +8,13 @@ option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
 
-find_package(CUDA REQUIRED)
+# cuda directory
+include_directories(/usr/local/cuda/include/)
+link_directories(/usr/local/cuda/lib64/)
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
-
-# cuda_runtime_api
-include_directories(/usr/local/cuda-10.2/targets/aarch64-linux/include)
-link_directories(/usr/local/cuda-10.2/targets/aarch64-linux/lib)
+# tensorrt
+#include_directories(/workspace/TensorRT-7.2.3.4/include/)
+#link_directories(/workspace/TensorRT-7.2.3.4/lib/)
 
 
 find_package(OpenCV)
