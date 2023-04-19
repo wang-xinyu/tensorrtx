@@ -21,8 +21,8 @@ const char* OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder,  DataType dt) {
-    INetworkDefinition* network = builder->createNetwork();
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder,IBuilderConfig* builderConfig, DataType dt) {
+    INetworkDefinition* network = builder->createNetworkV2(0U);
     Weights emptywts{ DataType::kFLOAT, nullptr, 0 };
 
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{INPUT_C, INPUT_H, INPUT_W });
@@ -84,7 +84,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder,  DataTyp
     permute0->setReshapeDimensions( Dims2{1, 1800});
 
     auto fcwts0 = network->addConstant(nvinfer1::Dims2(2048, 1800), weightMap["cls.0.weight"]);
-    auto matrixMultLayer0 = network->addMatrixMultiply(*permute0->getOutput(0), false, *fcwts0->getOutput(0), true);
+    auto matrixMultLayer0 = network->addMatrixMultiply(*permute0->getOutput(0), MatrixOperation::kNONE, *fcwts0->getOutput(0), MatrixOperation::kTRANSPOSE);
 
     assert(matrixMultLayer0 != nullptr);
     // Add elementwise layer for adding bias
@@ -96,7 +96,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder,  DataTyp
     auto relu = network->addActivation(*addBiasLayer0->getOutput(0), ActivationType::kRELU);
 
     auto fcwts1 = network->addConstant(nvinfer1::Dims2(22624, 2048), weightMap["cls.2.weight"]);
-    auto matrixMultLayer1 = network->addMatrixMultiply(*relu->getOutput(0), false, *fcwts1->getOutput(0), true);
+    auto matrixMultLayer1 = network->addMatrixMultiply(*relu->getOutput(0), MatrixOperation::kNONE, *fcwts1->getOutput(0), MatrixOperation::kTRANSPOSE);
 
     assert(matrixMultLayer1 != nullptr);
     // Add elementwise layer for adding bias
@@ -114,17 +114,18 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder,  DataTyp
 
     // Build engine
     builder->setMaxBatchSize(maxBatchSize);
-    builder->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    builderConfig->setMaxWorkspaceSize(16 * (1 << 20));// 16MB
+
 #ifdef USE_FP16
     if(builder->platformHasFastFp16()) {
         std::cout << "Platform supports fp16 mode and use it !!!" << std::endl;
-        builder->setFp16Mode(true);
+        builderConfig->setFlag(BuilderFlag::kFP16);
     } else {
         std::cout << "Platform doesn't support fp16 mode so you can't use it !!!" << std::endl;
     }
 #endif
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildCudaEngine(*network);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *builderConfig);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
@@ -142,9 +143,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder,  DataTyp
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
-
+    IBuilderConfig* builderConfig = builder->createBuilderConfig();
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(maxBatchSize, builder, builderConfig, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine

@@ -4,7 +4,7 @@ import struct
 from model.model import parsingNet
 
 # Initialize
-model = parsingNet(pretrained = False, backbone='18', cls_dim = (101, 56, 4), use_aux=False).cuda()
+model = parsingNet(pretrained = False, backbone='18', cls_dim = (101, 56, 4), use_aux=False)
 device = 'cpu'
 # Load model
 state_dict = torch.load('tusimple_18.pth', map_location='cpu')['model']
