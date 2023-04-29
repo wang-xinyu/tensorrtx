@@ -11,6 +11,6 @@ void batch_nms(std::vector<std::vector<Detection>>& batch_res, float *output, in
 
 void draw_bbox(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detection>>& res_batch);
 
-std::vector<cv::Mat> process_mask(const float* proto, int proto_size, std::vector<Detection>& dets);
+std::vector<std::shared_ptr<cv::Mat>> process_mask(const float* proto, int proto_size, std::vector<Detection>& dets);
 
-void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map);
+void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<std::shared_ptr<cv::Mat>>& masks, std::unordered_map<int, std::string>& labels_map);

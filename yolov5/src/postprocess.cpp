@@ -103,8 +103,8 @@ static cv::Rect get_downscale_rect(float bbox[4], float scale) {
   return cv::Rect(round(left), round(top), round(right - left), round(bottom - top));
 }
 
-std::vector<cv::Mat> process_mask(const float* proto, int proto_size, std::vector<Detection>& dets) {
-  std::vector<cv::Mat> masks;
+std::vector<std::shared_ptr<cv::Mat>> process_mask(const float* proto, int proto_size, std::vector<Detection>& dets) {
+  std::vector<std::shared_ptr<cv::Mat>> masks;
   for (size_t i = 0; i < dets.size(); i++) {
     cv::Mat mask_mat = cv::Mat::zeros(kInputH / 4, kInputW / 4, CV_32FC1);
     auto r = get_downscale_rect(dets[i].bbox, 4);
@@ -112,14 +112,17 @@ std::vector<cv::Mat> process_mask(const float* proto, int proto_size, std::vecto
       for (int y = r.y; y < r.y + r.height; y++) {
         float e = 0.0f;
         for (int j = 0; j < 32; j++) {
-          e += dets[i].mask[j] * proto[j * proto_size / 32 + y * mask_mat.cols + x];
+          int index = j * proto_size / 32 + y * mask_mat.cols + x;
+          if (index >= 0 && index < proto_size) { // Check if index is within valid range
+            e += dets[i].mask[j] * proto[index];
+          }
         }
         e = 1.0f / (1.0f + expf(-e));
         mask_mat.at<float>(y, x) = e;
       }
     }
     cv::resize(mask_mat, mask_mat, cv::Size(kInputW, kInputH));
-    masks.push_back(mask_mat);
+    masks.push_back(std::make_shared<cv::Mat>(mask_mat));
   }
   return masks;
 }
@@ -145,13 +148,13 @@ cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
   return res;
 }
 
-void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map) {
+void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<std::shared_ptr<cv::Mat>>& masks, std::unordered_map<int, std::string>& labels_map) {
   static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
                                          0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
                                          0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
                                          0xFF95C8, 0xFF37C7};
   for (size_t i = 0; i < dets.size(); i++) {
-    cv::Mat img_mask = scale_mask(masks[i], img);
+    cv::Mat img_mask = scale_mask(*masks[i], img);
     auto color = colors[(int)dets[i].class_id % colors.size()];
     auto bgr = cv::Scalar(color & 0xFF, color >> 8 & 0xFF, color >> 16 & 0xFF);
 
