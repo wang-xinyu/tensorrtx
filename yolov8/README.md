@@ -17,13 +17,13 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 
 ## Different versions of yolov8
 
-Currently, we support yolov8 v0.1
+Currently, we support yolov8 
 
-- For yolov8 v0.1, download .pt from [yolov8 release v0.1](https://github.com/WongKinYiu/yolov8/releases/tag/v0.1), then follow how-to-run in current page.
+- For yolov8 , download .pt from [https://github.com/ultralytics/assets/releases](https://github.com/ultralytics/assets/releases), then follow how-to-run in current page.
 
 ## Config
 
-- Choose the model tiny/v7/x/d6/w6/e6/e6e from command line arguments.
+- Choose the model n/s/m/l/x from command line arguments.
 - Check more configs in [include/config.h](./include/config.h)
 
 ## How to Run, yolov8-tiny as example
@@ -31,9 +31,9 @@ Currently, we support yolov8 v0.1
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
 ```
-// download https://github.com/WongKinYiu/yolov8/releases/download/v0.1/yolov8-tiny.pt
-cp {tensorrtx}/yolov8/gen_wts.py {WongKinYiu}/yolov8
-cd { ultralytics}/ ultralytics
+// download https://github.com/ultralytics/assets/releases/yolov8n.pt
+cp {tensorrtx}/yolov8/gen_wts.py {ultralytics}/ultralytics
+cd {ultralytics}/ultralytics
 python gen_wts.py
 // a file 'yolov8.wts' will be generated.
 ```
@@ -45,14 +45,14 @@ cd {tensorrtx}/yolov8/
 // update kNumClass in config.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp {WongKinYiu}/yolov8/yolov8.wts {tensorrtx}/yolov8/build
+cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
 cmake ..
 make
 sudo ./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
 sudo ./yolov8 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8
-sudo ./yolov8 -s yolov8.wts yolov8.engine v7
-sudo ./yolov8 -d yolov8.engine ../images
+sudo ./yolov8 -s yolov8n.wts yolov8.engine n
+sudo ./yolov8 -d yolov8n.engine ../images
 ```
 
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
