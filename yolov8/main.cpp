@@ -122,7 +122,7 @@ int main(int argc, char** argv) {
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
-        serialize_engine(kBatchSize, wts_name, sub_type, engine_name);
+       serialize_engine(kBatchSize, wts_name,engine_name, sub_type);
         return 0;
     }
 
