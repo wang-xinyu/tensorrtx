@@ -33,7 +33,7 @@ Currently, we support yolov8 v0.1
 ```
 // download https://github.com/WongKinYiu/yolov8/releases/download/v0.1/yolov8-tiny.pt
 cp {tensorrtx}/yolov8/gen_wts.py {WongKinYiu}/yolov8
-cd {WongKinYiu}/yolov8
+cd { ultralytics}/ ultralytics
 python gen_wts.py
 // a file 'yolov8.wts' will be generated.
 ```
