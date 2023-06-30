@@ -7,37 +7,35 @@
 #include "cuda_utils.h"
 #include <fstream>
 #include "logging.h"
+
 Logger gLogger;
 using namespace nvinfer1;
 const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
-void serialize_engine(const int& kBatchSize, std::string& wts_name, std::string& engine_name, std::string& sub_type){
-    nvinfer1::IBuilder* builder = nvinfer1::createInferBuilder(gLogger);
-    nvinfer1::IBuilderConfig* config = builder->createBuilderConfig();
-    nvinfer1::IHostMemory* serialized_engine = nullptr;
 
-    if(sub_type == "n"){
+void serialize_engine(const int &kBatchSize, std::string &wts_name, std::string &engine_name, std::string &sub_type) {
+    nvinfer1::IBuilder *builder = nvinfer1::createInferBuilder(gLogger);
+    nvinfer1::IBuilderConfig *config = builder->createBuilderConfig();
+    nvinfer1::IHostMemory *serialized_engine = nullptr;
+
+    if (sub_type == "n") {
         serialized_engine = buildEngineYolov8n(kBatchSize, builder, config, nvinfer1::DataType::kFLOAT, wts_name);
-    }
-    else if (sub_type == "s") {
+    } else if (sub_type == "s") {
         serialized_engine = buildEngineYolov8s(kBatchSize, builder, config, nvinfer1::DataType::kFLOAT, wts_name);
-    }
-    else if (sub_type == "m") {
+    } else if (sub_type == "m") {
         serialized_engine = buildEngineYolov8m(kBatchSize, builder, config, nvinfer1::DataType::kFLOAT, wts_name);
-    }
-    else if (sub_type == "l") {
+    } else if (sub_type == "l") {
         serialized_engine = buildEngineYolov8l(kBatchSize, builder, config, nvinfer1::DataType::kFLOAT, wts_name);
-    }
-    else if (sub_type == "x") {
+    } else if (sub_type == "x") {
         serialized_engine = buildEngineYolov8x(kBatchSize, builder, config, nvinfer1::DataType::kFLOAT, wts_name);
     }
 
     assert(serialized_engine);
     std::ofstream p(engine_name, std::ios::binary);
-    if(!p){
+    if (!p) {
         std::cout << "could not open plan output file" << std::endl;
         assert(false);
     }
-    p.write(reinterpret_cast<const char*>(serialized_engine->data()), serialized_engine->size());
+    p.write(reinterpret_cast<const char *>(serialized_engine->data()), serialized_engine->size());
 
     delete builder;
     delete config;
@@ -45,7 +43,8 @@ void serialize_engine(const int& kBatchSize, std::string& wts_name, std::string&
 }
 
 
-void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
+void
+deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngine **engine, IExecutionContext **context) {
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
         std::cerr << "read " << engine_name << " error!" << std::endl;
@@ -55,7 +54,7 @@ void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngin
     file.seekg(0, file.end);
     size = file.tellg();
     file.seekg(0, file.beg);
-    char* serialized_engine = new char[size];
+    char *serialized_engine = new char[size];
     assert(serialized_engine);
     file.read(serialized_engine, size);
     file.close();
@@ -69,7 +68,8 @@ void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngin
     delete[] serialized_engine;
 }
 
-void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** output_buffer_device, float** output_buffer_host) {
+void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **output_buffer_device,
+                    float **output_buffer_host) {
     assert(engine->getNbBindings() == 2);
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
@@ -78,20 +78,22 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
     assert(inputIndex == 0);
     assert(outputIndex == 1);
     // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void**)output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void **) input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void **) output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
 
     *output_buffer_host = new float[kBatchSize * kOutputSize];
 }
 
-void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* output, int batchSize) {
+void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchSize) {
     // infer on the batch asynchronously, and DMA output back to host
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,
+                               stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, std::string& img_dir, std::string& sub_type) {
+bool
+parse_args(int argc, char **argv, std::string &wts, std::string &engine, std::string &img_dir, std::string &sub_type) {
     if (argc < 4) return false;
     if (std::string(argv[1]) == "-s" && argc == 5) {
         wts = std::string(argv[2]);
@@ -106,7 +108,7 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, st
     return true;
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     cudaSetDevice(kGpuId);
     std::string wts_name = "";
     std::string engine_name = "";
@@ -122,14 +124,14 @@ int main(int argc, char** argv) {
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
-       serialize_engine(kBatchSize, wts_name,engine_name, sub_type);
+        serialize_engine(kBatchSize, wts_name, engine_name, sub_type);
         return 0;
     }
 
     // Deserialize the engine from file
-    IRuntime* runtime = nullptr;
-    ICudaEngine* engine = nullptr;
-    IExecutionContext* context = nullptr;
+    IRuntime *runtime = nullptr;
+    ICudaEngine *engine = nullptr;
+    IExecutionContext *context = nullptr;
     deserialize_engine(engine_name, &runtime, &engine, &context);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -137,8 +139,8 @@ int main(int argc, char** argv) {
     cuda_preprocess_init(kMaxInputImageSize);
 
     // Prepare cpu and gpu buffers
-    float* device_buffers[2];
-    float* output_buffer_host = nullptr;
+    float *device_buffers[2];
+    float *output_buffer_host = nullptr;
     prepare_buffer(engine, &device_buffers[0], &device_buffers[1], &output_buffer_host);
 
     // Read images from directory
@@ -164,9 +166,10 @@ int main(int argc, char** argv) {
 
         // Run inference
         auto start = std::chrono::system_clock::now();
-        infer(*context, stream, (void**)device_buffers, output_buffer_host, kBatchSize);
+        infer(*context, stream, (void **) device_buffers, output_buffer_host, kBatchSize);
         auto end = std::chrono::system_clock::now();
-        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+                  << "ms" << std::endl;
 
         // NMS
         std::vector<std::vector<Detection>> res_batch;

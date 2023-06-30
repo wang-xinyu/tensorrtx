@@ -15,7 +15,6 @@ class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2
 {
 public:
     Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache = true);
-
     virtual ~Int8EntropyCalibrator2();
     int getBatchSize() const TRT_NOEXCEPT override;
     bool getBatch(void* bindings[], const char* names[], int nbBindings) TRT_NOEXCEPT override;
