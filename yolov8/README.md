@@ -6,7 +6,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 
 ## Contributors
 
-<a href="https://github.com/xiaocao-tian"><img src="https://avatars.githubusercontent.com/u/46549527?v=4?s=48" width="40px;" alt=""/></a>
+<a href="https://github.com/xiaocao-tian"><img src="https://avatars.githubusercontent.com/u/65889782?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/lindsayshuo"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
 
 
