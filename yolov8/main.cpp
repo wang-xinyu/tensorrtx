@@ -43,8 +43,7 @@ void serialize_engine(const int &kBatchSize, std::string &wts_name, std::string 
 }
 
 
-void
-deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngine **engine, IExecutionContext **context) {
+void deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngine **engine, IExecutionContext **context) {
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
         std::cerr << "read " << engine_name << " error!" << std::endl;
@@ -87,13 +86,11 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
 void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchSize) {
     // infer on the batch asynchronously, and DMA output back to host
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,
-                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-bool
-parse_args(int argc, char **argv, std::string &wts, std::string &engine, std::string &img_dir, std::string &sub_type) {
+bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, std::string &img_dir, std::string &sub_type) {
     if (argc < 4) return false;
     if (std::string(argv[1]) == "-s" && argc == 5) {
         wts = std::string(argv[2]);
@@ -168,8 +165,7 @@ int main(int argc, char **argv) {
         auto start = std::chrono::system_clock::now();
         infer(*context, stream, (void **) device_buffers, output_buffer_host, kBatchSize);
         auto end = std::chrono::system_clock::now();
-        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-                  << "ms" << std::endl;
+        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()<< "ms" << std::endl;
 
         // NMS
         std::vector<std::vector<Detection>> res_batch;
