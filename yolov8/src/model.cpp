@@ -5,7 +5,9 @@
 #include "config.h"
 using namespace nvinfer1;
 
-IHostMemory* buildEngineYolov8n(const int& kBatchSize, IBuilder* builder,
+
+
+IHostMemory* buildEngineYolov8n(const int& batchsize, IBuilder* builder,
                                 IBuilderConfig* config, DataType dt, const std::string& wts_path){
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -115,10 +117,10 @@ IHostMemory* buildEngineYolov8n(const int& kBatchSize, IBuilder* builder,
 
     IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
     nvinfer1::Dims shuffle22_0_shape = shuffle22_0->getOutput(0)->getDimensions();
-    int firstDimension = shuffle22_0_shape.d[0];
+    int first_dim = shuffle22_0_shape.d[0];
 
 
-    shuffle22_0->setReshapeDimensions(Dims2{firstDimension, (kInputH / 8) * (kInputW / 8) });
+    shuffle22_0->setReshapeDimensions(Dims2{first_dim, (kInputH / 8) * (kInputW / 8) });
     ISliceLayer* split22_0_0 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{0, 0}, Dims2{64, (kInputH / 8) * (kInputW / 8) }, Dims2{1,1});
     ISliceLayer* split22_0_1 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{64, 0}, Dims2{kNumClass, (kInputH / 8) * (kInputW / 8) }, Dims2{1,1});
     IShuffleLayer* dfl22_0 = DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / 8) * (kInputW / 8), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -126,7 +128,7 @@ IHostMemory* buildEngineYolov8n(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 2);
 
     IShuffleLayer* shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
-    shuffle22_1->setReshapeDimensions(Dims2{firstDimension, (kInputH / 16) * (kInputW / 16) });
+    shuffle22_1->setReshapeDimensions(Dims2{first_dim, (kInputH / 16) * (kInputW / 16) });
     ISliceLayer* split22_1_0 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{0, 0}, Dims2{64, (kInputH / 16) * (kInputW / 16) }, Dims2{1,1});
     ISliceLayer* split22_1_1 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{64, 0}, Dims2{ kNumClass, (kInputH / 16) * (kInputW / 16) }, Dims2{1,1});
     IShuffleLayer* dfl22_1 = DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / 16) * (kInputW / 16), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -134,7 +136,7 @@ IHostMemory* buildEngineYolov8n(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 2);
 
     IShuffleLayer* shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
-    shuffle22_2->setReshapeDimensions(Dims2{firstDimension, (kInputH / 32) * (kInputW / 32) });
+    shuffle22_2->setReshapeDimensions(Dims2{first_dim, (kInputH / 32) * (kInputW / 32) });
     ISliceLayer* split22_2_0 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{0, 0}, Dims2{64, (kInputH / 32) * (kInputW / 32) }, Dims2{1,1});
     ISliceLayer* split22_2_1 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{64, 0}, Dims2{ kNumClass, (kInputH / 32) * (kInputW / 32) }, Dims2{1,1});
     IShuffleLayer* dfl22_2 = DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / 32) * (kInputW / 32), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -145,7 +147,7 @@ IHostMemory* buildEngineYolov8n(const int& kBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(kBatchSize);
+    builder->setMaxBatchSize(batchsize);
     config->setMaxWorkspaceSize(16* (1<<20));
 
 #if defined(USE_FP16)
@@ -174,7 +176,7 @@ IHostMemory* buildEngineYolov8n(const int& kBatchSize, IBuilder* builder,
 }
 
 
-IHostMemory* buildEngineYolov8s(const int& kBatchSize, IBuilder* builder,
+IHostMemory* buildEngineYolov8s(const int& batchsize, IBuilder* builder,
                                 IBuilderConfig* config, DataType dt, const std::string& wts_path) {
 
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
@@ -284,11 +286,11 @@ IHostMemory* buildEngineYolov8s(const int& kBatchSize, IBuilder* builder,
 
     IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
     nvinfer1::Dims shuffle22_0_shape = shuffle22_0->getOutput(0)->getDimensions();
-    int firstDimension = shuffle22_0_shape.d[0];
+    int first_dim = shuffle22_0_shape.d[0];
 
 
 
-    shuffle22_0->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 8) * (kInputW / 8) });
+    shuffle22_0->setReshapeDimensions(Dims2{ first_dim, (kInputH / 8) * (kInputW / 8) });
     ISliceLayer* split22_0_0 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     ISliceLayer* split22_0_1 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_0 = DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / 8) * (kInputW / 8), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -298,9 +300,7 @@ IHostMemory* buildEngineYolov8s(const int& kBatchSize, IBuilder* builder,
 
 
     IShuffleLayer* shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
-
-
-    shuffle22_1->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 16) * (kInputW / 16) });
+    shuffle22_1->setReshapeDimensions(Dims2{ first_dim, (kInputH / 16) * (kInputW / 16) });
     ISliceLayer* split22_1_0 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     ISliceLayer* split22_1_1 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_1 = DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / 16) * (kInputW / 16), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -310,7 +310,7 @@ IHostMemory* buildEngineYolov8s(const int& kBatchSize, IBuilder* builder,
     IShuffleLayer* shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
 
 
-    shuffle22_2->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 32) * (kInputW / 32) });
+    shuffle22_2->setReshapeDimensions(Dims2{ first_dim, (kInputH / 32) * (kInputW / 32) });
     ISliceLayer* split22_2_0 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     ISliceLayer* split22_2_1 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_2 = DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / 32) * (kInputW / 32), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -318,18 +318,11 @@ IHostMemory* buildEngineYolov8s(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 2);
 
 
-
-
-
-
-
-
-
     IPluginV2Layer* yolo = addYoLoLayer(network, std::vector<IConcatenationLayer*>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2});
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(kBatchSize);
+    builder->setMaxBatchSize(batchsize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
 
 #if defined(USE_FP16)
@@ -355,7 +348,7 @@ IHostMemory* buildEngineYolov8s(const int& kBatchSize, IBuilder* builder,
 }
 
 
-IHostMemory* buildEngineYolov8m(const int& kBatchSize, IBuilder* builder,
+IHostMemory* buildEngineYolov8m(const int& batchsize, IBuilder* builder,
                                 IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -457,10 +450,10 @@ IHostMemory* buildEngineYolov8m(const int& kBatchSize, IBuilder* builder,
     *******************************************************************************************************/
     IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
     nvinfer1::Dims shuffle22_0_shape = shuffle22_0->getOutput(0)->getDimensions();
-    int firstDimension = shuffle22_0_shape.d[0];
+    int first_dim = shuffle22_0_shape.d[0];
 
 
-    shuffle22_0->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 8) * (kInputW / 8) });
+    shuffle22_0->setReshapeDimensions(Dims2{ first_dim, (kInputH / 8) * (kInputW / 8) });
     ISliceLayer* split22_0_0 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     ISliceLayer* split22_0_1 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_0 = DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / 8) * (kInputW / 8), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -468,7 +461,7 @@ IHostMemory* buildEngineYolov8m(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 2);
 
     IShuffleLayer* shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
-    shuffle22_1->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 16) * (kInputW / 16) });
+    shuffle22_1->setReshapeDimensions(Dims2{ first_dim, (kInputH / 16) * (kInputW / 16) });
     ISliceLayer* split22_1_0 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     ISliceLayer* split22_1_1 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_1 = DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / 16) * (kInputW / 16), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -476,7 +469,7 @@ IHostMemory* buildEngineYolov8m(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 2);
 
     IShuffleLayer* shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
-    shuffle22_2->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 32) * (kInputW / 32) });
+    shuffle22_2->setReshapeDimensions(Dims2{ first_dim, (kInputH / 32) * (kInputW / 32) });
     ISliceLayer* split22_2_0 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     ISliceLayer* split22_2_1 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_2 = DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / 32) * (kInputW / 32), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -487,7 +480,7 @@ IHostMemory* buildEngineYolov8m(const int& kBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(kBatchSize);
+    builder->setMaxBatchSize(batchsize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
 
 #if defined(USE_FP16)
@@ -513,7 +506,7 @@ IHostMemory* buildEngineYolov8m(const int& kBatchSize, IBuilder* builder,
 }
 
 
-IHostMemory* buildEngineYolov8l(const int& kBatchSize, IBuilder* builder,
+IHostMemory* buildEngineYolov8l(const int& batchsize, IBuilder* builder,
                                 IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -616,11 +609,10 @@ IHostMemory* buildEngineYolov8l(const int& kBatchSize, IBuilder* builder,
     *******************************************************************************************************/
     IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
     nvinfer1::Dims shuffle22_0_shape = shuffle22_0->getOutput(0)->getDimensions();
-    int firstDimension = shuffle22_0_shape.d[0];
+    int first_dim = shuffle22_0_shape.d[0];
 
 
-
-    shuffle22_0->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 8) * (kInputW / 8) });
+    shuffle22_0->setReshapeDimensions(Dims2{ first_dim, (kInputH / 8) * (kInputW / 8) });
     ISliceLayer* split22_0_0 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     ISliceLayer* split22_0_1 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_0 = DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / 8) * (kInputW / 8), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -628,7 +620,7 @@ IHostMemory* buildEngineYolov8l(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 2);
 
     IShuffleLayer* shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
-    shuffle22_1->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 16) * (kInputW / 16) });
+    shuffle22_1->setReshapeDimensions(Dims2{ first_dim, (kInputH / 16) * (kInputW / 16) });
     ISliceLayer* split22_1_0 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     ISliceLayer* split22_1_1 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_1 = DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / 16) * (kInputW / 16), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -636,7 +628,7 @@ IHostMemory* buildEngineYolov8l(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 2);
 
     IShuffleLayer* shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
-    shuffle22_2->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 32) * (kInputW / 32) });
+    shuffle22_2->setReshapeDimensions(Dims2{ first_dim, (kInputH / 32) * (kInputW / 32) });
     ISliceLayer* split22_2_0 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     ISliceLayer* split22_2_1 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_2 = DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / 32) * (kInputW / 32), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -647,7 +639,7 @@ IHostMemory* buildEngineYolov8l(const int& kBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(kBatchSize);
+    builder->setMaxBatchSize(batchsize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
 
 #if defined(USE_FP16)
@@ -673,7 +665,7 @@ IHostMemory* buildEngineYolov8l(const int& kBatchSize, IBuilder* builder,
 }
 
 
-IHostMemory* buildEngineYolov8x(const int& kBatchSize, IBuilder* builder,
+IHostMemory* buildEngineYolov8x(const int& batchsize, IBuilder* builder,
                                 IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
     INetworkDefinition* network = builder->createNetworkV2(0U);
@@ -775,12 +767,11 @@ IHostMemory* buildEngineYolov8x(const int& kBatchSize, IBuilder* builder,
     *********************************************  YOLOV8 DETECT  ******************************************
     *******************************************************************************************************/
     IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
-
     nvinfer1::Dims shuffle22_0_shape = shuffle22_0->getOutput(0)->getDimensions();
-    int firstDimension = shuffle22_0_shape.d[0];
+    int first_dim = shuffle22_0_shape.d[0];
 
 
-    shuffle22_0->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 8) * (kInputW / 8) });
+    shuffle22_0->setReshapeDimensions(Dims2{ first_dim, (kInputH / 8) * (kInputW / 8) });
     ISliceLayer* split22_0_0 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     ISliceLayer* split22_0_1 = network->addSlice(*shuffle22_0->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 8) * (kInputW / 8) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_0 = DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / 8) * (kInputW / 8), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -788,7 +779,7 @@ IHostMemory* buildEngineYolov8x(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 2);
 
     IShuffleLayer* shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
-    shuffle22_1->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 16) * (kInputW / 16) });
+    shuffle22_1->setReshapeDimensions(Dims2{ first_dim, (kInputH / 16) * (kInputW / 16) });
     ISliceLayer* split22_1_0 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     ISliceLayer* split22_1_1 = network->addSlice(*shuffle22_1->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 16) * (kInputW / 16) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_1 = DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / 16) * (kInputW / 16), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -796,7 +787,7 @@ IHostMemory* buildEngineYolov8x(const int& kBatchSize, IBuilder* builder,
     IConcatenationLayer* cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 2);
 
     IShuffleLayer* shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
-    shuffle22_2->setReshapeDimensions(Dims2{ firstDimension, (kInputH / 32) * (kInputW / 32) });
+    shuffle22_2->setReshapeDimensions(Dims2{ first_dim, (kInputH / 32) * (kInputW / 32) });
     ISliceLayer* split22_2_0 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 0, 0 }, Dims2{ 64, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     ISliceLayer* split22_2_1 = network->addSlice(*shuffle22_2->getOutput(0), Dims2{ 64, 0 }, Dims2{ kNumClass, (kInputH / 32) * (kInputW / 32) }, Dims2{ 1,1 });
     IShuffleLayer* dfl22_2 = DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / 32) * (kInputW / 32), 1, 1, 0, "model.22.dfl.conv.weight");
@@ -807,7 +798,7 @@ IHostMemory* buildEngineYolov8x(const int& kBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(kBatchSize);
+    builder->setMaxBatchSize(batchsize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
 
 #if defined(USE_FP16)
