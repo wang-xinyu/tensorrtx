@@ -26,7 +26,7 @@ Currently, we support yolov8
 - Choose the model n/s/m/l/x from command line arguments.
 - Check more configs in [include/config.h](./include/config.h)
 
-## How to Run, yolov8-tiny as example
+## How to Run, yolov8n as example
 
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
@@ -35,7 +35,7 @@ Currently, we support yolov8
 cp {tensorrtx}/yolov8/gen_wts.py {ultralytics}/ultralytics
 cd {ultralytics}/ultralytics
 python gen_wts.py
-// a file 'yolov8.wts' will be generated.
+// a file 'yolov8n.wts' will be generated.
 ```
 
 2. build tensorrtx/yolov8 and run
@@ -53,8 +53,13 @@ sudo ./yolov8 -d [.engine] [image folder]  // deserialize and run inference, the
 // For example yolov8
 sudo ./yolov8 -s yolov8n.wts yolov8.engine n
 sudo ./yolov8 -d yolov8n.engine ../images
-```
 
+
+for cuda postprocess demo
+// For example yolov8
+sudo ./yolov8_cuda_decode -s yolov8n.wts yolov8.engine n
+sudo ./yolov8_cuda_decode -d yolov8n.engine ../images
+```
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 
 4. optional, load and run the tensorrt model in python

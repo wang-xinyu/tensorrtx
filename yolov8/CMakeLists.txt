@@ -42,9 +42,15 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 file(GLOB_RECURSE SRCS ${PROJECT_SOURCE_DIR}/src/*.cpp ${PROJECT_SOURCE_DIR}/src/*.cu)
 add_executable(yolov8 ${PROJECT_SOURCE_DIR}/main.cpp ${SRCS})
+add_executable(yolov8_cuda_decode ${PROJECT_SOURCE_DIR}/main_cuda_decode.cpp ${SRCS})
 
 target_link_libraries(yolov8 nvinfer)
 target_link_libraries(yolov8 cudart)
 target_link_libraries(yolov8 myplugins)
 target_link_libraries(yolov8 ${OpenCV_LIBS})
+
+target_link_libraries(yolov8_cuda_decode nvinfer)
+target_link_libraries(yolov8_cuda_decode cudart)
+target_link_libraries(yolov8_cuda_decode myplugins)
+target_link_libraries(yolov8_cuda_decode ${OpenCV_LIBS})
 
