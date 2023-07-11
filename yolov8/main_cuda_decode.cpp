@@ -178,17 +178,21 @@ int main(int argc, char **argv) {
             img_name_batch.push_back(file_names[j]);
         }
 
-    // Preprocess
-    cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
-    // Perform inference on the batch
-    auto start = std::chrono::system_clock::now();
-    infer(*context, stream, (float **)device_buffers, decode_ptr_host, decode_ptr_device, img_batch.size(), second_out_dim);
-    auto end = std::chrono::system_clock::now();
-    std::cout << "inference and decode time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    draw_bbox_cuda_process_batch(decode_ptr_host, bbox_element, img_batch);
-    for (int b = 0; b < img_batch.size(); b++) {
-        cv::imwrite("_" + img_name_batch[b], img_batch[b]);
-    }
+        // Preprocess
+        cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
+        // Perform inference on the batch
+        auto start = std::chrono::system_clock::now();
+        infer(*context, stream, (float **)device_buffers, decode_ptr_host, decode_ptr_device, img_batch.size(), second_out_dim);
+        auto end = std::chrono::system_clock::now();
+        std::cout << "inference and decode time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+
+        // Draw bounding boxes
+        draw_bbox_cuda_process_batch(decode_ptr_host, bbox_element, img_batch);
+
+        // Save images
+        for (int b = 0; b < img_batch.size(); b++) {
+            cv::imwrite("_" + img_name_batch[b], img_batch[b]);
+        }
     }
 
     // Release stream and buffers
