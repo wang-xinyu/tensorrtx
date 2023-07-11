@@ -11,7 +11,7 @@
 Logger gLogger;
 using namespace nvinfer1;
 const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
-int second_out_dim ;
+int out_dim_size ;
 
 
 
@@ -89,18 +89,19 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
     CUDA_CHECK(cudaMalloc((void **)decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element)));
 
     auto out_dims = engine->getBindingDimensions(1);
-    second_out_dim = out_dims.d[2];
+
+    out_dim_size = out_dims.d[0];
 }
 
 
-void infer(IExecutionContext& context, cudaStream_t& stream,  float **buffers_in, float* decode_ptr_host,float* decode_ptr_device  ,int batchSize_in,int second_out_dim_in  ) {
+void infer(IExecutionContext& context, cudaStream_t& stream,  float **buffers_in, float* decode_ptr_host,float* decode_ptr_device  ,int batchSize_in,int out_dim_size_in  ) {
 
     auto start = std::chrono::system_clock::now();
     context.enqueue(batchSize_in,  (void**)buffers_in, stream, nullptr);
     auto end = std::chrono::system_clock::now();
     std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     CUDA_CHECK(cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
-    decode_kernel_invoker(buffers_in[1], second_out_dim, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
+    decode_kernel_invoker(buffers_in[1], out_dim_size_in, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
     nms_kernel_invoker(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);//cuda nms
     CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
@@ -182,7 +183,7 @@ int main(int argc, char **argv) {
         cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
         // Perform inference on the batch
         auto start = std::chrono::system_clock::now();
-        infer(*context, stream, (float **)device_buffers, decode_ptr_host, decode_ptr_device, img_batch.size(), second_out_dim);
+        infer(*context, stream, (float **)device_buffers, decode_ptr_host, decode_ptr_device, img_batch.size(), out_dim_size);
         auto end = std::chrono::system_clock::now();
         std::cout << "inference and decode time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
