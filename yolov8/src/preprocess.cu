@@ -136,12 +136,14 @@ box_iou(float aleft, float atop, float aright, float abottom, float bleft, float
 static __global__ void nms_kernel(float *bboxes, int max_objects, float threshold) {
 
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
-    int count = min((int) *bboxes, max_objects);
+    int count = bboxes[0];
+
+//    float count = 0.0f;
     if (position >= count)
         return;
 
     float *pcurrent = bboxes + 1 + position * bbox_element;
-    for (int i = 0; i < count; ++i) {
+    for (int i = 1; i < count; ++i) {
         float *pitem = bboxes + 1 + i * bbox_element;
         if (i == position || pcurrent[5] != pitem[5]) continue;
 
@@ -224,7 +226,12 @@ void nms_kernel_invoker(float *parray, float nms_threshold, int max_objects, cud
 
 }
 
+void video_data_preprocess(const cv::Mat& img_video,float* dst, int dst_width, int dst_height, cudaStream_t stream) {
+    int dst_size = dst_width*dst_height;
+    cuda_preprocess(img_video.data, img_video.cols, img_video.rows, &dst[dst_size], dst_width, dst_height, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
+}
 void cuda_preprocess_init(int max_image_size) {
     // prepare input data in pinned memory
     CUDA_CHECK(cudaMallocHost((void **) &img_buffer_host, max_image_size * 3));
