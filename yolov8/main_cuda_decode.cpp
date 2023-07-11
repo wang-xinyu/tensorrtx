@@ -11,8 +11,6 @@
 Logger gLogger;
 using namespace nvinfer1;
 const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
-
-
 int second_out_dim ;
 
 
@@ -101,20 +99,12 @@ void infer(IExecutionContext& context, cudaStream_t& stream,  float **buffers_in
     context.enqueue(batchSize_in,  (void**)buffers_in, stream, nullptr);
     auto end = std::chrono::system_clock::now();
     std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-
-    float *predict = buffers_in[1];
     CUDA_CHECK(cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
-
-    decode_kernel_invoker(predict, second_out_dim, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
+    decode_kernel_invoker(buffers_in[1], second_out_dim, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
     nms_kernel_invoker(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);//cuda nms
-
     CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
-
-
-
-
-
+    
 }
 
 
