@@ -132,8 +132,8 @@ int main(int argc, char **argv) {
 
     if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type)) {
         std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov8 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov8_cuda_decode -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov8_cuda_decode -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
