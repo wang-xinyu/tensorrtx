@@ -79,9 +79,9 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
     // Create GPU buffers on device
     CUDA_CHECK(cudaMalloc((void **) input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
     CUDA_CHECK(cudaMalloc((void **) output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
-    if (cuda_post_process == "c"){
+    if (cuda_post_process == "c") {
         *output_buffer_host = new float[kBatchSize * kOutputSize];
-    } else if(cuda_post_process == "g"){
+    } else if (cuda_post_process == "g") {
         // Allocate memory for decode_ptr_host and copy to device
         *decode_ptr_host = new float[1 + kMaxNumOutputBbox * bbox_element];
         CUDA_CHECK(cudaMalloc((void **)decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element)));
@@ -92,11 +92,11 @@ void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, flo
     // infer on the batch asynchronously, and DMA output back to host
     auto start = std::chrono::system_clock::now();
     context.enqueue(batchSize, buffers, stream, nullptr);
-    if (cuda_post_process == "c"){
+    if (cuda_post_process == "c") {
         CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,stream));
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    } else if(cuda_post_process == "g"){
+    } else if (cuda_post_process == "g") {
         CUDA_CHECK(cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
         cuda_decode((float *)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
         cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);//cuda nms
@@ -185,16 +185,18 @@ int main(int argc, char **argv) {
         // Preprocess
         cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
         // Run inference
-        infer(*context, stream, (void **) device_buffers, output_buffer_host, kBatchSize, decode_ptr_host, decode_ptr_device, img_batch.size(), model_bboxes, cuda_post_process);
-        if (cuda_post_process == "c"){
+        infer(*context, stream, (void **)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host, decode_ptr_device, img_batch.size(), model_bboxes, cuda_post_process);
+        std::vector<std::vector<Detection>> res_batch;
+        if (cuda_post_process == "c") {
             // NMS
-            std::vector<std::vector<Detection>> res_batch;
             batch_nms(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
             // Draw bounding boxes
-            draw_bbox(img_batch, res_batch);
-        } else if(cuda_post_process == "g"){
+            draw_bbox(img_batch, res_batch, cuda_post_process);
+        } else if (cuda_post_process == "g") {
+            //Process gpu decode and nms results
+            batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element,img_batch);
             // Draw bounding boxes
-            draw_bbox_cuda_process_batch(decode_ptr_host, bbox_element, img_batch);
+            draw_bbox(img_batch, res_batch, cuda_post_process);
         }
         // Save images
         for (size_t j = 0; j < img_batch.size(); j++) {

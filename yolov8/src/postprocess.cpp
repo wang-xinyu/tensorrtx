@@ -85,23 +85,10 @@ void batch_nms(std::vector<std::vector<Detection>> &res_batch, float *output, in
     }
 }
 
-void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detection>> &res_batch) {
-    for (size_t i = 0; i < img_batch.size(); i++) {
-        auto &res = res_batch[i];
-        cv::Mat img = img_batch[i];
-        for (size_t j = 0; j < res.size(); j++) {
-            cv::Rect r = get_rect(img, res[j].bbox);
-            cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-            cv::putText(img, std::to_string((int) res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN,
-                        1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-        }
-    }
-}
 
-void process_decode_ptr_host(const float* decode_ptr_host, int bbox_element, cv::Mat& img, std::vector<Detection>& bboxes)
+void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count)
 {
-    int count = static_cast<int>(*decode_ptr_host);
-    count = std::min(count, kMaxNumOutputBbox);
+
     for (int i = 0; i < count; i++)
     {
         int basic_pos = 1 + i * bbox_element;
@@ -118,32 +105,36 @@ void process_decode_ptr_host(const float* decode_ptr_host, int bbox_element, cv:
             det.bbox[3] = r.y + r.height;
             det.conf = decode_ptr_host[basic_pos + 4];
             det.class_id = decode_ptr_host[basic_pos + 5];
-            bboxes.push_back(det);
+            res.push_back(det);
         }
     }
 }
-void draw_bbox_cuda_process_single(const float* decode_ptr_host, int bbox_element, cv::Mat& img)
-{
-    std::vector<Detection> bboxes;
-    process_decode_ptr_host(decode_ptr_host, bbox_element, img, bboxes);
-    for (const auto& boxes : bboxes) {
-        cv::Rect roi_area = cv::Rect(boxes.bbox[0], boxes.bbox[1], boxes.bbox[2] - boxes.bbox[0], boxes.bbox[3] - boxes.bbox[1]);
-        cv::rectangle(img, roi_area, cv::Scalar(0, 255, 0), 2);
-        std::string label_string = std::to_string((int) boxes.class_id) + " " + std::to_string((float)boxes.conf);
-        cv::putText(img, label_string, cv::Point(boxes.bbox[0], boxes.bbox[1] - 1), cv::FONT_HERSHEY_PLAIN, 1.2,cv::Scalar(0xFF, 0xFF, 0xFF), 2);
-    }
 
+void batch_process(std::vector<std::vector<Detection>> &res_batch, const float* decode_ptr_host, int batch_size, int bbox_element, const std::vector<cv::Mat>& img_batch) {
+    res_batch.resize(batch_size);
+    int count = static_cast<int>(*decode_ptr_host);
+    count = std::min(count, kMaxNumOutputBbox);
+    for (int i = 0; i < batch_size; i++) {
+        auto& img = const_cast<cv::Mat&>(img_batch[i]);
+        process_decode_ptr_host(res_batch[i], &decode_ptr_host[i * count], bbox_element, img, count);
+    }
 }
 
 
-void draw_bbox_cuda_process_batch(float *decode_ptr_host_batch,
-                                  int bbox_element,
-                                  const std::vector<cv::Mat>& img_batch) {
-    for (int b = 0; b < img_batch.size(); b++) {
-        // Create a non-constant reference to pass image parameters
-        cv::Mat& img = const_cast<cv::Mat&>(img_batch[b]);
-
-        // Process the detection results of each image
-        draw_bbox_cuda_process_single(&decode_ptr_host_batch[b], bbox_element, img);
+void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detection>> &res_batch, const std::string& cuda_post_process) {
+    for (size_t i = 0; i < img_batch.size(); i++) {
+        auto &res = res_batch[i];
+        cv::Mat img = img_batch[i];
+        cv::Rect r;
+        for (size_t j = 0; j < res.size(); j++) {
+            if (cuda_post_process == "c") {
+                r = get_rect(img, res[j].bbox);
+            } else if (cuda_post_process == "g") {
+                r = cv::Rect(res[j].bbox[0], res[j].bbox[1], res[j].bbox[2] - res[j].bbox[0], res[j].bbox[3] - res[j].bbox[1]);
+            }
+            cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+            cv::putText(img, std::to_string((int) res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN,
+                        1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+        }
     }
 }
