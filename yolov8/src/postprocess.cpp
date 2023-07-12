@@ -124,7 +124,6 @@ void process_decode_ptr_host(const float* decode_ptr_host, int bbox_element, cv:
 }
 void draw_bbox_cuda_process_single(const float* decode_ptr_host, int bbox_element, cv::Mat& img)
 {
-    Detection det;
     std::vector<Detection> bboxes;
     process_decode_ptr_host(decode_ptr_host, bbox_element, img, bboxes);
     for (const auto& boxes : bboxes) {
