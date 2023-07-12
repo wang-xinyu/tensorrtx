@@ -98,38 +98,41 @@ void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detectio
     }
 }
 
-
-void draw_bbox_cuda_process_single(const float* decode_ptr_host, int bbox_element, cv::Mat& img)
+void process_decode_ptr_host(const float* decode_ptr_host, int bbox_element, cv::Mat& img, std::vector<Detection>& bboxes)
 {
-    Detection det;
-    int boxes_count = 0;
     int count = static_cast<int>(*decode_ptr_host);
     count = std::min(count, kMaxNumOutputBbox);
     for (int i = 0; i < count; i++)
     {
-
         int basic_pos = 1 + i * bbox_element;
         int keep_flag = decode_ptr_host[basic_pos + 6];
         if (keep_flag == 1)
         {
-            boxes_count += 1;
             float boxpts[4] = { decode_ptr_host[basic_pos + 0],decode_ptr_host[basic_pos + 1],
                                 decode_ptr_host[basic_pos + 2],decode_ptr_host[basic_pos + 3] };
             cv::Rect r = get_rect(img, boxpts);
+            Detection det;
             det.bbox[0] = r.x;
             det.bbox[1] = r.y;
             det.bbox[2] = r.x + r.width;
             det.bbox[3] = r.y + r.height;
             det.conf = decode_ptr_host[basic_pos + 4];
             det.class_id = decode_ptr_host[basic_pos + 5];
-
+            bboxes.push_back(det);
         }
-        cv::Rect roi_area = cv::Rect(det.bbox[0], det.bbox[1], det.bbox[2] - det.bbox[0], det.bbox[3] - det.bbox[1]);
-        cv::rectangle(img, roi_area, cv::Scalar(0, 255, 0), 2);
-        std::string label_string = std::to_string((int) det.class_id) + " " + std::to_string(det.conf);
-        cv::putText(img, label_string, cv::Point(det.bbox[0], det.bbox[1] - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
     }
-
+}
+void draw_bbox_cuda_process_single(const float* decode_ptr_host, int bbox_element, cv::Mat& img)
+{
+    Detection det;
+    std::vector<Detection> bboxes;
+    process_decode_ptr_host(decode_ptr_host, bbox_element, img, bboxes);
+    for (const auto& boxes : bboxes) {
+        cv::Rect roi_area = cv::Rect(boxes.bbox[0], boxes.bbox[1], boxes.bbox[2] - boxes.bbox[0], boxes.bbox[3] - boxes.bbox[1]);
+        cv::rectangle(img, roi_area, cv::Scalar(0, 255, 0), 2);
+        std::string label_string = std::to_string((int) boxes.class_id) + " " + std::to_string((float)boxes.conf);
+        cv::putText(img, label_string, cv::Point(boxes.bbox[0], boxes.bbox[1] - 1), cv::FONT_HERSHEY_PLAIN, 1.2,cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+    }
 
 }
 

@@ -8,6 +8,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 
 <a href="https://github.com/xiaocao-tian"><img src="https://avatars.githubusercontent.com/u/65889782?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/lindsayshuo"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
+<a href="https://github.com/xinsuinizhuan"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
 
 
 ## Requirements
@@ -49,16 +50,12 @@ cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
 cmake ..
 make
 sudo ./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
-sudo ./yolov8 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
+sudo ./yolov8 -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8
 sudo ./yolov8 -s yolov8n.wts yolov8.engine n
-sudo ./yolov8 -d yolov8n.engine ../images
+sudo ./yolov8 -d yolov8n.engine ../images c //cpu postprocess
+sudo ./yolov8 -d yolov8n.engine ../images g //gpu postprocess
 
-
-for cuda postprocess demo
-// For example yolov8
-sudo ./yolov8_cuda_decode -s yolov8n.wts yolov8.engine n
-sudo ./yolov8_cuda_decode -d yolov8n.engine ../images
 ```
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 

@@ -210,8 +210,8 @@ void cuda_batch_preprocess(std::vector<cv::Mat> &img_batch,
 }
 
 
-void decode_kernel_invoker(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects,
-                           cudaStream_t stream) {
+void cuda_decode(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects,
+                 cudaStream_t stream) {
     int block = 256;
     int grid = ceil(num_bboxes / (float) block);
     decode_kernel << <
@@ -219,19 +219,14 @@ void decode_kernel_invoker(float *predict, int num_bboxes, float confidence_thre
 
 }
 
-void nms_kernel_invoker(float *parray, float nms_threshold, int max_objects, cudaStream_t stream) {
+void cuda_nms(float *parray, float nms_threshold, int max_objects, cudaStream_t stream) {
     int block = max_objects < 256 ? max_objects : 256;
     int grid = ceil(max_objects / (float) block);
     nms_kernel << < grid, block, 0, stream >> > (parray, max_objects, nms_threshold);
 
 }
 
-void video_data_preprocess(const cv::Mat& img_video,float* dst, int dst_width, int dst_height, cudaStream_t stream) {
-    int dst_size = dst_width*dst_height;
-    cuda_preprocess(img_video.data, img_video.cols, img_video.rows, &dst[dst_size], dst_width, dst_height, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-}
 void cuda_preprocess_init(int max_image_size) {
     // prepare input data in pinned memory
     CUDA_CHECK(cudaMallocHost((void **) &img_buffer_host, max_image_size * 3));
