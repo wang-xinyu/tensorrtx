@@ -190,14 +190,12 @@ int main(int argc, char **argv) {
         if (cuda_post_process == "c") {
             // NMS
             batch_nms(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
-            // Draw bounding boxes
-            draw_bbox(img_batch, res_batch, cuda_post_process);
         } else if (cuda_post_process == "g") {
             //Process gpu decode and nms results
             batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element,img_batch);
-            // Draw bounding boxes
-            draw_bbox(img_batch, res_batch, cuda_post_process);
         }
+        // Draw bounding boxes
+        draw_bbox(img_batch, res_batch, cuda_post_process);
         // Save images
         for (size_t j = 0; j < img_batch.size(); j++) {
             cv::imwrite("_" + img_name_batch[j], img_batch[j]);
