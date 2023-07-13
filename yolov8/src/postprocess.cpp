@@ -88,21 +88,17 @@ void batch_nms(std::vector<std::vector<Detection>> &res_batch, float *output, in
 
 void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count)
 {
-
+    Detection det;
     for (int i = 0; i < count; i++)
     {
         int basic_pos = 1 + i * bbox_element;
         int keep_flag = decode_ptr_host[basic_pos + 6];
         if (keep_flag == 1)
         {
-            float boxpts[4] = { decode_ptr_host[basic_pos + 0],decode_ptr_host[basic_pos + 1],
-                                decode_ptr_host[basic_pos + 2],decode_ptr_host[basic_pos + 3] };
-            cv::Rect r = get_rect(img, boxpts);
-            Detection det;
-            det.bbox[0] = r.x;
-            det.bbox[1] = r.y;
-            det.bbox[2] = r.x + r.width;
-            det.bbox[3] = r.y + r.height;
+            det.bbox[0] = decode_ptr_host[basic_pos + 0];
+            det.bbox[1] = decode_ptr_host[basic_pos + 1];
+            det.bbox[2] = decode_ptr_host[basic_pos + 2];
+            det.bbox[3] = decode_ptr_host[basic_pos + 3];
             det.conf = decode_ptr_host[basic_pos + 4];
             det.class_id = decode_ptr_host[basic_pos + 5];
             res.push_back(det);
@@ -121,17 +117,12 @@ void batch_process(std::vector<std::vector<Detection>> &res_batch, const float* 
 }
 
 
-void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detection>> &res_batch, const std::string& cuda_post_process) {
+void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detection>> &res_batch) {
     for (size_t i = 0; i < img_batch.size(); i++) {
         auto &res = res_batch[i];
         cv::Mat img = img_batch[i];
-        cv::Rect r;
         for (size_t j = 0; j < res.size(); j++) {
-            if (cuda_post_process == "c") {
-                r = get_rect(img, res[j].bbox);
-            } else if (cuda_post_process == "g") {
-                r = cv::Rect(res[j].bbox[0], res[j].bbox[1], res[j].bbox[2] - res[j].bbox[0], res[j].bbox[3] - res[j].bbox[1]);
-            }
+            cv::Rect r = get_rect(img, res[j].bbox);
             cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
             cv::putText(img, std::to_string((int) res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN,
                         1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
