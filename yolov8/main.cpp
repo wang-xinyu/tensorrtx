@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
             batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element, img_batch);
         }
         // Draw bounding boxes
-        draw_bbox(img_batch, res_batch, cuda_post_process);
+        draw_bbox(img_batch, res_batch);
         // Save images
         for (size_t j = 0; j < img_batch.size(); j++) {
             cv::imwrite("_" + img_name_batch[j], img_batch[j]);
