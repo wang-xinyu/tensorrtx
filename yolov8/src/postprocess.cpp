@@ -28,7 +28,6 @@ cv::Rect get_rect(cv::Mat &img, float bbox[4]) {
     return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
-
 static float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
             (std::max)(lbox[0] - lbox[2] / 2.f, rbox[0] - rbox[2] / 2.f), //left
@@ -51,6 +50,7 @@ static bool cmp(const Detection &a, const Detection &b) {
 void nms(std::vector<Detection> &res, float *output, float conf_thresh, float nms_thresh) {
     int det_size = sizeof(Detection) / sizeof(float);
     std::map<float, std::vector<Detection>> m;
+
     for (int i = 0; i < output[0]; i++) {
         if (output[1 + det_size * i + 4] <= conf_thresh) continue;
         Detection det;
@@ -82,6 +82,35 @@ void batch_nms(std::vector<std::vector<Detection>> &res_batch, float *output, in
     }
 }
 
+
+void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count) {
+    Detection det;
+    for (int i = 0; i < count; i++) {
+        int basic_pos = 1 + i * bbox_element;
+        int keep_flag = decode_ptr_host[basic_pos + 6];
+        if (keep_flag == 1) {
+            det.bbox[0] = decode_ptr_host[basic_pos + 0];
+            det.bbox[1] = decode_ptr_host[basic_pos + 1];
+            det.bbox[2] = decode_ptr_host[basic_pos + 2];
+            det.bbox[3] = decode_ptr_host[basic_pos + 3];
+            det.conf = decode_ptr_host[basic_pos + 4];
+            det.class_id = decode_ptr_host[basic_pos + 5];
+            res.push_back(det);
+        }
+    }
+}
+
+void batch_process(std::vector<std::vector<Detection>> &res_batch, const float* decode_ptr_host, int batch_size, int bbox_element, const std::vector<cv::Mat>& img_batch) {
+    res_batch.resize(batch_size);
+    int count = static_cast<int>(*decode_ptr_host);
+    count = std::min(count, kMaxNumOutputBbox);
+    for (int i = 0; i < batch_size; i++) {
+        auto& img = const_cast<cv::Mat&>(img_batch[i]);
+        process_decode_ptr_host(res_batch[i], &decode_ptr_host[i * count], bbox_element, img, count);
+    }
+}
+
+
 void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detection>> &res_batch) {
     for (size_t i = 0; i < img_batch.size(); i++) {
         auto &res = res_batch[i];
@@ -94,4 +123,3 @@ void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detectio
         }
     }
 }
-

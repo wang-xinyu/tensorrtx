@@ -8,6 +8,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 
 <a href="https://github.com/xiaocao-tian"><img src="https://avatars.githubusercontent.com/u/65889782?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/lindsayshuo"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
+<a href="https://github.com/xinsuinizhuan"><img src="https://avatars.githubusercontent.com/u/40679769?v=4?s=48" width="40px;" alt=""/></a>
 
 
 ## Requirements
@@ -26,7 +27,7 @@ Currently, we support yolov8
 - Choose the model n/s/m/l/x from command line arguments.
 - Check more configs in [include/config.h](./include/config.h)
 
-## How to Run, yolov8-tiny as example
+## How to Run, yolov8n as example
 
 1. generate .wts from pytorch with .pt, or download .wts from model zoo
 
@@ -35,7 +36,7 @@ Currently, we support yolov8
 cp {tensorrtx}/yolov8/gen_wts.py {ultralytics}/ultralytics
 cd {ultralytics}/ultralytics
 python gen_wts.py
-// a file 'yolov8.wts' will be generated.
+// a file 'yolov8n.wts' will be generated.
 ```
 
 2. build tensorrtx/yolov8 and run
@@ -49,12 +50,13 @@ cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
 cmake ..
 make
 sudo ./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
-sudo ./yolov8 -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
+sudo ./yolov8 -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8
 sudo ./yolov8 -s yolov8n.wts yolov8.engine n
-sudo ./yolov8 -d yolov8n.engine ../images
-```
+sudo ./yolov8 -d yolov8n.engine ../images c //cpu postprocess
+sudo ./yolov8 -d yolov8n.engine ../images g //gpu postprocess
 
+```
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 
 4. optional, load and run the tensorrt model in python

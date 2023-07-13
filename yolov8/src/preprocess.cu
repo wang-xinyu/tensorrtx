@@ -1,17 +1,13 @@
 #include "preprocess.h"
 #include "cuda_utils.h"
-static uint8_t* img_buffer_host = nullptr;
-static uint8_t* img_buffer_device = nullptr;
 
-struct AffineMatrix{
-    float value[6];
-};
+static uint8_t *img_buffer_host = nullptr;
+static uint8_t *img_buffer_device = nullptr;
 
-__global__ void warpaffine_kernel(
-        uint8_t* src, int src_line_size, int src_width,
-        int src_height, float* dst, int dst_width,
-        int dst_height, uint8_t const_value_st,
-        AffineMatrix d2s, int edge) {
+
+__global__ void
+warpaffine_kernel(uint8_t *src, int src_line_size, int src_width, int src_height, float *dst, int dst_width,
+                  int dst_height, uint8_t const_value_st, AffineMatrix d2s, int edge) {
     int position = blockDim.x * blockIdx.x + threadIdx.x;
     if (position >= edge) return;
 
@@ -45,10 +41,10 @@ __global__ void warpaffine_kernel(
         float hy = 1 - ly;
         float hx = 1 - lx;
         float w1 = hy * hx, w2 = hy * lx, w3 = ly * hx, w4 = ly * lx;
-        uint8_t* v1 = const_value;
-        uint8_t* v2 = const_value;
-        uint8_t* v3 = const_value;
-        uint8_t* v4 = const_value;
+        uint8_t *v1 = const_value;
+        uint8_t *v2 = const_value;
+        uint8_t *v3 = const_value;
+        uint8_t *v4 = const_value;
 
         if (y_low >= 0) {
             if (x_low >= 0)
@@ -83,18 +79,94 @@ __global__ void warpaffine_kernel(
 
     // rgbrgbrgb to rrrgggbbb
     int area = dst_width * dst_height;
-    float* pdst_c0 = dst + dy * dst_width + dx;
-    float* pdst_c1 = pdst_c0 + area;
-    float* pdst_c2 = pdst_c1 + area;
+    float *pdst_c0 = dst + dy * dst_width + dx;
+    float *pdst_c1 = pdst_c0 + area;
+    float *pdst_c2 = pdst_c1 + area;
     *pdst_c0 = c0;
     *pdst_c1 = c1;
     *pdst_c2 = c2;
 }
 
-void cuda_preprocess(
-        uint8_t* src, int src_width, int src_height,
-        float* dst, int dst_width, int dst_height,
-        cudaStream_t stream) {
+static __global__ void
+decode_kernel(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects) {
+
+    float count = predict[0];
+    int position = (blockDim.x * blockIdx.x + threadIdx.x);
+    if (position >= count)
+        return;
+    float *pitem = predict + 1 + position * 6;
+    int index = atomicAdd(parray, 1);
+    if (index >= max_objects)
+        return;
+    float confidence = pitem[4];
+    if (confidence < confidence_threshold)
+        return;
+    float left = pitem[0];
+    float top = pitem[1];
+    float right = pitem[2];
+    float bottom = pitem[3];
+    float label = pitem[5];
+    float *pout_item = parray + 1 + index * bbox_element;
+    *pout_item++ = left;
+    *pout_item++ = top;
+    *pout_item++ = right;
+    *pout_item++ = bottom;
+    *pout_item++ = confidence;
+    *pout_item++ = label;
+    *pout_item++ = 1; // 1 = keep, 0 = ignore
+}
+
+static __device__ float
+box_iou(float aleft, float atop, float aright, float abottom, float bleft, float btop, float bright, float bbottom) {
+
+    float cleft = max(aleft, bleft);
+    float ctop = max(atop, btop);
+    float cright = min(aright, bright);
+    float cbottom = min(abottom, bbottom);
+
+    float c_area = max(cright - cleft, 0.0f) * max(cbottom - ctop, 0.0f);
+    if (c_area == 0.0f)
+        return 0.0f;
+
+    float a_area = max(0.0f, aright - aleft) * max(0.0f, abottom - atop);
+    float b_area = max(0.0f, bright - bleft) * max(0.0f, bbottom - btop);
+    return c_area / (a_area + b_area - c_area);
+}
+
+static __global__ void nms_kernel(float *bboxes, int max_objects, float threshold) {
+
+    int position = (blockDim.x * blockIdx.x + threadIdx.x);
+    int count = bboxes[0];
+
+//    float count = 0.0f;
+    if (position >= count)
+        return;
+
+    float *pcurrent = bboxes + 1 + position * bbox_element;
+    for (int i = 1; i < count; ++i) {
+        float *pitem = bboxes + 1 + i * bbox_element;
+        if (i == position || pcurrent[5] != pitem[5]) continue;
+
+        if (pitem[4] >= pcurrent[4]) {
+            if (pitem[4] == pcurrent[4] && i < position)
+                continue;
+
+            float iou = box_iou(
+                    pcurrent[0], pcurrent[1], pcurrent[2], pcurrent[3],
+                    pitem[0], pitem[1], pitem[2], pitem[3]
+            );
+
+            if (iou > threshold) {
+                pcurrent[6] = 0;
+                return;
+            }
+        }
+    }
+}
+
+
+void cuda_preprocess(uint8_t *src, int src_width, int src_height, float *dst, int dst_width, int dst_height,
+                     cudaStream_t stream) {
     int img_size = src_width * src_height * 3;
     // copy data to pinned memory
     memcpy(img_buffer_host, src, img_size);
@@ -102,7 +174,7 @@ void cuda_preprocess(
     CUDA_CHECK(cudaMemcpyAsync(img_buffer_device, img_buffer_host, img_size, cudaMemcpyHostToDevice, stream));
 
     AffineMatrix s2d, d2s;
-    float scale = std::min(dst_height / (float)src_height, dst_width / (float)src_width);
+    float scale = std::min(dst_height / (float) src_height, dst_width / (float) src_width);
 
     s2d.value[0] = scale;
     s2d.value[1] = 0;
@@ -118,7 +190,7 @@ void cuda_preprocess(
 
     int jobs = dst_height * dst_width;
     int threads = 256;
-    int blocks = ceil(jobs / (float)threads);
+    int blocks = ceil(jobs / (float) threads);
     warpaffine_kernel<<<blocks, threads, 0, stream>>>(
             img_buffer_device, src_width * 3, src_width,
             src_height, dst, dst_width,
@@ -126,21 +198,40 @@ void cuda_preprocess(
 }
 
 
-void cuda_batch_preprocess(std::vector<cv::Mat>& img_batch,
-                           float* dst, int dst_width, int dst_height,
+void cuda_batch_preprocess(std::vector<cv::Mat> &img_batch,
+                           float *dst, int dst_width, int dst_height,
                            cudaStream_t stream) {
     int dst_size = dst_width * dst_height * 3;
     for (size_t i = 0; i < img_batch.size(); i++) {
-        cuda_preprocess(img_batch[i].ptr(), img_batch[i].cols, img_batch[i].rows, &dst[dst_size * i], dst_width, dst_height, stream);
+        cuda_preprocess(img_batch[i].ptr(), img_batch[i].cols, img_batch[i].rows, &dst[dst_size * i], dst_width,
+                        dst_height, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 }
 
+
+void cuda_decode(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects,
+                 cudaStream_t stream) {
+    int block = 256;
+    int grid = ceil(num_bboxes / (float) block);
+    decode_kernel << <
+    grid, block, 0, stream >> > ((float *) predict, num_bboxes, confidence_threshold, parray, max_objects);
+
+}
+
+void cuda_nms(float *parray, float nms_threshold, int max_objects, cudaStream_t stream) {
+    int block = max_objects < 256 ? max_objects : 256;
+    int grid = ceil(max_objects / (float) block);
+    nms_kernel << < grid, block, 0, stream >> > (parray, max_objects, nms_threshold);
+
+}
+
+
 void cuda_preprocess_init(int max_image_size) {
     // prepare input data in pinned memory
-    CUDA_CHECK(cudaMallocHost((void**)&img_buffer_host, max_image_size * 3));
+    CUDA_CHECK(cudaMallocHost((void **) &img_buffer_host, max_image_size * 3));
     // prepare input data in device memory
-    CUDA_CHECK(cudaMalloc((void**)&img_buffer_device, max_image_size * 3));
+    CUDA_CHECK(cudaMalloc((void **) &img_buffer_device, max_image_size * 3));
 }
 
 void cuda_preprocess_destroy() {
