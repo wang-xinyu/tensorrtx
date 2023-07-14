@@ -2,6 +2,7 @@
 #include "utils.h"
 #include "preprocess.h"
 #include "postprocess.h"
+#include "cuda_postprocess.h"
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include "cuda_utils.h"
@@ -88,7 +89,7 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
     }
 }
 
-void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchSize, float* decode_ptr_host, float* decode_ptr_device, int batchSize_in, int model_bboxes, std::string cuda_post_process) {
+void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchSize, float* decode_ptr_host, float* decode_ptr_device, int model_bboxes, std::string cuda_post_process) {
     // infer on the batch asynchronously, and DMA output back to host
     auto start = std::chrono::system_clock::now();
     context.enqueue(batchSize, buffers, stream, nullptr);
@@ -185,7 +186,7 @@ int main(int argc, char **argv) {
         // Preprocess
         cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
         // Run inference
-        infer(*context, stream, (void **)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host, decode_ptr_device, img_batch.size(), model_bboxes, cuda_post_process);
+        infer(*context, stream, (void **)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host, decode_ptr_device, model_bboxes, cuda_post_process);
         std::vector<std::vector<Detection>> res_batch;
         if (cuda_post_process == "c") {
             // NMS
