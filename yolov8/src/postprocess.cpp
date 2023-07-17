@@ -28,9 +28,6 @@ cv::Rect get_rect(cv::Mat &img, float bbox[4]) {
     return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
-
-
-
 static float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
             (std::max)(lbox[0] - lbox[2] / 2.f, rbox[0] - rbox[2] / 2.f), //left
@@ -85,9 +82,7 @@ void batch_nms(std::vector<std::vector<Detection>> &res_batch, float *output, in
     }
 }
 
-
-void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count)
-{
+void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count) {
     Detection det;
     for (int i = 0; i < count; i++)
     {

@@ -89,12 +89,12 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
     }
 }
 
-void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchSize, float* decode_ptr_host, float* decode_ptr_device, int model_bboxes, std::string cuda_post_process) {
+void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchsize, float* decode_ptr_host, float* decode_ptr_device, int model_bboxes, std::string cuda_post_process) {
     // infer on the batch asynchronously, and DMA output back to host
     auto start = std::chrono::system_clock::now();
-    context.enqueue(batchSize, buffers, stream, nullptr);
+    context.enqueue(batchsize, buffers, stream, nullptr);
     if (cuda_post_process == "c") {
-        CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,stream));
+        CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchsize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,stream));
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     } else if (cuda_post_process == "g") {
