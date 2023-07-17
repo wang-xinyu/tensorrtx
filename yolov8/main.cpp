@@ -1,12 +1,12 @@
+
+#include <iostream>
+#include <fstream>
+#include <opencv2/opencv.hpp>
 #include "model.h"
 #include "utils.h"
 #include "preprocess.h"
 #include "postprocess.h"
-#include "cuda_postprocess.h"
-#include <iostream>
-#include <opencv2/opencv.hpp>
 #include "cuda_utils.h"
-#include <fstream>
 #include "logging.h"
 
 Logger gLogger;

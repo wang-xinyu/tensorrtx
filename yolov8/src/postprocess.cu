@@ -1,8 +1,8 @@
 //
 // Created by lindsay on 23-7-17.
 //
-
-#include "cuda_postprocess.h"
+#include "types.h"
+#include "postprocess.h"
 
 static __global__ void
 decode_kernel(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects) {
