@@ -1,32 +1,33 @@
+
+#include <iostream>
+#include <fstream>
+#include <opencv2/opencv.hpp>
 #include "model.h"
 #include "utils.h"
 #include "preprocess.h"
 #include "postprocess.h"
-#include <iostream>
-#include <opencv2/opencv.hpp>
 #include "cuda_utils.h"
-#include <fstream>
 #include "logging.h"
 
 Logger gLogger;
 using namespace nvinfer1;
 const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 
-void serialize_engine(const int &kBatchSize, std::string &wts_name, std::string &engine_name, std::string &sub_type) {
+void serialize_engine(std::string &wts_name, std::string &engine_name, std::string &sub_type) {
     IBuilder *builder = createInferBuilder(gLogger);
     IBuilderConfig *config = builder->createBuilderConfig();
     IHostMemory *serialized_engine = nullptr;
 
     if (sub_type == "n") {
-        serialized_engine = buildEngineYolov8n(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8n(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "s") {
-        serialized_engine = buildEngineYolov8s(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8s(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "m") {
-        serialized_engine = buildEngineYolov8m(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8m(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "l") {
-        serialized_engine = buildEngineYolov8l(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8l(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "x") {
-        serialized_engine = buildEngineYolov8x(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8x(builder, config, DataType::kFLOAT, wts_name);
     }
 
     assert(serialized_engine);
@@ -88,12 +89,12 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
     }
 }
 
-void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchSize, float* decode_ptr_host, float* decode_ptr_device, int batchSize_in, int model_bboxes, std::string cuda_post_process) {
+void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, int batchsize, float* decode_ptr_host, float* decode_ptr_device, int model_bboxes, std::string cuda_post_process) {
     // infer on the batch asynchronously, and DMA output back to host
     auto start = std::chrono::system_clock::now();
-    context.enqueue(batchSize, buffers, stream, nullptr);
+    context.enqueue(batchsize, buffers, stream, nullptr);
     if (cuda_post_process == "c") {
-        CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,stream));
+        CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchsize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,stream));
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     } else if (cuda_post_process == "g") {
@@ -143,7 +144,7 @@ int main(int argc, char **argv) {
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
-        serialize_engine(kBatchSize, wts_name, engine_name, sub_type);
+        serialize_engine(wts_name, engine_name, sub_type);
         return 0;
     }
 
@@ -185,7 +186,7 @@ int main(int argc, char **argv) {
         // Preprocess
         cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
         // Run inference
-        infer(*context, stream, (void **)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host, decode_ptr_device, img_batch.size(), model_bboxes, cuda_post_process);
+        infer(*context, stream, (void **)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host, decode_ptr_device, model_bboxes, cuda_post_process);
         std::vector<std::vector<Detection>> res_batch;
         if (cuda_post_process == "c") {
             // NMS
