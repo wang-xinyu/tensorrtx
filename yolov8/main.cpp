@@ -13,21 +13,21 @@ Logger gLogger;
 using namespace nvinfer1;
 const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 
-void serialize_engine(const int &kBatchSize, std::string &wts_name, std::string &engine_name, std::string &sub_type) {
+void serialize_engine(std::string &wts_name, std::string &engine_name, std::string &sub_type) {
     IBuilder *builder = createInferBuilder(gLogger);
     IBuilderConfig *config = builder->createBuilderConfig();
     IHostMemory *serialized_engine = nullptr;
 
     if (sub_type == "n") {
-        serialized_engine = buildEngineYolov8n(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8n(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "s") {
-        serialized_engine = buildEngineYolov8s(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8s(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "m") {
-        serialized_engine = buildEngineYolov8m(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8m(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "l") {
-        serialized_engine = buildEngineYolov8l(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8l(builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "x") {
-        serialized_engine = buildEngineYolov8x(kBatchSize, builder, config, DataType::kFLOAT, wts_name);
+        serialized_engine = buildEngineYolov8x(builder, config, DataType::kFLOAT, wts_name);
     }
 
     assert(serialized_engine);
@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
-        serialize_engine(kBatchSize, wts_name, engine_name, sub_type);
+        serialize_engine(wts_name, engine_name, sub_type);
         return 0;
     }
 
