@@ -8,3 +8,8 @@ struct alignas(float) Detection {
   float class_id;
 };
 
+struct AffineMatrix {
+    float value[6];
+};
+
+const int bbox_element = sizeof(AffineMatrix) / sizeof(float)+1;      // left, top, right, bottom, confidence, class, keepflag

@@ -82,7 +82,6 @@ void batch_nms(std::vector<std::vector<Detection>> &res_batch, float *output, in
     }
 }
 
-
 void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count) {
     Detection det;
     for (int i = 0; i < count; i++) {
@@ -109,7 +108,6 @@ void batch_process(std::vector<std::vector<Detection>> &res_batch, const float* 
         process_decode_ptr_host(res_batch[i], &decode_ptr_host[i * count], bbox_element, img, count);
     }
 }
-
 
 void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detection>> &res_batch) {
     for (size_t i = 0; i < img_batch.size(); i++) {
