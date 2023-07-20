@@ -2,6 +2,9 @@
 #include "types.h"
 #include <assert.h>
 #include <math.h>
+#include "cuda_utils.h"
+#include <vector>
+#include <iostream>
 
 namespace Tn {
     template<typename T>
@@ -131,19 +134,22 @@ namespace nvinfer1
 
     __device__ float Logist(float data) { return 1.0f / (1.0f + expf(-data)); };
 
-
-    __global__ void CalDetection(const float* input, float* output, int numElements, int maxoutobject, const int grid_h, int grid_w, const int stride, int classes) {
+    __global__ void CalDetection(const float* input, float* output, int numElements, int maxoutobject,
+                                 const int grid_h, int grid_w, const int stride, int classes, int batchSize, int outputElem) {
         int idx = threadIdx.x + blockDim.x * blockIdx.x;
-        if (idx >= numElements) return;
+        if (idx >= numElements * batchSize) return;
 
         int total_grid = grid_h * grid_w;
         int info_len = 4 + classes;
-        const float* curInput = input;
+        int batchIdx = idx / total_grid;
+        int elemIdx = idx % total_grid;
+        const float* curInput = input + batchIdx * total_grid * info_len;
+        int outputIdx = batchIdx * outputElem;
 
         int class_id = 0;
         float max_cls_prob = 0.0;
         for (int i = 4; i < info_len; i++) {
-            float p = Logist(curInput[idx + i * total_grid]);
+            float p = Logist(curInput[elemIdx + i * total_grid]);
             if (p > max_cls_prob) {
                 max_cls_prob = p;
                 class_id = i - 4;
@@ -152,28 +158,32 @@ namespace nvinfer1
 
         if (max_cls_prob < 0.1) return;
 
-        int count = (int)atomicAdd(output, 1);
+        int count = (int)atomicAdd(output + outputIdx, 1);
         if (count >= maxoutobject) return;
-        char* data = (char*)output + sizeof(float) + count * sizeof(Detection);
+        char* data = (char*)(output + outputIdx) + sizeof(float) + count * sizeof(Detection);
         Detection* det = (Detection*)(data);
 
-        int row = idx / grid_w;
-        int col = idx % grid_w;
+        int row = elemIdx / grid_w;
+        int col = elemIdx % grid_w;
 
         det->conf = max_cls_prob;
         det->class_id = class_id;
-        det->bbox[0] = (col + 0.5f - curInput[idx + 0 * total_grid]) * stride;
-        det->bbox[1] = (row + 0.5f - curInput[idx + 1 * total_grid]) * stride;
-        det->bbox[2] = (col + 0.5f + curInput[idx + 2 * total_grid]) * stride;
-        det->bbox[3] = (row + 0.5f + curInput[idx + 3 * total_grid]) * stride;
+        det->bbox[0] = (col + 0.5f - curInput[elemIdx + 0 * total_grid]) * stride;
+        det->bbox[1] = (row + 0.5f - curInput[elemIdx + 1 * total_grid]) * stride;
+        det->bbox[2] = (col + 0.5f + curInput[elemIdx + 2 * total_grid]) * stride;
+        det->bbox[3] = (row + 0.5f + curInput[elemIdx + 3 * total_grid]) * stride;
     }
+
+
 
 
 
     void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cudaStream_t stream, int mYoloV8netHeight,int mYoloV8NetWidth, int batchSize) {
         int outputElem = 1 + mMaxOutObject * sizeof(Detection) / sizeof(float);
         cudaMemsetAsync(output, 0, sizeof(float), stream);
-
+        for (int idx = 0; idx < batchSize; ++idx) {
+            CUDA_CHECK(cudaMemsetAsync(output + idx * outputElem, 0, sizeof(float), stream));
+        }
         int numElem = 0;
         int grids[3][2] = { {mYoloV8netHeight / 8, mYoloV8NetWidth / 8}, {mYoloV8netHeight / 16, mYoloV8NetWidth / 16}, {mYoloV8netHeight / 32, mYoloV8NetWidth / 32} };
         int strides[] = { 8, 16, 32 };
@@ -181,14 +191,14 @@ namespace nvinfer1
             int grid_h = grids[i][0];
             int grid_w = grids[i][1];
             int stride = strides[i];
-            numElem = grid_h * grid_w;
+            numElem = grid_h * grid_w * batchSize;
             if (numElem < mThreadCount) mThreadCount = numElem;
 
             CalDetection << <(numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream >> >
-                (inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount);
+                (inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, batchSize, outputElem);
         }
     }
-  
+
     PluginFieldCollection YoloPluginCreator::mFC{};
     std::vector<PluginField> YoloPluginCreator::mPluginAttributes;
 

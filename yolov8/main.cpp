@@ -83,6 +83,10 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
     if (cuda_post_process == "c") {
         *output_buffer_host = new float[kBatchSize * kOutputSize];
     } else if (cuda_post_process == "g") {
+        if (kBatchSize > 1) {
+            std::cerr << "Do not yet support GPU post processing for multiple batches" << std::endl;
+            exit(0);
+        }
         // Allocate memory for decode_ptr_host and copy to device
         *decode_ptr_host = new float[1 + kMaxNumOutputBbox * bbox_element];
         CUDA_CHECK(cudaMalloc((void **)decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element)));
