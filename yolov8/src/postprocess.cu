@@ -55,7 +55,7 @@ static __global__ void nms_kernel(float *bboxes, int max_objects, float threshol
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
     int count = bboxes[0];
 
-//    float count = 0.0f;
+    // float count = 0.0f;
     if (position >= count)
         return;
 
@@ -80,8 +80,6 @@ static __global__ void nms_kernel(float *bboxes, int max_objects, float threshol
         }
     }
 }
-
-
 
 void cuda_decode(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects,
                  cudaStream_t stream) {
