@@ -7,7 +7,7 @@
 #include "NvInfer.h"
 #include "macros.h"
 
-using namespace std;
+
 
 namespace decodeplugin
 {
