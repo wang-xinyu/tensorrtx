@@ -107,9 +107,9 @@ void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::str
 
   // Close everything down
   engine->destroy();
-  builder->destroy();
   config->destroy();
   serialized_engine->destroy();
+  builder->destroy();
 }
 
 void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
