@@ -32,6 +32,8 @@ TensorRTx inference code base for [ultralytics/yolov5](https://github.com/ultral
 <a href="https://github.com/uyolo1314"><img src="https://avatars.githubusercontent.com/u/101853326?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/PrinceP"><img src="https://avatars.githubusercontent.com/u/10251537?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/hky3535"><img src="https://avatars.githubusercontent.com/u/126926285?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/CharlesHuan"><img src="https://avatars.githubusercontent.com/u/47875698?s=48&v=4" width="40px;" alt=""/></a>
 
 ## Different versions of yolov5
 
