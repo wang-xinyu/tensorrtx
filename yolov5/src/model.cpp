@@ -498,7 +498,8 @@ ICudaEngine* build_cls_engine(unsigned int maxBatchSize, IBuilder* builder, IBui
 
   // Head
   auto conv_class = convBlock(network, weightMap, *bottleneck_csp8->getOutput(0), 1280, 1, 1, 1, "model.9.conv");
-  IPoolingLayer* pool2 = network->addPoolingNd(*conv_class->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
+  int k = kClsInputH / 32;
+  IPoolingLayer* pool2 = network->addPoolingNd(*conv_class->getOutput(0), PoolingType::kAVERAGE, DimsHW{ k, k });
   assert(pool2);
   IFullyConnectedLayer* yolo = network->addFullyConnected(*pool2->getOutput(0), kClsNumClass, weightMap["model.9.linear.weight"], weightMap["model.9.linear.bias"]);
   assert(yolo);
