@@ -14,59 +14,26 @@ using namespace nvinfer1;
 
 static Logger gLogger;
 const static int kOutputSize = kClsNumClass;
-cv::Mat letterbox(cv::Mat im,int  kClsInputW, int kClsInputH) {
-    cv::Size new_shape = cv::Size(kClsInputW, kClsInputH);
-    cv::Scalar color = cv::Scalar(114, 114, 114);
-    bool auto_size = false;
-    bool scale_fill = false;
-    bool scale_up = true;
-    int stride = 32;
-
-    // Current shape [height, width]
-    cv::Size shape = im.size();
-
-    // Scale ratio (new / old)
-    double r = std::min(static_cast<double>(new_shape.width) / shape.width, static_cast<double>(new_shape.height) / shape.height);
-
-    if (!scale_up) {
-        // Only scale down, do not scale up (for better val mAP)
-        r = std::min(r, 1.0);
-    }
-
-    // Compute padding
-    cv::Size new_unpad(static_cast<int>(round(shape.width * r)), static_cast<int>(round(shape.height * r)));
-    double dw = static_cast<double>(new_shape.width - new_unpad.width);
-    double dh = static_cast<double>(new_shape.height - new_unpad.height);
-
-    if (auto_size) {
-        // Minimum rectangle
-        dw = fmod(dw, static_cast<double>(stride));
-        dh = fmod(dh, static_cast<double>(stride)); // wh padding
-    }
-    else if (scale_fill) {
-        // Stretch
-        dw = 0.0;
-        dh = 0.0;
-        new_unpad = new_shape;
-        r = static_cast<double>(new_shape.width) / shape.width;
-    }
-
-    dw /= 2; // Divide padding into 2 sides
-    dh /= 2;
-
-    if (shape != new_unpad) {
-        // Resize
-        cv::resize(im, im, new_unpad, 0, 0, cv::INTER_LINEAR);
-    }
-
-    int top = static_cast<int>(round(dh - 0.1));
-    int bottom = static_cast<int>(round(dh + 0.1));
-    int left = static_cast<int>(round(dw - 0.1));
-    int right = static_cast<int>(round(dw + 0.1));
-
-    cv::copyMakeBorder(im, im, top, bottom, left, right, cv::BORDER_CONSTANT, color);
-
-    return im;
+cv::Mat letterbox(cv::Mat& img, int input_w, int input_h) {
+  int w, h, x, y;
+  float r_w = input_w / (img.cols * 1.0);
+  float r_h = input_h / (img.rows * 1.0);
+  if (r_h > r_w) {
+    w = input_w;
+    h = r_w * img.rows;
+    x = 0;
+    y = (input_h - h) / 2;
+  } else {
+    w = r_h * img.cols;
+    h = input_h;
+    x = (input_w - w) / 2;
+    y = 0;
+  }
+  cv::Mat re(h, w, CV_8UC3);
+  cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
+  cv::Mat out(input_h, input_w, CV_8UC3, cv::Scalar(128, 128, 128));
+  re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
+  return out;
 }
 void batch_preprocess(std::vector<cv::Mat>& imgs, float* output) {
   for (size_t b = 0; b < imgs.size(); b++) {
