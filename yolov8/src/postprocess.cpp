@@ -1,5 +1,5 @@
 #include "postprocess.h"
-
+#include "utils.h"
 
 cv::Rect get_rect(cv::Mat &img, float bbox[4]) {
     float l, r, t, b;
@@ -120,4 +120,67 @@ void draw_bbox(std::vector<cv::Mat> &img_batch, std::vector<std::vector<Detectio
                         1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
         }
     }
+}
+
+cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
+  int x, y, w, h;
+  float r_w = kInputW / (img.cols * 1.0);
+  float r_h = kInputH / (img.rows * 1.0);
+  if (r_h > r_w) {
+    w = kInputW;
+    h = r_w * img.rows;
+    x = 0;
+    y = (kInputH - h) / 2;
+  } else {
+    w = r_h * img.cols;
+    h = kInputH;
+    x = (kInputW - w) / 2;
+    y = 0;
+  }
+  cv::Rect r(x, y, w, h);
+  cv::Mat res;
+  cv::resize(mask(r), res, img.size());
+  return res;
+}
+
+void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map) {
+  static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
+                                         0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
+                                         0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
+                                         0xFF95C8, 0xFF37C7};
+  for (size_t i = 0; i < dets.size(); i++) {
+    cv::Mat img_mask = scale_mask(masks[i], img);
+    auto color = colors[(int)dets[i].class_id % colors.size()];
+    auto bgr = cv::Scalar(color & 0xFF, color >> 8 & 0xFF, color >> 16 & 0xFF);
+
+    cv::Rect r = get_rect(img, dets[i].bbox);
+    for (int x = r.x; x < r.x + r.width; x++) {
+      for (int y = r.y; y < r.y + r.height; y++) {
+        float val = img_mask.at<float>(y, x);
+        if (val <= 0.5) continue;
+        img.at<cv::Vec3b>(y, x)[0] = img.at<cv::Vec3b>(y, x)[0] / 2 + bgr[0] / 2;
+        img.at<cv::Vec3b>(y, x)[1] = img.at<cv::Vec3b>(y, x)[1] / 2 + bgr[1] / 2;
+        img.at<cv::Vec3b>(y, x)[2] = img.at<cv::Vec3b>(y, x)[2] / 2 + bgr[2] / 2;
+      }
+    }
+
+    cv::rectangle(img, r, bgr, 2);
+    
+    // Get the size of the text
+    cv::Size textSize = cv::getTextSize(labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::FONT_HERSHEY_PLAIN, 1.2, 2, NULL);
+    // Set the top left corner of the rectangle
+    cv::Point topLeft(r.x, r.y - textSize.height);
+
+    // Set the bottom right corner of the rectangle
+    cv::Point bottomRight(r.x + textSize.width, r.y + textSize.height);
+
+    // Set the thickness of the rectangle lines
+    int lineThickness = 2;
+
+    // Draw the rectangle on the image
+    cv::rectangle(img, topLeft, bottomRight, bgr, -1);
+
+    cv::putText(img, labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::Point(r.x, r.y + 4), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
+
+  }
 }

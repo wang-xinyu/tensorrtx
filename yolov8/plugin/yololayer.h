@@ -7,7 +7,7 @@
 namespace nvinfer1 {
 class API YoloLayerPlugin : public IPluginV2IOExt {
 public:
-        YoloLayerPlugin(int classCount, int netWdith, int netHeight, int maxOut);
+        YoloLayerPlugin(int classCount, int netWdith, int netHeight, int maxOut, int infer_type);
         YoloLayerPlugin(const void* data, size_t length);
         ~YoloLayerPlugin();
 
@@ -66,7 +66,8 @@ public:
         int mYoloV8NetWidth;
         int mYoloV8netHeight;
         int mMaxOutObject;
-    };
+        int mInferType=0;
+    };  
 
 class API YoloPluginCreator : public IPluginCreator {
 public:

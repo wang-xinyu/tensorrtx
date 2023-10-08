@@ -1,3 +1,4 @@
+#pragma once
 #define USE_FP16
 //#define USE_INT8
 

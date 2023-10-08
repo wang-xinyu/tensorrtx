@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(yolov8)
 
 add_definitions(-std=c++11)
+add_definitions(-w)
 add_definitions(-DAPI_EXPORTS)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
@@ -25,8 +26,8 @@ else()
   link_directories(/usr/local/cuda/lib64)
 
   # tensorrt
-  include_directories(/home/lindsay/TensorRT-8.4.1.5/include)
-  link_directories(/home/lindsay/TensorRT-8.4.1.5/lib)
+  include_directories(/data/app/TensorRT-8.4.3.1/include)
+  link_directories(/data/app/TensorRT-8.4.3.1/lib)
 #  include_directories(/home/lindsay/TensorRT-7.2.3.4/include)
 #  link_directories(/home/lindsay/TensorRT-7.2.3.4/lib)
 
@@ -48,3 +49,5 @@ target_link_libraries(yolov8 cudart)
 target_link_libraries(yolov8 myplugins)
 target_link_libraries(yolov8 ${OpenCV_LIBS})
 
+add_executable(yolov8_seg ${PROJECT_SOURCE_DIR}/yolov8_seg.cpp ${SRCS})
+target_link_libraries(yolov8_seg nvinfer cudart myplugins ${OpenCV_LIBS})

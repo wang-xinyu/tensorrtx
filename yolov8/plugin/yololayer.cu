@@ -22,11 +22,12 @@ namespace Tn {
 
 
 namespace nvinfer1 {
-YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut) {
+YoloLayerPlugin::YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, int inferType) {
     mClassCount = classCount;
     mYoloV8NetWidth = netWidth;
     mYoloV8netHeight = netHeight;
     mMaxOutObject = maxOut;
+    mInferType = inferType;
 }
 
 YoloLayerPlugin::~YoloLayerPlugin() {}
@@ -39,7 +40,7 @@ YoloLayerPlugin::YoloLayerPlugin(const void* data, size_t length) {
     read(d, mYoloV8NetWidth);
     read(d, mYoloV8netHeight);
     read(d, mMaxOutObject);
-
+    read(d, mInferType);
     assert(d == a + length);
 }
 
@@ -52,12 +53,12 @@ void YoloLayerPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
     write(d, mYoloV8NetWidth);
     write(d, mYoloV8netHeight);
     write(d, mMaxOutObject);
-
+    write(d, mInferType);
     assert(d == a + getSerializationSize());
 }
 
 size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT {
-    return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mYoloV8netHeight) + sizeof(mYoloV8NetWidth) + sizeof(mMaxOutObject);
+    return sizeof(mClassCount) + sizeof(mThreadCount) + sizeof(mYoloV8netHeight) + sizeof(mYoloV8NetWidth) + sizeof(mMaxOutObject) + sizeof(mInferType);
 }
 
 int YoloLayerPlugin::initialize() TRT_NOEXCEPT {
@@ -113,7 +114,7 @@ void YoloLayerPlugin::destroy() TRT_NOEXCEPT {
 
 nvinfer1::IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT {
 
-    YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV8NetWidth, mYoloV8netHeight, mMaxOutObject);
+    YoloLayerPlugin* p = new YoloLayerPlugin(mClassCount, mYoloV8NetWidth, mYoloV8netHeight, mMaxOutObject, mInferType);
     p->setPluginNamespace(mPluginNamespace);
     return p;
 }
@@ -128,12 +129,13 @@ int YoloLayerPlugin::enqueue(int batchSize, const void* TRT_CONST_ENQUEUE* input
 __device__ float Logist(float data) { return 1.0f / (1.0f + expf(-data)); };
 
 __global__ void CalDetection(const float* input, float* output, int numElements, int maxoutobject,
-                             const int grid_h, int grid_w, const int stride, int classes, int outputElem) {
+                             const int grid_h, int grid_w, const int stride, int classes, int outputElem, int infer_type) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
     if (idx >= numElements) return;
 
     int total_grid = grid_h * grid_w;
     int info_len = 4 + classes;
+    if(infer_type==1) info_len += 32;
     int batchIdx = idx / total_grid;
     int elemIdx = idx % total_grid;
     const float* curInput = input + batchIdx * total_grid * info_len;
@@ -141,7 +143,7 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
 
     int class_id = 0;
     float max_cls_prob = 0.0;
-    for (int i = 4; i < info_len; i++) {
+    for (int i = 4; i < 4 + classes; i++) {
         float p = Logist(curInput[elemIdx + i * total_grid]);
         if (p > max_cls_prob) {
             max_cls_prob = p;
@@ -165,6 +167,10 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
     det->bbox[1] = (row + 0.5f - curInput[elemIdx + 1 * total_grid]) * stride;
     det->bbox[2] = (col + 0.5f + curInput[elemIdx + 2 * total_grid]) * stride;
     det->bbox[3] = (row + 0.5f + curInput[elemIdx + 3 * total_grid]) * stride;
+
+    for (int k = 0;infer_type==1 && k < 32; k++) {
+        det->mask[k] = curInput[elemIdx + (k + 4 + classes) * total_grid];
+    }
 }
 
 void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cudaStream_t stream, int mYoloV8netHeight,int mYoloV8NetWidth, int batchSize) {
@@ -184,7 +190,7 @@ void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cuda
         if (numElem < mThreadCount) mThreadCount = numElem;
 
         CalDetection << <(numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream >> >
-            (inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, outputElem);
+            (inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, outputElem, mInferType);
     }
 }
 
@@ -217,7 +223,8 @@ IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFi
     int input_w = p_netinfo[1];
     int input_h = p_netinfo[2];
     int max_output_object_count = p_netinfo[3];
-    YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count);
+    int infer_type = p_netinfo[4];
+    YoloLayerPlugin* obj = new YoloLayerPlugin(class_count, input_w, input_h, max_output_object_count, infer_type);
     obj->setPluginNamespace(mNamespace.c_str());
     return obj;
 }
