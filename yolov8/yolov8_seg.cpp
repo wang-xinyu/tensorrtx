@@ -273,7 +273,7 @@ int main(int argc, char **argv) {
             //Process gpu decode and nms results
             // batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element, img_batch);
             // todo seg in gpu
-            std::cerr << "seg-postpset is not support in gpu" << std::endl;
+            std::cerr << "seg_postprocess is not support in gpu right now" << std::endl;
         }
     }
 
