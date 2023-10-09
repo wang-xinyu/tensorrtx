@@ -266,7 +266,7 @@ int main(int argc, char **argv) {
                 cv::Mat img = img_batch[b];
                 auto masks = process_mask(&output_seg_buffer_host[b * kOutputSegSize], kOutputSegSize, res);
                 draw_mask_bbox(img, res, masks, labels_map);
-                cv::imwrite("_" + img_name_batch[b], img);
+                cv::imwrite("_seg_" + img_name_batch[b], img);
             }
 
         } else if (cuda_post_process == "g") {

@@ -440,8 +440,6 @@ class YoLov8TRT(object):
         for mask, box in zip(masks, result_boxes):
             mask_s = np.zeros((ih, iw))
             crop_mask = self.scale_mask(mask, ih, iw)    
-            # cv2.imshow("1",mask)
-            # cv2.waitKey(0)    
             x1 = int(box[0])
             y1 = int(box[1])
             x2 = int(box[2])
@@ -521,7 +519,7 @@ class Colors:
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "yolov8s-seg.engine"
+    engine_file_path = "yolov8l-seg.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
@@ -558,11 +556,11 @@ if __name__ == "__main__":
         image_dir = "images/"
         image_path_batches = get_img_path_batches(yolov8_wrapper.batch_size, image_dir)
 
-        # for i in range(10):
-        #     # create a new thread to do warm_up
-        #     thread1 = warmUpThread(yolov8_wrapper)
-        #     thread1.start()
-        #     thread1.join()
+        for i in range(10):
+            # create a new thread to do warm_up
+            thread1 = warmUpThread(yolov8_wrapper)
+            thread1.start()
+            thread1.join()
         for batch in image_path_batches:
             # create a new thread to do inference
             thread1 = inferThread(yolov8_wrapper, batch)

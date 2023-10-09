@@ -39,6 +39,7 @@ std::map<std::string, nvinfer1::Weights> loadWeights(const std::string file){
 
 static nvinfer1::IScaleLayer* addBatchNorm2d(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap,
 nvinfer1::ITensor& input, std::string lname, float eps){
+    
     float* gamma = (float*)weightMap[lname + ".weight"].values;
     float* beta = (float*)weightMap[lname + ".bias"].values;
     float* mean = (float*)weightMap[lname + ".running_mean"].values;
@@ -76,13 +77,15 @@ nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname){
     nvinfer1::Weights bias_empty{nvinfer1::DataType::kFLOAT, nullptr, 0};
     nvinfer1::IConvolutionLayer* conv = network->addConvolutionNd(input, ch, nvinfer1::DimsHW{k, k}, weightMap[lname+".conv.weight"], bias_empty);
     assert(conv);
+
     conv->setStrideNd(nvinfer1::DimsHW{s, s});
     conv->setPaddingNd(nvinfer1::DimsHW{p, p});
 
-    nvinfer1::IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv->getOutput(0), lname+".bn", 1e-5);
-
+    nvinfer1::IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv->getOutput(0), lname + ".bn", 1e-5);
+ 
     nvinfer1::IActivationLayer* sigmoid = network->addActivation(*bn->getOutput(0), nvinfer1::ActivationType::kSIGMOID);
     nvinfer1::IElementWiseLayer* ew = network->addElementWise(*bn->getOutput(0), *sigmoid->getOutput(0), nvinfer1::ElementWiseOperation::kPROD);
+
     assert(ew);
     return ew;
 }
