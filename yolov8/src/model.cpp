@@ -8,36 +8,30 @@ static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network,
                                           nvinfer1::ITensor& input, std::string lname, std::string model_size) {
     // conv
     int mid_channel = 0;
-    if(model_size=="n"){
+    if(model_size == "n"){
         mid_channel = 64;
     }
-    else if(model_size=="s"){
+    else if(model_size == "s"){
         mid_channel = 128;
     } 
-    else if(model_size=="m"){
+    else if(model_size == "m"){
         mid_channel = 192;
     }
-    else if(model_size=="l"){
+    else if(model_size == "l"){
         mid_channel = 256;
     }    
-    else if(model_size=="x"){
+    else if(model_size == "x"){
         mid_channel = 320;
     }
-
     auto cv1 = convBnSiLU(network, weightMap, input, mid_channel, 3, 1, 1, "model.22.proto.cv1");
-
-    // bias
     float* convTranpsose_bais = (float*)weightMap["model.22.proto.upsample.bias"].values;
     int convTranpsose_bais_len = weightMap["model.22.proto.upsample.bias"].count;
     nvinfer1::Weights bias{nvinfer1::DataType::kFLOAT, convTranpsose_bais, convTranpsose_bais_len};
-
-    // deconv
-    auto convTranpsose  = network->addDeconvolutionNd(*cv1->getOutput(0), mid_channel,nvinfer1::DimsHW{2,2}, weightMap["model.22.proto.upsample.weight"], bias); 
+    auto convTranpsose  = network->addDeconvolutionNd(*cv1->getOutput(0), mid_channel, nvinfer1::DimsHW{2,2}, weightMap["model.22.proto.upsample.weight"], bias); 
     assert(convTranpsose);
     convTranpsose->setStrideNd(nvinfer1::DimsHW{2, 2});
-    auto cv2 = convBnSiLU(network,weightMap,*convTranpsose->getOutput(0),mid_channel,3,1,1,"model.22.proto.cv2");  // 128 80 80 有问题！
-    auto cv3 = convBnSiLU(network,weightMap,*cv2->getOutput(0),32,1,1,0,"model.22.proto.cv3");
-    
+    auto cv2 = convBnSiLU(network,weightMap,*convTranpsose->getOutput(0), mid_channel, 3, 1, 1, "model.22.proto.cv2");  // 128 80 80 有问题！
+    auto cv3 = convBnSiLU(network,weightMap,*cv2->getOutput(0), 32, 1, 1, 0,"model.22.proto.cv3");
     assert(cv3);
     return cv3;
 }
@@ -46,22 +40,21 @@ static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network,
                                           nvinfer1::ITensor& input, std::string lname, int grid_shape, std::string model_size){
    
     int mid_channle = 0;
-    if(model_size=="n" || model_size=="s"){
-        mid_channle=32;
-    }else if(model_size=="m"){
-        mid_channle=48;
-    }else if(model_size=="l"){
-        mid_channle=64;
-    }else if(model_size=="x"){
-        mid_channle=80;
+    if(model_size == "n" || model_size== "s"){
+        mid_channle = 32;
+    }else if(model_size == "m"){
+        mid_channle = 48;
+    }else if(model_size == "l"){
+        mid_channle = 64;
+    }else if(model_size == "x"){
+        mid_channle = 80;
     }
     auto cv0 = convBnSiLU(network, weightMap, input, mid_channle, 3, 1, 1, lname + ".0");
     auto cv1 = convBnSiLU(network, weightMap, *cv0->getOutput(0), mid_channle, 3, 1, 1, lname + ".1");
-
     float* cv2_bais_value = (float*)weightMap[lname + ".2" + ".bias"].values;
     int cv2_bais_len = weightMap[lname + ".2" + ".bias"].count;
     nvinfer1::Weights cv2_bais{nvinfer1::DataType::kFLOAT, cv2_bais_value, cv2_bais_len};
-    auto cv2 = network->addConvolutionNd(*cv1->getOutput(0),32, nvinfer1::DimsHW{1, 1}, weightMap[lname + ".2" + ".weight"], cv2_bais);
+    auto cv2 = network->addConvolutionNd(*cv1->getOutput(0), 32, nvinfer1::DimsHW{1, 1}, weightMap[lname + ".2" + ".weight"], cv2_bais);
     cv2->setStrideNd(nvinfer1::DimsHW{1, 1});
     nvinfer1::IShuffleLayer* cv2_shuffle = network->addShuffle(*cv2->getOutput(0));
     cv2_shuffle->setReshapeDimensions(nvinfer1::Dims2{ 32, grid_shape});
@@ -218,7 +211,7 @@ nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
         nvinfer1::ITensor* inputTensor22_dfl_2[] = { dfl22_2->getOutput(0), split22_2_1->getOutput(0)};
         cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 2);
     }
-    else if(infer_type==1){
+    else if(infer_type == 1){
         // seg0
         auto proto_coef_0 = ProtoCoef(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0", 6400, "n");
         nvinfer1::ITensor* inputTensor22_dfl_0[] = { dfl22_0->getOutput(0), split22_0_1->getOutput(0),proto_coef_0->getOutput(0)};
@@ -239,8 +232,8 @@ nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    if(infer_type==1){
-        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto","n");
+    if(infer_type == 1){
+        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto", "n");
         proto->getOutput(0)->setName("proto");
         network->markOutput(*proto->getOutput(0));
     }
@@ -417,7 +410,7 @@ nvinfer1::IHostMemory* buildEngineYolov8s(nvinfer1::IBuilder* builder,
         cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 2);
 
 
-    }else if(infer_type==1){
+    }else if(infer_type == 1){
         // seg0
         auto proto_coef_0 = ProtoCoef(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0", 6400, "s");
         nvinfer1::ITensor* inputTensor22_dfl_0[] = { dfl22_0->getOutput(0), split22_0_1->getOutput(0),proto_coef_0->getOutput(0)};
@@ -437,8 +430,8 @@ nvinfer1::IHostMemory* buildEngineYolov8s(nvinfer1::IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    if(infer_type==1){
-        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto","s");
+    if(infer_type == 1){
+        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto", "s");
         proto->getOutput(0)->setName("proto");
         network->markOutput(*proto->getOutput(0));
     }
@@ -609,7 +602,7 @@ nvinfer1::IHostMemory* buildEngineYolov8m(nvinfer1::IBuilder* builder,
         cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 2);
 
         
-    }else if(infer_type==1){
+    }else if(infer_type == 1){
         // seg0
         auto proto_coef_0 = ProtoCoef(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0", 6400, "m");
         nvinfer1::ITensor* inputTensor22_dfl_0[] = { dfl22_0->getOutput(0), split22_0_1->getOutput(0),proto_coef_0->getOutput(0)};
@@ -630,7 +623,7 @@ nvinfer1::IHostMemory* buildEngineYolov8m(nvinfer1::IBuilder* builder,
     network->markOutput(*yolo->getOutput(0));
 
     if(infer_type==1){
-        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto","m");
+        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto", "m");
         proto->getOutput(0)->setName("proto");
         network->markOutput(*proto->getOutput(0));
     }
@@ -1016,8 +1009,8 @@ nvinfer1::IHostMemory* buildEngineYolov8x(nvinfer1::IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    if(infer_type==1){
-        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto","x");
+    if(infer_type == 1){
+        auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto", "x");
         proto->getOutput(0)->setName("proto");
         network->markOutput(*proto->getOutput(0));
     }
