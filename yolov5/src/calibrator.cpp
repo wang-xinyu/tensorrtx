@@ -8,7 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn/dnn.hpp>
 
-static cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
+cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
   int w, h, x, y;
   float r_w = input_w / (img.cols * 1.0);
   float r_h = input_h / (img.rows * 1.0);
