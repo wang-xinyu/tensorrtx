@@ -3,12 +3,14 @@
 #include "macros.h"
 #include <string>
 #include <vector>
+#include <opencv2/opencv.hpp>
 
 //! \class Int8EntropyCalibrator2
 //!
 //! \brief Implements Entropy calibrator 2.
 //!  CalibrationAlgoType is kENTROPY_CALIBRATION_2.
 //!
+cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h);
 class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
  public:
   Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache = true);
