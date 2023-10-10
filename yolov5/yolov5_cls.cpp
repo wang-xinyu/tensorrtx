@@ -14,32 +14,12 @@ using namespace nvinfer1;
 
 static Logger gLogger;
 const static int kOutputSize = kClsNumClass;
-cv::Mat letterbox(cv::Mat& img, int input_w, int input_h) {
-  int w, h, x, y;
-  float r_w = input_w / (img.cols * 1.0);
-  float r_h = input_h / (img.rows * 1.0);
-  if (r_h > r_w) {
-    w = input_w;
-    h = r_w * img.rows;
-    x = 0;
-    y = (input_h - h) / 2;
-  } else {
-    w = r_h * img.cols;
-    h = input_h;
-    x = (input_w - w) / 2;
-    y = 0;
-  }
-  cv::Mat re(h, w, CV_8UC3);
-  cv::resize(img, re, re.size(), 0, 0, cv::INTER_LINEAR);
-  cv::Mat out(input_h, input_w, CV_8UC3, cv::Scalar(128, 128, 128));
-  re.copyTo(out(cv::Rect(x, y, re.cols, re.rows)));
-  return out;
-}
+
 void batch_preprocess(std::vector<cv::Mat>& imgs, float* output) {
   for (size_t b = 0; b < imgs.size(); b++) {
     cv::Mat img;
     //cv::resize(imgs[b], img, cv::Size(kClsInputW, kClsInputH));
-    img =letterbox(imgs[b], kClsInputW, kClsInputH);
+    img =preprocess_img(imgs[b], kClsInputW, kClsInputH);
     int i = 0;
     for (int row = 0; row < img.rows; ++row) {
       uchar* uc_pixel = img.data + row * img.step;
