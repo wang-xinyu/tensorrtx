@@ -3,6 +3,7 @@
 #include "calibrator.h"
 #include <iostream>
 #include "config.h"
+#include <algorithm>
 
 nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
                                           nvinfer1::IBuilderConfig* config, nvinfer1::DataType dt, const std::string& wts_path) {
@@ -41,7 +42,7 @@ nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
     nvinfer1::ITensor* inputTensor11[] = {upsample10->getOutput(0), conv6->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat11 = network->addConcatenation(inputTensor11, 2);
 
-    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 128, 128, 1, false, 0.5, "model.12");
+    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 384,128, 1, false, 0.5, "model.12");
 
     nvinfer1::IResizeLayer* upsample13 = network->addResize(*conv12->getOutput(0));
     assert(upsample13);
@@ -51,29 +52,29 @@ nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
     nvinfer1::ITensor* inputTensor14[] = {upsample13->getOutput(0), conv4->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat14 = network->addConcatenation(inputTensor14, 2);
 
-    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 64, 64, 1, false, 0.5, "model.15");
+    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 192, 64, 1, false, 0.5, "model.15");
     nvinfer1::IElementWiseLayer* conv16 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 64, 3, 2, 1, "model.16");
     nvinfer1::ITensor* inputTensor17[] = {conv16->getOutput(0), conv12->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat17 = network->addConcatenation(inputTensor17, 2);
-    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 128, 128, 1, false, 0.5, "model.18");
+    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 192, 128, 1, false, 0.5, "model.18");
     nvinfer1::IElementWiseLayer* conv19 = convBnSiLU(network, weightMap, *conv18->getOutput(0), 128, 3, 2, 1, "model.19");
     nvinfer1::ITensor* inputTensor20[] = {conv19->getOutput(0), conv9->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat20 = network->addConcatenation(inputTensor20, 2);
-    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 256, 256, 1, false, 0.5, "model.21");
+    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 384, 256, 1, false, 0.5, "model.21");
 
     /*******************************************************************************************************
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
     // output0
-
+    int ch = std::max(64,std::min(kNumClass,100));
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 64, 3, 1, 1, "model.22.cv2.0.0");
     nvinfer1::IElementWiseLayer* conv22_cv2_0_1 = convBnSiLU(network, weightMap, *conv22_cv2_0_0->getOutput(0), 64, 3, 1, 1, "model.22.cv2.0.1");
     nvinfer1::IConvolutionLayer* conv22_cv2_0_2 = network->addConvolutionNd(*conv22_cv2_0_1->getOutput(0), 64, nvinfer1::DimsHW{1,1}, weightMap["model.22.cv2.0.2.weight"], weightMap["model.22.cv2.0.2.bias"]);
     conv22_cv2_0_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv2_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
 
-    nvinfer1::IElementWiseLayer* conv22_cv3_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 64, 3, 1, 1, "model.22.cv3.0.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0), 64, 3, 1, 1, "model.22.cv3.0.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), ch, 3, 1, 1, "model.22.cv3.0.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0), ch, 3, 1, 1, "model.22.cv3.0.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_0_2 = network->addConvolutionNd(*conv22_cv3_0_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1,1}, weightMap["model.22.cv3.0.2.weight"], weightMap["model.22.cv3.0.2.bias"]);
     conv22_cv3_0_2->setStride(nvinfer1::DimsHW{1, 1});
     conv22_cv3_0_2->setPadding(nvinfer1::DimsHW{0, 0});
@@ -87,8 +88,8 @@ nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
     conv22_cv2_1_2->setStrideNd(nvinfer1::DimsHW{1,1});
     conv22_cv2_1_2->setPaddingNd(nvinfer1::DimsHW{0,0});
 
-    nvinfer1::IElementWiseLayer* conv22_cv3_1_0 = convBnSiLU(network, weightMap, *conv18->getOutput(0), 64, 3, 1, 1, "model.22.cv3.1.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0), 64, 3, 1, 1, "model.22.cv3.1.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_1_0 = convBnSiLU(network, weightMap, *conv18->getOutput(0), ch, 3, 1, 1, "model.22.cv3.1.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0), ch, 3, 1, 1, "model.22.cv3.1.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_1_2 = network->addConvolutionNd(*conv22_cv3_1_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.1.2.weight"], weightMap["model.22.cv3.1.2.bias"]);
     conv22_cv3_1_2->setStrideNd(nvinfer1::DimsHW{1,1});
     conv22_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0,0});
@@ -101,8 +102,8 @@ nvinfer1::IHostMemory* buildEngineYolov8n(nvinfer1::IBuilder* builder,
     nvinfer1::IElementWiseLayer* conv22_cv2_2_1 = convBnSiLU(network, weightMap, *conv22_cv2_2_0->getOutput(0), 64, 3, 1, 1, "model.22.cv2.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv2_2_2 = network->addConvolution(*conv22_cv2_2_1->getOutput(0), 64, nvinfer1::DimsHW{1,1}, weightMap["model.22.cv2.2.2.weight"], weightMap["model.22.cv2.2.2.bias"]);
 
-    nvinfer1::IElementWiseLayer* conv22_cv3_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), 64, 3, 1, 1, "model.22.cv3.2.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0), 64, 3, 1, 1, "model.22.cv3.2.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), ch, 3, 1, 1, "model.22.cv3.2.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0), ch, 3, 1, 1, "model.22.cv3.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_2_2 = network->addConvolution(*conv22_cv3_2_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1,1}, weightMap["model.22.cv3.2.2.weight"], weightMap["model.22.cv3.2.2.bias"]);
 
     nvinfer1::ITensor* inputTensor22_2[] = {conv22_cv2_2_2->getOutput(0), conv22_cv3_2_2->getOutput(0)};
@@ -206,7 +207,7 @@ nvinfer1::IHostMemory* buildEngineYolov8s(nvinfer1::IBuilder* builder,
     nvinfer1::ITensor* inputTensor11[] = { upsample10->getOutput(0), conv6->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat11 = network->addConcatenation(inputTensor11, 2);
 
-    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 256, 256, 1, false, 0.5, "model.12");
+    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 768, 256, 1, false, 0.5, "model.12");
 
     nvinfer1::IResizeLayer* upsample13 = network->addResize(*conv12->getOutput(0));
     assert(upsample13);
@@ -216,21 +217,20 @@ nvinfer1::IHostMemory* buildEngineYolov8s(nvinfer1::IBuilder* builder,
     nvinfer1::ITensor* inputTensor14[] = { upsample13->getOutput(0), conv4->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat14 = network->addConcatenation(inputTensor14, 2);
 
-    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 128, 128, 1, false, 0.5, "model.15");
+    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 384, 128, 1, false, 0.5, "model.15");
     nvinfer1::IElementWiseLayer* conv16 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 128, 3, 2, 1, "model.16");
     nvinfer1::ITensor* inputTensor17[] = { conv16->getOutput(0), conv12->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat17 = network->addConcatenation(inputTensor17, 2);
-    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 256, 256, 1, false, 0.5, "model.18");
+    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 384, 256, 1, false, 0.5, "model.18");
     nvinfer1::IElementWiseLayer* conv19 = convBnSiLU(network, weightMap, *conv18->getOutput(0), 256, 3, 2, 1, "model.19");
     nvinfer1::ITensor* inputTensor20[] = { conv19->getOutput(0), conv9->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat20 = network->addConcatenation(inputTensor20, 2);
-    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 512, 512, 1, false, 0.5, "model.21");
+    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 768, 512, 1, false, 0.5, "model.21");
 
     /*******************************************************************************************************
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
     // output0
-
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 64, 3, 1, 1, "model.22.cv2.0.0");
     nvinfer1::IElementWiseLayer* conv22_cv2_0_1 = convBnSiLU(network, weightMap, *conv22_cv2_0_0->getOutput(0), 64, 3, 1, 1, "model.22.cv2.0.1");
     nvinfer1::IConvolutionLayer* conv22_cv2_0_2 = network->addConvolutionNd(*conv22_cv2_0_1->getOutput(0), 64, nvinfer1::DimsHW{ 1,1 }, weightMap["model.22.cv2.0.2.weight"], weightMap["model.22.cv2.0.2.bias"]);
@@ -365,7 +365,7 @@ nvinfer1::IHostMemory* buildEngineYolov8m(nvinfer1::IBuilder* builder,
 
     nvinfer1::ITensor* inputTensor11[] = { upsample10->getOutput(0), conv6->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat11 = network->addConcatenation(inputTensor11, 2);
-    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 384, 384, 2, false, 0.5, "model.12");
+    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 960, 384, 2, false, 0.5, "model.12");
 
     nvinfer1::IResizeLayer* upsample13 = network->addResize(*conv12->getOutput(0));
     upsample13->setResizeMode(nvinfer1::ResizeMode::kNEAREST);
@@ -373,15 +373,15 @@ nvinfer1::IHostMemory* buildEngineYolov8m(nvinfer1::IBuilder* builder,
 
     nvinfer1::ITensor* inputTensor14[] = { upsample13->getOutput(0), conv4->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat14 = network->addConcatenation(inputTensor14, 2);
-    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 192, 192, 2, false, 0.5, "model.15");
+    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 576, 192, 2, false, 0.5, "model.15");
     nvinfer1::IElementWiseLayer* conv16 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 192, 3, 2, 1, "model.16");
     nvinfer1::ITensor* inputTensor17[] = { conv16->getOutput(0), conv12->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat17 = network->addConcatenation(inputTensor17, 2);
-    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 384, 384, 2, false, 0.5, "model.18");
+    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 576, 384, 2, false, 0.5, "model.18");
     nvinfer1::IElementWiseLayer* conv19 = convBnSiLU(network, weightMap, *conv18->getOutput(0), 384, 3, 2, 1, "model.19");
     nvinfer1::ITensor* inputTensor20[] = { conv19->getOutput(0), conv9->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat20 = network->addConcatenation(inputTensor20, 2);
-    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 576, 576, 2, false, 0.5, "model.21");
+    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 960, 576, 2, false, 0.5, "model.21");
     /*******************************************************************************************************
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
@@ -520,7 +520,7 @@ nvinfer1::IHostMemory* buildEngineYolov8l(nvinfer1::IBuilder* builder,
 
     nvinfer1::ITensor* inputTensor11[] = { upsample10->getOutput(0), conv6->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat11 = network->addConcatenation(inputTensor11, 2);
-    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 512, 512, 3, false, 0.5, "model.12");
+    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 1024, 512, 3, false, 0.5, "model.12");
 
     nvinfer1::IResizeLayer* upsample13 = network->addResize(*conv12->getOutput(0));
     upsample13->setResizeMode(nvinfer1::ResizeMode::kNEAREST);
@@ -528,15 +528,15 @@ nvinfer1::IHostMemory* buildEngineYolov8l(nvinfer1::IBuilder* builder,
 
     nvinfer1::ITensor* inputTensor14[] = { upsample13->getOutput(0), conv4->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat14 = network->addConcatenation(inputTensor14, 2);
-    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 256, 256, 3, false, 0.5, "model.15");
+    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 768, 256, 3, false, 0.5, "model.15");
     nvinfer1::IElementWiseLayer* conv16 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 256, 3, 2, 1, "model.16");
     nvinfer1::ITensor* inputTensor17[] = { conv16->getOutput(0), conv12->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat17 = network->addConcatenation(inputTensor17, 2);
-    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 512, 512, 3, false, 0.5, "model.18");
+    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 768, 512, 3, false, 0.5, "model.18");
     nvinfer1::IElementWiseLayer* conv19 = convBnSiLU(network, weightMap, *conv18->getOutput(0), 512, 3, 2, 1, "model.19");
     nvinfer1::ITensor* inputTensor20[] = { conv19->getOutput(0), conv9->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat20 = network->addConcatenation(inputTensor20, 2);
-    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 512, 512, 3, false, 0.5, "model.21");
+    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 1024, 512, 3, false, 0.5, "model.21");
 
     /*******************************************************************************************************
     *********************************************  YOLOV8 OUTPUT  ******************************************
@@ -676,7 +676,7 @@ nvinfer1::IHostMemory* buildEngineYolov8x(nvinfer1::IBuilder* builder,
 
     nvinfer1::ITensor* inputTensor11[] = { upsample10->getOutput(0), conv6->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat11 = network->addConcatenation(inputTensor11, 2);
-    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 640, 640, 3, false, 0.5, "model.12");
+    nvinfer1::IElementWiseLayer* conv12 = C2F(network, weightMap, *cat11->getOutput(0), 1280, 640, 3, false, 0.5, "model.12");
 
     nvinfer1::IResizeLayer* upsample13 = network->addResize(*conv12->getOutput(0));
     upsample13->setResizeMode(nvinfer1::ResizeMode::kNEAREST);
@@ -684,15 +684,15 @@ nvinfer1::IHostMemory* buildEngineYolov8x(nvinfer1::IBuilder* builder,
 
     nvinfer1::ITensor* inputTensor14[] = { upsample13->getOutput(0), conv4->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat14 = network->addConcatenation(inputTensor14, 2);
-    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 320, 320, 3, false, 0.5, "model.15");
+    nvinfer1::IElementWiseLayer* conv15 = C2F(network, weightMap, *cat14->getOutput(0), 960, 320, 3, false, 0.5, "model.15");
     nvinfer1::IElementWiseLayer* conv16 = convBnSiLU(network, weightMap, *conv15->getOutput(0), 320, 3, 2, 1, "model.16");
     nvinfer1::ITensor* inputTensor17[] = { conv16->getOutput(0), conv12->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat17 = network->addConcatenation(inputTensor17, 2);
-    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 640, 640, 3, false, 0.5, "model.18");
+    nvinfer1::IElementWiseLayer* conv18 = C2F(network, weightMap, *cat17->getOutput(0), 960, 640, 3, false, 0.5, "model.18");
     nvinfer1::IElementWiseLayer* conv19 = convBnSiLU(network, weightMap, *conv18->getOutput(0), 640, 3, 2, 1, "model.19");
     nvinfer1::ITensor* inputTensor20[] = { conv19->getOutput(0), conv9->getOutput(0) };
     nvinfer1::IConcatenationLayer* cat20 = network->addConcatenation(inputTensor20, 2);
-    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 640, 640, 3, false, 0.5, "model.21");
+    nvinfer1::IElementWiseLayer* conv21 = C2F(network, weightMap, *cat20->getOutput(0), 1280, 640, 3, false, 0.5, "model.21");
 
     /*******************************************************************************************************
     *********************************************  YOLOV8 OUTPUT  ******************************************
