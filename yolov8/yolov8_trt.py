@@ -16,8 +16,6 @@ import tensorrt as trt
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
-LEN_ALL_RESULT = 38001
-LEN_ONE_RESULT = 38
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -169,7 +167,7 @@ class YoLov8TRT(object):
         # Do postprocess
         for i in range(self.batch_size):
             result_boxes, result_scores, result_classid = self.post_process(
-                output[i * LEN_ALL_RESULT: (i + 1) * LEN_ALL_RESULT], batch_origin_h[i], batch_origin_w[i]
+                output[i * 6001: (i + 1) * 6001], batch_origin_h[i], batch_origin_w[i]
             )
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
@@ -292,8 +290,7 @@ class YoLov8TRT(object):
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
-        pred = np.reshape(output[1:], (-1, LEN_ONE_RESULT))[:num, :]
-        pred = pred[:, :6]
+        pred = np.reshape(output[1:], (-1, 6))[:num, :]
         # Do nms
         boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
@@ -406,7 +403,7 @@ class warmUpThread(threading.Thread):
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "yolov8l.engine"
+    engine_file_path = "yolov8n.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
@@ -440,7 +437,7 @@ if __name__ == "__main__":
     try:
         print('batch size is', yolov8_wrapper.batch_size)
 
-        image_dir = "images/"
+        image_dir = "samples/"
         image_path_batches = get_img_path_batches(yolov8_wrapper.batch_size, image_dir)
 
         for i in range(10):

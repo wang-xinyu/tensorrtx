@@ -39,7 +39,6 @@ std::map<std::string, nvinfer1::Weights> loadWeights(const std::string file){
 
 static nvinfer1::IScaleLayer* addBatchNorm2d(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap,
 nvinfer1::ITensor& input, std::string lname, float eps){
-    
     float* gamma = (float*)weightMap[lname + ".weight"].values;
     float* beta = (float*)weightMap[lname + ".bias"].values;
     float* mean = (float*)weightMap[lname + ".running_mean"].values;
@@ -77,15 +76,13 @@ nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname){
     nvinfer1::Weights bias_empty{nvinfer1::DataType::kFLOAT, nullptr, 0};
     nvinfer1::IConvolutionLayer* conv = network->addConvolutionNd(input, ch, nvinfer1::DimsHW{k, k}, weightMap[lname+".conv.weight"], bias_empty);
     assert(conv);
-
     conv->setStrideNd(nvinfer1::DimsHW{s, s});
     conv->setPaddingNd(nvinfer1::DimsHW{p, p});
 
-    nvinfer1::IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv->getOutput(0), lname + ".bn", 1e-5);
- 
+    nvinfer1::IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv->getOutput(0), lname+".bn", 1e-5);
+
     nvinfer1::IActivationLayer* sigmoid = network->addActivation(*bn->getOutput(0), nvinfer1::ActivationType::kSIGMOID);
     nvinfer1::IElementWiseLayer* ew = network->addElementWise(*bn->getOutput(0), *sigmoid->getOutput(0), nvinfer1::ElementWiseOperation::kPROD);
-
     assert(ew);
     return ew;
 }
@@ -172,11 +169,11 @@ nvinfer1::ITensor& input, int ch, int grid, int k, int s, int p, std::string lna
 }
 
 
-nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, std::vector<nvinfer1::IConcatenationLayer*> dets, int infer_type) {
+nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, std::vector<nvinfer1::IConcatenationLayer*> dets, bool is_segmentation) {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
 
     nvinfer1::PluginField plugin_fields[1];
-    int netinfo[5] = {kNumClass, kInputW, kInputH, kMaxNumOutputBbox, infer_type};
+    int netinfo[5] = {kNumClass, kInputW, kInputH, kMaxNumOutputBbox, is_segmentation};
     plugin_fields[0].data = netinfo;
     plugin_fields[0].length = 5;
     plugin_fields[0].name = "netinfo";
@@ -188,11 +185,9 @@ nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, st
     plugin_data.fields = plugin_fields;
     nvinfer1::IPluginV2 *plugin_obj = creator->createPlugin("yololayer", &plugin_data);
     std::vector<nvinfer1::ITensor*> input_tensors;
-
     for (auto det: dets) {
         input_tensors.push_back(det->getOutput(0));
     }
-
     auto yolo = network->addPluginV2(&input_tensors[0], input_tensors.size(), *plugin_obj);
     return yolo;
 }
