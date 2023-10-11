@@ -19,8 +19,8 @@ const static int kOutputSize = kClsNumClass;
 void batch_preprocess(std::vector<cv::Mat>& imgs, float* output) {
   for (size_t b = 0; b < imgs.size(); b++) {
     cv::Mat img;
-    //cv::resize(imgs[b], img, cv::Size(kClsInputW, kClsInputH));
-    img =preprocess_img(imgs[b], kClsInputW, kClsInputH);
+    // cv::resize(imgs[b], img, cv::Size(kClsInputW, kClsInputH));
+    img = preprocess_img(imgs[b], kClsInputW, kClsInputH);
     int i = 0;
     for (int row = 0; row < img.rows; ++row) {
       uchar* uc_pixel = img.data + row * img.step;
