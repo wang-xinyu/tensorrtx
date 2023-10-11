@@ -3,6 +3,9 @@
 #include "macros.h"
 #include <string>
 #include <vector>
+#include <opencv2/opencv.hpp>
+
+cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h);
 
 //! \class Int8EntropyCalibrator2
 //!
