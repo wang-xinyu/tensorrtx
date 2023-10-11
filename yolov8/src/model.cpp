@@ -25,24 +25,10 @@ static int get_depth(int x, float gd)
 }
 
 static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap, 
-                                          nvinfer1::ITensor& input, std::string lname, std::string model_size) {
+                                          nvinfer1::ITensor& input, std::string lname, float gw, int max_channels) {
     // conv
-    int mid_channel = 0;
-    if(model_size == "n"){
-        mid_channel = 64;
-    }
-    else if(model_size == "s"){
-        mid_channel = 128;
-    } 
-    else if(model_size == "m"){
-        mid_channel = 192;
-    }
-    else if(model_size == "l"){
-        mid_channel = 256;
-    }    
-    else if(model_size == "x"){
-        mid_channel = 320;
-    }
+    // int mid_channel = get_width(256, gw, max_channels);
+    int mid_channel = 64;
     auto cv1 = convBnSiLU(network, weightMap, input, mid_channel, 3, 1, 1, "model.22.proto.cv1");
     float* convTranpsose_bais = (float*)weightMap["model.22.proto.upsample.bias"].values;
     int convTranpsose_bais_len = weightMap["model.22.proto.upsample.bias"].count;
@@ -57,16 +43,16 @@ static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network,
 }
 
 static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap, 
-                                          nvinfer1::ITensor& input, std::string lname, int grid_shape, std::string model_size){
+                                          nvinfer1::ITensor& input, std::string lname, int grid_shape, float gd){
    
     int mid_channle = 0;
-    if(model_size == "n" || model_size== "s"){
+    if(gd == 0.25 || gd== 0.5){
         mid_channle = 32;
-    }else if(model_size == "m"){
+    }else if(gd == 0.75){
         mid_channle = 48;
-    }else if(model_size == "l"){
+    }else if(gd == 1.0){
         mid_channle = 64;
-    }else if(model_size == "x"){
+    }else if(gd == 1.25){
         mid_channle = 80;
     }
     auto cv0 = convBnSiLU(network, weightMap, input, mid_channle, 3, 1, 1, lname + ".0");
@@ -360,44 +346,45 @@ nvinfer1::IHostMemory *buildEngineYolov8Seg(nvinfer1::IBuilder *builder,
     nvinfer1::ISliceLayer *split22_0_0 = network->addSlice(*shuffle22_0->getOutput(0), nvinfer1::Dims2{0, 0}, nvinfer1::Dims2{64, (kInputH / 8) * (kInputW / 8)}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer *split22_0_1 = network->addSlice(*shuffle22_0->getOutput(0), nvinfer1::Dims2{64, 0}, nvinfer1::Dims2{kNumClass, (kInputH / 8) * (kInputW / 8)}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer *dfl22_0 = DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / 8) * (kInputW / 8), 1, 1, 0, "model.22.dfl.conv.weight");
-    nvinfer1::ITensor *inputTensor22_dfl_0[] = {dfl22_0->getOutput(0), split22_0_1->getOutput(0)};
-    nvinfer1::IConcatenationLayer *cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 2);
+    nvinfer1::IConcatenationLayer *cat22_dfl_0;
 
     nvinfer1::IShuffleLayer *shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
     shuffle22_1->setReshapeDimensions(nvinfer1::Dims2{64 + kNumClass, (kInputH / 16) * (kInputW / 16)});
     nvinfer1::ISliceLayer *split22_1_0 = network->addSlice(*shuffle22_1->getOutput(0), nvinfer1::Dims2{0, 0}, nvinfer1::Dims2{64, (kInputH / 16) * (kInputW / 16)}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer *split22_1_1 = network->addSlice(*shuffle22_1->getOutput(0), nvinfer1::Dims2{64, 0}, nvinfer1::Dims2{kNumClass, (kInputH / 16) * (kInputW / 16)}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer *dfl22_1 = DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / 16) * (kInputW / 16), 1, 1, 0, "model.22.dfl.conv.weight");
-    nvinfer1::ITensor *inputTensor22_dfl_1[] = {dfl22_1->getOutput(0), split22_1_1->getOutput(0)};
-    nvinfer1::IConcatenationLayer *cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 2);
+    nvinfer1::IConcatenationLayer *cat22_dfl_1;
 
     nvinfer1::IShuffleLayer *shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
     shuffle22_2->setReshapeDimensions(nvinfer1::Dims2{64 + kNumClass, (kInputH / 32) * (kInputW / 32)});
     nvinfer1::ISliceLayer *split22_2_0 = network->addSlice(*shuffle22_2->getOutput(0), nvinfer1::Dims2{0, 0}, nvinfer1::Dims2{64, (kInputH / 32) * (kInputW / 32)}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer *split22_2_1 = network->addSlice(*shuffle22_2->getOutput(0), nvinfer1::Dims2{64, 0}, nvinfer1::Dims2{kNumClass, (kInputH / 32) * (kInputW / 32)}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer *dfl22_2 = DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / 32) * (kInputW / 32), 1, 1, 0, "model.22.dfl.conv.weight");
-    nvinfer1::ITensor *inputTensor22_dfl_2[] = {dfl22_2->getOutput(0), split22_2_1->getOutput(0)};
-    nvinfer1::IConcatenationLayer *cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 2);
+    nvinfer1::IConcatenationLayer *cat22_dfl_2;
 
-    // seg0
-    auto proto_coef_0 = ProtoCoef(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0", 6400, "x");
-    nvinfer1::ITensor* inputTensor22_dfl_0[] = { dfl22_0->getOutput(0), split22_0_1->getOutput(0),proto_coef_0->getOutput(0)};
+
+    // det_seg0
+    auto proto_coef_0 = ProtoCoef(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0", 6400, gw);
+    nvinfer1::ITensor* inputTensor22_dfl_0[] = { dfl22_0->getOutput(0), split22_0_1->getOutput(0), proto_coef_0->getOutput(0)};
     cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 3);
 
-    // seg1
-    auto proto_coef_1 = ProtoCoef(network, weightMap, *conv18->getOutput(0), "model.22.cv4.1", 1600, "x");
-    nvinfer1::ITensor* inputTensor22_dfl_1[] = { dfl22_1->getOutput(0), split22_1_1->getOutput(0),proto_coef_1->getOutput(0)};
+    // det_seg1
+    auto proto_coef_1 = ProtoCoef(network, weightMap, *conv18->getOutput(0), "model.22.cv4.1", 1600, gw);
+    nvinfer1::ITensor* inputTensor22_dfl_1[] = { dfl22_1->getOutput(0), split22_1_1->getOutput(0), proto_coef_1->getOutput(0)};
     cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 3);
     
-    // seg2
-    auto proto_coef_2 = ProtoCoef(network, weightMap, *conv21->getOutput(0), "model.22.cv4.2", 400, "x");
-    nvinfer1::ITensor* inputTensor22_dfl_2[] = { dfl22_2->getOutput(0), split22_2_1->getOutput(0) ,proto_coef_2->getOutput(0)};
+    // det_seg2
+    auto proto_coef_2 = ProtoCoef(network, weightMap, *conv21->getOutput(0), "model.22.cv4.2", 400, gw);
+    nvinfer1::ITensor* inputTensor22_dfl_2[] = { dfl22_2->getOutput(0), split22_2_1->getOutput(0), proto_coef_2->getOutput(0)};
     cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 3);
 
-
-    nvinfer1::IPluginV2Layer *yolo = addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer *>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2});
+    nvinfer1::IPluginV2Layer *yolo = addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer *>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2}, true);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
+
+    auto proto = Proto(network, weightMap, *conv15->getOutput(0), "model.22.proto", gw, max_channels);
+    proto->getOutput(0)->setName("proto");
+    network->markOutput(*proto->getOutput(0));
 
     builder->setMaxBatchSize(kBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));

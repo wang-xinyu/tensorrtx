@@ -131,12 +131,13 @@ int YoloLayerPlugin::enqueue(int batchSize, const void* TRT_CONST_ENQUEUE* input
 __device__ float Logist(float data) { return 1.0f / (1.0f + expf(-data)); };
 
 __global__ void CalDetection(const float* input, float* output, int numElements, int maxoutobject,
-                             const int grid_h, int grid_w, const int stride, int classes, int outputElem) {
+                             const int grid_h, int grid_w, const int stride, int classes, int outputElem, bool is_segmentation) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
     if (idx >= numElements) return;
 
     int total_grid = grid_h * grid_w;
     int info_len = 4 + classes;
+    if(is_segmentation) info_len += 32;
     int batchIdx = idx / total_grid;
     int elemIdx = idx % total_grid;
     const float* curInput = input + batchIdx * total_grid * info_len;
@@ -168,6 +169,10 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
     det->bbox[1] = (row + 0.5f - curInput[elemIdx + 1 * total_grid]) * stride;
     det->bbox[2] = (col + 0.5f + curInput[elemIdx + 2 * total_grid]) * stride;
     det->bbox[3] = (row + 0.5f + curInput[elemIdx + 3 * total_grid]) * stride;
+
+    for (int k = 0; is_segmentation && k < 32; k++) {
+        det->mask[k] = curInput[elemIdx + (k + 4 + classes) * total_grid];
+    }
 }
 
 void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cudaStream_t stream, int mYoloV8netHeight,int mYoloV8NetWidth, int batchSize) {
@@ -187,7 +192,7 @@ void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cuda
         if (numElem < mThreadCount) mThreadCount = numElem;
 
         CalDetection << <(numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream >> >
-            (inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, outputElem);
+            (inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, outputElem, is_segmentation_);
     }
 }
 
