@@ -20,3 +20,4 @@ void cuda_decode(float* predict, int num_bboxes, float confidence_threshold,floa
 
 void cuda_nms(float* parray, float nms_threshold, int max_objects, cudaStream_t stream);
 
+void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map);

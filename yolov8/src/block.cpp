@@ -169,13 +169,13 @@ nvinfer1::ITensor& input, int ch, int grid, int k, int s, int p, std::string lna
 }
 
 
-nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, std::vector<nvinfer1::IConcatenationLayer*> dets) {
+nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, std::vector<nvinfer1::IConcatenationLayer*> dets, bool is_segmentation) {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
 
     nvinfer1::PluginField plugin_fields[1];
-    int netinfo[4] = {kNumClass, kInputW, kInputH, kMaxNumOutputBbox};
+    int netinfo[5] = {kNumClass, kInputW, kInputH, kMaxNumOutputBbox, is_segmentation};
     plugin_fields[0].data = netinfo;
-    plugin_fields[0].length = 4;
+    plugin_fields[0].length = 5;
     plugin_fields[0].name = "netinfo";
     plugin_fields[0].type = nvinfer1::PluginFieldType::kFLOAT32;
 
