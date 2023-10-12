@@ -179,6 +179,7 @@ class YoLov8TRT(object):
         # Here we use the first row of output in that batch_size = 1
         output = host_outputs[0]
         output_proto_mask = host_outputs[1]
+        
         # Do postprocess
         for i in range(self.batch_size):
             result_boxes, result_scores, result_classid, result_proto_coef = self.post_process(
@@ -189,19 +190,19 @@ class YoLov8TRT(object):
             result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i], batch_origin_w[i])
             
             # Draw masks on  the original image
-            self.draw_mask(result_masks, colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
+            # self.draw_mask(result_masks, colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
 
             # Draw rectangles and labels on the original image
-            for j in range(len(result_boxes)):
-                box = result_boxes[j]
-                plot_one_box(
-                    box,
-                    batch_image_raw[i],
-                    label="{}:{:.2f}".format(
-                        categories[int(result_classid[j])], result_scores[j]
-                    ),
-                )
-        return batch_image_raw, end - start
+        #     for j in range(len(result_boxes)):
+        #         box = result_boxes[j]
+        #         plot_one_box(
+        #             box,
+        #             batch_image_raw[i],
+        #             label="{}:{:.2f}".format(
+        #                 categories[int(result_classid[j])], result_scores[j]
+        #             ),
+        #         )
+        # return batch_image_raw, end - start
 
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
@@ -519,7 +520,7 @@ class Colors:
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "yolov8l-seg.engine"
+    engine_file_path = "yolov8n-seg.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
@@ -556,11 +557,11 @@ if __name__ == "__main__":
         image_dir = "images/"
         image_path_batches = get_img_path_batches(yolov8_wrapper.batch_size, image_dir)
 
-        for i in range(10):
-            # create a new thread to do warm_up
-            thread1 = warmUpThread(yolov8_wrapper)
-            thread1.start()
-            thread1.join()
+        # for i in range(10):
+        #     # create a new thread to do warm_up
+        #     thread1 = warmUpThread(yolov8_wrapper)
+        #     thread1.start()
+        #     thread1.join()
         for batch in image_path_batches:
             # create a new thread to do inference
             thread1 = inferThread(yolov8_wrapper, batch)

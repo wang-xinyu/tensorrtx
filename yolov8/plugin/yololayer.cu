@@ -137,7 +137,7 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
 
     int total_grid = grid_h * grid_w;
     int info_len = 4 + classes;
-    if(is_segmentation) info_len += 32;
+    if(is_segmentation == 1) info_len += 32;
     int batchIdx = idx / total_grid;
     int elemIdx = idx % total_grid;
     const float* curInput = input + batchIdx * total_grid * info_len;
@@ -145,7 +145,7 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
 
     int class_id = 0;
     float max_cls_prob = 0.0;
-    for (int i = 4; i < info_len; i++) {
+    for (int i = 4; i < 4 + classes; i++) {
         float p = Logist(curInput[elemIdx + i * total_grid]);
         if (p > max_cls_prob) {
             max_cls_prob = p;
