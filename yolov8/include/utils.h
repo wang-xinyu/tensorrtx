@@ -66,7 +66,6 @@ static inline std::string to_string_with_precision(const float a_value, const in
 }
 
 static inline int read_labels(const std::string labels_filename, std::unordered_map<int, std::string>& labels_map) {
-
     std::ifstream file(labels_filename);
     // Read each line of the file
     std::string line;
