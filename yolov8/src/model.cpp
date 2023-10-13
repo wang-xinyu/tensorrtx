@@ -38,13 +38,13 @@ static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network,
                                           nvinfer1::ITensor& input, std::string lname, int grid_shape, float gw) {
    
     int mid_channle = 0;
-    if(gw == 0.25 || gw== 0.5){
+    if(gw == 0.25 || gw== 0.5) {
         mid_channle = 32;
-    }else if(gw == 0.75){
+    } else if(gw == 0.75) {
         mid_channle = 48;
-    }else if(gw == 1.0){
+    } else if(gw == 1.00) {
         mid_channle = 64;
-    }else if(gw == 1.25){
+    } else if(gw == 1.25) {
         mid_channle = 80;
     }
     auto cv0 = convBnSiLU(network, weightMap, input, mid_channle, 3, 1, 1, lname + ".0");

@@ -17,8 +17,8 @@ const static int kOutputSegSize = 32 * (kInputH / 4) * (kInputW / 4);
 static cv::Rect get_downscale_rect(float bbox[4], float scale) {
 
   float left = bbox[0];
-  float top = bbox[1];
-  float right = bbox[0] + bbox[2];
+  float top  = bbox[1];
+  float right  = bbox[0] + bbox[2];
   float bottom = bbox[1] + bbox[3];
 
   left    = left < 0 ? 0 : left;
@@ -108,7 +108,7 @@ void deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngin
 
 void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **output_buffer_device, float **output_seg_buffer_device,
                     float **output_buffer_host,float **output_seg_buffer_host ,float **decode_ptr_host, float **decode_ptr_device, std::string cuda_post_process) {
-    // assert(engine->getNbBindings() == 3);
+    assert(engine->getNbBindings() == 3);
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(kInputTensorName);
@@ -167,8 +167,7 @@ bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, st
 {
     if (argc < 4)
         return false;
-    if (std::string(argv[1]) == "-s" && argc == 5)
-    {
+    if (std::string(argv[1]) == "-s" && argc == 5) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
         sub_type = std::string(argv[4]);
@@ -195,8 +194,7 @@ bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, st
         } else{
           return false;
         }
-    }
-    else if (std::string(argv[1]) == "-d" && argc == 6) {
+    } else if (std::string(argv[1]) == "-d" && argc == 6) {
       engine = std::string(argv[2]);
       img_dir = std::string(argv[3]);
       cuda_post_process = std::string(argv[4]);
@@ -207,8 +205,7 @@ bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, st
     return true;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     cudaSetDevice(kGpuId);
     std::string wts_name = "";
     std::string engine_name = "";
@@ -220,8 +217,7 @@ int main(int argc, char **argv)
     float gd = 0.0f, gw = 0.0f;
     int max_channels = 0;
 
-    if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type, cuda_post_process, labels_filename, gd, gw, max_channels))
-    {
+    if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type, cuda_post_process, labels_filename, gd, gw, max_channels)) {
         std::cerr << "Arguments not right!" << std::endl;
         std::cerr << "./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file" << std::endl;
         std::cerr << "./yolov8 -d [.engine] ../samples  [c/g] coco_file// deserialize plan file and run inference" << std::endl;
@@ -229,8 +225,7 @@ int main(int argc, char **argv)
     }
 
     // Create a model using the API directly and serialize it to a file
-    if (!wts_name.empty())
-    {
+    if (!wts_name.empty()) {
         serialize_engine(wts_name, engine_name, sub_type, gd, gw, max_channels);
         return 0;
     }
