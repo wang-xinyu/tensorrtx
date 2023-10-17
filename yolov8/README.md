@@ -9,7 +9,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 <a href="https://github.com/xiaocao-tian"><img src="https://avatars.githubusercontent.com/u/65889782?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/lindsayshuo"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/xinsuinizhuan"><img src="https://avatars.githubusercontent.com/u/40679769?v=4?s=48" width="40px;" alt=""/></a>
-
+<a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?s=48&v=4" width="40px;" alt=""/></a>
 
 ## Requirements
 
@@ -40,7 +40,7 @@ python gen_wts.py
 ```
 
 2. build tensorrtx/yolov8 and run
-
+### Detection
 ```
 cd {tensorrtx}/yolov8/
 // update kNumClass in config.h if your model is trained on custom dataset
@@ -49,13 +49,24 @@ cd build
 cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
 cmake ..
 make
-sudo ./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
-sudo ./yolov8 -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
+sudo ./yolov8_det -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
+sudo ./yolov8_det -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8
-sudo ./yolov8 -s yolov8n.wts yolov8.engine n
-sudo ./yolov8 -d yolov8n.engine ../images c //cpu postprocess
-sudo ./yolov8 -d yolov8n.engine ../images g //gpu postprocess
+sudo ./yolov8_det -s yolov8n.wts yolov8.engine n
+sudo ./yolov8_det -d yolov8n.engine ../images c //cpu postprocess
+sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
 
+```
+### Instance Segmentation
+```
+# Build and serialize TensorRT engine
+./yolov8_seg -s yolov8s-seg.wts yolov8s-seg.engine s
+
+# Download the labels file
+wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
+
+# Run inference with labels file
+./yolov8_seg -d yolov8s-seg.engine ../images c coco.txt //cpu postprocess
 ```
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 
