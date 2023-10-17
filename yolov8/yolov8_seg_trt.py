@@ -184,6 +184,9 @@ class YoLov8TRT(object):
             result_boxes, result_scores, result_classid,result_proto_coef = self.post_process(
                 output[i * 38001: (i + 1) * 38001], batch_origin_h[i], batch_origin_w[i]
             )
+
+            if result_proto_coef.shape[0] == 0:
+                continue
             result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i], batch_origin_w[i])
             
             self.draw_mask(result_masks, colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
