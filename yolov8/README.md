@@ -49,24 +49,24 @@ cd build
 cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
 cmake ..
 make
-sudo ./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
-sudo ./yolov8 -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
+sudo ./yolov8_det -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
+sudo ./yolov8_det -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8
-sudo ./yolov8 -s yolov8n.wts yolov8.engine n
-sudo ./yolov8 -d yolov8n.engine ../images c //cpu postprocess
-sudo ./yolov8 -d yolov8n.engine ../images g //gpu postprocess
+sudo ./yolov8_det -s yolov8n.wts yolov8.engine n
+sudo ./yolov8_det -d yolov8n.engine ../images c //cpu postprocess
+sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
 
 ```
 ### Instance Segmentation
 ```
 # Build and serialize TensorRT engine
-./yolov8_seg -s yolov8s-seg.wts yolov58-seg.engine s
+./yolov8_seg -s yolov8s-seg.wts yolov8-seg.engine s
 
 # Download the labels file
 wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
 
 # Run inference with labels file
-./yolov5_seg -d yolov5s-seg.engine ../images coco.txt
+./yolov8_seg -d yolov8s-seg.engine ../images c coco.txt //cpu postprocess
 ```
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 
