@@ -14,6 +14,7 @@ The basic workflow of TensorRTx is:
 4. Load the TensorRT engine and run inference.
 
 ## News
+- `17 Oct 2023`. [Rex-LK](https://github.com/Rex-LK): YOLOv8-Seg
 - `30 Jun 2023`. [xiaocao-tian](https://github.com/xiaocao-tian) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv8
 - `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn) and [UNet](./unet) upgrade to support TensorRT 8.
 - `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
@@ -28,7 +29,6 @@ The basic workflow of TensorRTx is:
 - `19 May 2022`. [vjsrinivas](https://github.com/vjsrinivas): YOLOv3 TRT8 support and Python script.
 - `15 Mar 2022`. [sky_hole](https://github.com/wdhao): Swin Transformer - Semantic Segmentation.
 - `19 Oct 2021`. [liuqi123123](https://github.com/liuqi123123) added cuda preprossing for yolov5, preprocessing + inference is 3x faster when batchsize=8.
-- `18 Oct 2021`. [xupengao](https://github.com/xupengao): YOLOv5 updated to v6.0, supporting n/s/m/l/x/n6/s6/m6/l6/x6.
 
 ## Tutorials
 
