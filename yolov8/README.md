@@ -40,7 +40,7 @@ python gen_wts.py
 ```
 
 2. build tensorrtx/yolov8 and run
-
+### Detection
 ```
 cd {tensorrtx}/yolov8/
 // update kNumClass in config.h if your model is trained on custom dataset
@@ -56,6 +56,17 @@ sudo ./yolov8 -s yolov8n.wts yolov8.engine n
 sudo ./yolov8 -d yolov8n.engine ../images c //cpu postprocess
 sudo ./yolov8 -d yolov8n.engine ../images g //gpu postprocess
 
+```
+### Instance Segmentation
+```
+# Build and serialize TensorRT engine
+./yolov8_seg -s yolov8s-seg.wts yolov58-seg.engine s
+
+# Download the labels file
+wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
+
+# Run inference with labels file
+./yolov5_seg -d yolov5s-seg.engine ../images coco.txt
 ```
 3. check the images generated, as follows. _zidane.jpg and _bus.jpg
 
