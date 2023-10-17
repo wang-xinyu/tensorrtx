@@ -60,7 +60,7 @@ sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
 ### Instance Segmentation
 ```
 # Build and serialize TensorRT engine
-./yolov8_seg -s yolov8s-seg.wts yolov8-seg.engine s
+./yolov8_seg -s yolov8s-seg.wts yolov8s-seg.engine s
 
 # Download the labels file
 wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
