@@ -59,9 +59,9 @@ static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network,
     return cv2_shuffle;
 }
 
-nvinfer1::IHostMemory *buildEngineYolov8Det(nvinfer1::IBuilder *builder,
-                                            nvinfer1::IBuilderConfig *config, nvinfer1::DataType dt,
-                                            const std::string &wts_path, float &gd, float &gw, int &max_channels) {
+nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
+                                            nvinfer1::IBuilderConfig* config, nvinfer1::DataType dt,
+                                            const std::string& wts_path, float& gd, float& gw, int& max_channels) {
     std::map<std::string, nvinfer1::Weights> weightMap = loadWeights(wts_path);
     nvinfer1::INetworkDefinition* network = builder->createNetworkV2(0U);
 
@@ -221,9 +221,9 @@ nvinfer1::IHostMemory *buildEngineYolov8Det(nvinfer1::IBuilder *builder,
     return serialized_model;
 }
 
-nvinfer1::IHostMemory *buildEngineYolov8Seg(nvinfer1::IBuilder *builder,
-                                            nvinfer1::IBuilderConfig *config, nvinfer1::DataType dt,
-                                            const std::string &wts_path, float &gd, float &gw, int &max_channels) {
+nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
+                                            nvinfer1::IBuilderConfig* config, nvinfer1::DataType dt,
+                                            const std::string& wts_path, float& gd, float& gw, int& max_channels) {
     std::map<std::string, nvinfer1::Weights> weightMap = loadWeights(wts_path);
     nvinfer1::INetworkDefinition* network = builder->createNetworkV2(0U);
 
