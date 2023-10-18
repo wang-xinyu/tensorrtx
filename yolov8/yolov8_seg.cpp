@@ -163,7 +163,7 @@ void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, flo
 }
 
 bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, std::string &img_dir, std::string &sub_type,
-                std::string &cuda_post_process, std::string labels_filename, float &gd, float &gw, int &max_channels)
+                std::string &cuda_post_process, std::string& labels_filename, float &gd, float &gw, int &max_channels)
 {
     if (argc < 4)
         return false;

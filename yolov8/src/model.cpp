@@ -123,7 +123,13 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
     int base_in_channel = (gw == 1.25) ? 80 : 64;
-    int base_out_channel = (gw == 0.25) ? 320 : 256;
+    int base_out_channel = 0;
+
+    if ( gw == 0.25 ) {
+        base_out_channel = std::max(64, std::min(kNumClass, 100));
+    } else {
+        base_out_channel = get_width(256, gw, max_channels);
+    }
 
     // output0
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.0.0");
@@ -131,8 +137,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     nvinfer1::IConvolutionLayer* conv22_cv2_0_2 = network->addConvolutionNd(*conv22_cv2_0_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv2.0.2.weight"], weightMap["model.22.cv2.0.2.bias"]);
     conv22_cv2_0_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv2_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
-    nvinfer1::IElementWiseLayer* conv22_cv3_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.0.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.0.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0),base_out_channel, 3, 1, 1, "model.22.cv3.0.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.0.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_0_2 = network->addConvolutionNd(*conv22_cv3_0_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.0.2.weight"], weightMap["model.22.cv3.0.2.bias"]);
     conv22_cv3_0_2->setStride(nvinfer1::DimsHW{1, 1});
     conv22_cv3_0_2->setPadding(nvinfer1::DimsHW{0, 0});
@@ -145,8 +151,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     nvinfer1::IConvolutionLayer* conv22_cv2_1_2 = network->addConvolutionNd(*conv22_cv2_1_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv2.1.2.weight"], weightMap["model.22.cv2.1.2.bias"]);
     conv22_cv2_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv2_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
-    nvinfer1::IElementWiseLayer* conv22_cv3_1_0 = convBnSiLU(network, weightMap, *conv18->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.1.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.1.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_1_0 = convBnSiLU(network, weightMap, *conv18->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.1.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.1.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_1_2 = network->addConvolutionNd(*conv22_cv3_1_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.1.2.weight"], weightMap["model.22.cv3.1.2.bias"]);
     conv22_cv3_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
@@ -157,8 +163,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     nvinfer1::IElementWiseLayer* conv22_cv2_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.2.0");
     nvinfer1::IElementWiseLayer* conv22_cv2_2_1 = convBnSiLU(network, weightMap, *conv22_cv2_2_0->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv2_2_2 = network->addConvolution(*conv22_cv2_2_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv2.2.2.weight"], weightMap["model.22.cv2.2.2.bias"]);
-    nvinfer1::IElementWiseLayer* conv22_cv3_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.2.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.2.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.2.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_2_2 = network->addConvolution(*conv22_cv3_2_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.2.2.weight"], weightMap["model.22.cv3.2.2.bias"]);
     nvinfer1::ITensor* inputTensor22_2[] = {conv22_cv2_2_2->getOutput(0), conv22_cv3_2_2->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat22_2 = network->addConcatenation(inputTensor22_2, 2);
@@ -281,7 +287,13 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
     int base_in_channel = (gw == 1.25) ? 80 : 64;
-    int base_out_channel = (gw == 0.25) ? 320 : 256;
+    int base_out_channel = 0;
+
+    if ( gw == 0.25 ) {
+        base_out_channel = std::max(64,std::min(kNumClass,100));
+    } else {
+        base_out_channel = get_width(256, gw, max_channels);
+    }
 
     // output0
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.0.0");
@@ -289,8 +301,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     nvinfer1::IConvolutionLayer* conv22_cv2_0_2 = network->addConvolutionNd(*conv22_cv2_0_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv2.0.2.weight"], weightMap["model.22.cv2.0.2.bias"]);
     conv22_cv2_0_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv2_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
-    nvinfer1::IElementWiseLayer *conv22_cv3_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.0.0");
-    nvinfer1::IElementWiseLayer *conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.0.1");
+    nvinfer1::IElementWiseLayer *conv22_cv3_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.0.0");
+    nvinfer1::IElementWiseLayer *conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.0.1");
     nvinfer1::IConvolutionLayer *conv22_cv3_0_2 = network->addConvolutionNd(*conv22_cv3_0_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.0.2.weight"], weightMap["model.22.cv3.0.2.bias"]);
     conv22_cv3_0_2->setStride(nvinfer1::DimsHW{1, 1});
     conv22_cv3_0_2->setPadding(nvinfer1::DimsHW{0, 0});
@@ -303,8 +315,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     nvinfer1::IConvolutionLayer* conv22_cv2_1_2 = network->addConvolutionNd(*conv22_cv2_1_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv2.1.2.weight"], weightMap["model.22.cv2.1.2.bias"]);
     conv22_cv2_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv2_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
-    nvinfer1::IElementWiseLayer* conv22_cv3_1_0 = convBnSiLU(network, weightMap, *conv18->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.1.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.1.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_1_0 = convBnSiLU(network, weightMap, *conv18->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.1.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.1.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_1_2 = network->addConvolutionNd(*conv22_cv3_1_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.1.2.weight"], weightMap["model.22.cv3.1.2.bias"]);
     conv22_cv3_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
@@ -315,8 +327,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     nvinfer1::IElementWiseLayer* conv22_cv2_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.2.0");
     nvinfer1::IElementWiseLayer* conv22_cv2_2_1 = convBnSiLU(network, weightMap, *conv22_cv2_2_0->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv2_2_2 = network->addConvolution(*conv22_cv2_2_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv2.2.2.weight"], weightMap["model.22.cv2.2.2.bias"]);
-    nvinfer1::IElementWiseLayer* conv22_cv3_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.2.0");
-    nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0), get_width(base_out_channel, gw, max_channels), 3, 1, 1, "model.22.cv3.2.1");
+    nvinfer1::IElementWiseLayer* conv22_cv3_2_0 = convBnSiLU(network, weightMap, *conv21->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.2.0");
+    nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0), base_out_channel, 3, 1, 1, "model.22.cv3.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_2_2 = network->addConvolution(*conv22_cv3_2_1->getOutput(0), kNumClass, nvinfer1::DimsHW{1, 1}, weightMap["model.22.cv3.2.2.weight"], weightMap["model.22.cv3.2.2.bias"]);
     nvinfer1::ITensor* inputTensor22_2[] = {conv22_cv2_2_2->getOutput(0), conv22_cv3_2_2->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat22_2 = network->addConcatenation(inputTensor22_2, 2);
