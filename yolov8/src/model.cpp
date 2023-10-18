@@ -123,13 +123,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
     int base_in_channel = (gw == 1.25) ? 80 : 64;
-    int base_out_channel = 0;
-
-    if ( gw == 0.25 ) {
-        base_out_channel = std::max(64, std::min(kNumClass, 100));
-    } else {
-        base_out_channel = get_width(256, gw, max_channels);
-    }
+    int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kNumClass, 100)) : get_width(256, gw, max_channels);
 
     // output0
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.0.0");
@@ -287,13 +281,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     *********************************************  YOLOV8 OUTPUT  ******************************************
     *******************************************************************************************************/
     int base_in_channel = (gw == 1.25) ? 80 : 64;
-    int base_out_channel = 0;
-
-    if ( gw == 0.25 ) {
-        base_out_channel = std::max(64,std::min(kNumClass,100));
-    } else {
-        base_out_channel = get_width(256, gw, max_channels);
-    }
+    int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kNumClass, 100)) : get_width(256, gw, max_channels);
 
     // output0
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 = convBnSiLU(network, weightMap, *conv15->getOutput(0), base_in_channel, 3, 1, 1, "model.22.cv2.0.0");
