@@ -205,7 +205,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    nvinfer1::IInt8EntropyCalibrator2* calibrator = new Calibrator(1, kInputW, kInputH, "../calibrator/", "int8calib.table", kInputTensorName);
+    nvinfer1::IInt8EntropyCalibrator2* calibrator = new IInt8EntropyCalibrator2(1, kInputW, kInputH, "../calibrator/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -377,7 +377,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    nvinfer1::IInt8EntropyCalibrator2* calibrator = new Calibrator(1, kInputW, kInputH, "../calibrator/", "int8calib.table", kInputTensorName);
+    nvinfer1::IInt8EntropyCalibrator2* calibrator = new IInt8EntropyCalibrator2(1, kInputW, kInputH, "../calibrator/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
