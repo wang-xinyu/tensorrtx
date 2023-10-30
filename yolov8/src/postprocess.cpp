@@ -30,17 +30,18 @@ cv::Rect get_rect(cv::Mat &img, float bbox[4]) {
 
 static float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
-            (std::max)(lbox[0] - lbox[2] / 2.f, rbox[0] - rbox[2] / 2.f), //left
-            (std::min)(lbox[0] + lbox[2] / 2.f, rbox[0] + rbox[2] / 2.f), //right
-            (std::max)(lbox[1] - lbox[3] / 2.f, rbox[1] - rbox[3] / 2.f), //top
-            (std::min)(lbox[1] + lbox[3] / 2.f, rbox[1] + rbox[3] / 2.f), //bottom
+            (std::max)(lbox[0], rbox[0]), //left
+            (std::min)(lbox[2], rbox[2]), //right
+            (std::max)(lbox[1], rbox[1]), //top
+            (std::min)(lbox[3], rbox[3]), //bottom
     };
 
     if (interBox[2] > interBox[3] || interBox[0] > interBox[1])
         return 0.0f;
 
     float interBoxS = (interBox[1] - interBox[0]) * (interBox[3] - interBox[2]);
-    return interBoxS / (lbox[2] * lbox[3] + rbox[2] * rbox[3] - interBoxS);
+    float unionBoxS = (lbox[2] - lbox[0]) * (lbox[3] - lbox[1]) + (rbox[2] - rbox[0]) * (rbox[3] - rbox[1]) - interBoxS;
+    return interBoxS / unionBoxS;
 }
 
 static bool cmp(const Detection &a, const Detection &b) {
