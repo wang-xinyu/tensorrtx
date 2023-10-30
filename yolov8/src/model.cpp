@@ -372,16 +372,15 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     builder->setMaxBatchSize(kBatchSize);
     config->setMaxWorkspaceSize(16 * (1 << 20));
 
-
-    #if defined(USE_FP16)
-        config->setFlag(nvinfer1::BuilderFlag::kFP16);
-    #elif defined(USE_INT8)
-        std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
-        assert(builder->platformHasFastInt8());
-        config->setFlag(nvinfer1::BuilderFlag::kINT8);
-        auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
-        config->setInt8Calibrator(calibrator);
-    #endif
+#if defined(USE_FP16)
+    config->setFlag(nvinfer1::BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(nvinfer1::BuilderFlag::kINT8);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
 
     std::cout << "Building engine, please wait for a while..." << std::endl;
     nvinfer1::IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
