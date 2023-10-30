@@ -18,14 +18,14 @@ static int get_depth(int x, float gd) {
     return std::max<int>(r, 1);
 }
 
-static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap, 
+static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap,
                                           nvinfer1::ITensor& input, std::string lname, float gw, int max_channels) {
     int mid_channel = get_width(256, gw, max_channels);
     auto cv1 = convBnSiLU(network, weightMap, input, mid_channel, 3, 1, 1, "model.22.proto.cv1");
     float* convTranpsose_bais = (float*)weightMap["model.22.proto.upsample.bias"].values;
     int convTranpsose_bais_len = weightMap["model.22.proto.upsample.bias"].count;
     nvinfer1::Weights bias{nvinfer1::DataType::kFLOAT, convTranpsose_bais, convTranpsose_bais_len};
-    auto convTranpsose  = network->addDeconvolutionNd(*cv1->getOutput(0), mid_channel, nvinfer1::DimsHW{2,2}, weightMap["model.22.proto.upsample.weight"], bias); 
+    auto convTranpsose  = network->addDeconvolutionNd(*cv1->getOutput(0), mid_channel, nvinfer1::DimsHW{2,2}, weightMap["model.22.proto.upsample.weight"], bias);
     assert(convTranpsose);
     convTranpsose->setStrideNd(nvinfer1::DimsHW{2, 2});
     auto cv2 = convBnSiLU(network,weightMap,*convTranpsose->getOutput(0), mid_channel, 3, 1, 1, "model.22.proto.cv2");
@@ -34,9 +34,9 @@ static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network,
     return cv3;
 }
 
-static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap, 
+static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap,
                                           nvinfer1::ITensor& input, std::string lname, int grid_shape, float gw) {
-   
+
     int mid_channle = 0;
     if(gw == 0.25 || gw== 0.5) {
         mid_channle = 32;
@@ -205,7 +205,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder,
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    nvinfer1::IInt8EntropyCalibrator2* calibrator = new Calibrator(1, kInputW, kInputH, "../calibrator/", "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -377,7 +377,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder,
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    nvinfer1::IInt8EntropyCalibrator2* calibrator = new Calibrator(1, kInputW, kInputH, "../calibrator/", "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
