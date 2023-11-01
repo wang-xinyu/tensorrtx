@@ -11,7 +11,7 @@ decode_kernel(float *predict, int num_bboxes, float confidence_threshold, float 
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
     if (position >= count)
         return;
-    float *pitem = predict + 1 + position * 6;
+    float *pitem = predict + 1 + position * (sizeof(Detection)/sizeof(float));
     int index = atomicAdd(parray, 1);
     if (index >= max_objects)
         return;
