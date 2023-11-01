@@ -6,12 +6,11 @@
 
 static __global__ void
 decode_kernel(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects) {
-
     float count = predict[0];
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
     if (position >= count)
         return;
-    float *pitem = predict + 1 + position * (sizeof(Detection)/sizeof(float));
+    float *pitem = predict + 1 + position * (sizeof(Detection) / sizeof(float));
     int index = atomicAdd(parray, 1);
     if (index >= max_objects)
         return;
@@ -30,12 +29,11 @@ decode_kernel(float *predict, int num_bboxes, float confidence_threshold, float 
     *pout_item++ = bottom;
     *pout_item++ = confidence;
     *pout_item++ = label;
-    *pout_item++ = 1; // 1 = keep, 0 = ignore
+    *pout_item++ = 1;  // 1 = keep, 0 = ignore
 }
 
 static __device__ float
 box_iou(float aleft, float atop, float aright, float abottom, float bleft, float btop, float bright, float bbottom) {
-
     float cleft = max(aleft, bleft);
     float ctop = max(atop, btop);
     float cright = min(aright, bright);
@@ -84,15 +82,13 @@ static __global__ void nms_kernel(float *bboxes, int max_objects, float threshol
 void cuda_decode(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects,
                  cudaStream_t stream) {
     int block = 256;
-    int grid = ceil(num_bboxes / (float) block);
+    int grid = ceil(num_bboxes / (float)block);
     decode_kernel << <
-    grid, block, 0, stream >> > ((float *) predict, num_bboxes, confidence_threshold, parray, max_objects);
-
+    grid, block, 0, stream >> > ((float *)predict, num_bboxes, confidence_threshold, parray, max_objects);
 }
 
 void cuda_nms(float *parray, float nms_threshold, int max_objects, cudaStream_t stream) {
     int block = max_objects < 256 ? max_objects : 256;
-    int grid = ceil(max_objects / (float) block);
+    int grid = ceil(max_objects / (float)block);
     nms_kernel << < grid, block, 0, stream >> > (parray, max_objects, nms_threshold);
-
 }
