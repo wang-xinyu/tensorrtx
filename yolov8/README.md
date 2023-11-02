@@ -10,6 +10,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 <a href="https://github.com/lindsayshuo"><img src="https://avatars.githubusercontent.com/u/45239466?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/xinsuinizhuan"><img src="https://avatars.githubusercontent.com/u/40679769?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/emptysoal"><img src="https://avatars.githubusercontent.com/u/57931586?s=48&v=4" width="40px;" alt=""/></a>
 
 ## Requirements
 
