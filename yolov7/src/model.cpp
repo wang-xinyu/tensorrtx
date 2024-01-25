@@ -424,16 +424,16 @@ IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
 
 
     // out
-    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv257->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.0.weight"], weightMap["model.261.m.0.bias"]);
+    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv257->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.0.weight"], weightMap["model.261.m.0.bias"]);
     assert(cv105_0);
     cv105_0->setName("cv105.0");
-    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv258->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.1.weight"], weightMap["model.261.m.1.bias"]);
+    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv258->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.1.weight"], weightMap["model.261.m.1.bias"]);
     assert(cv105_1);
     cv105_1->setName("cv105.1");
-    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv259->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.2.weight"], weightMap["model.261.m.2.bias"]);
+    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv259->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.2.weight"], weightMap["model.261.m.2.bias"]);
     assert(cv105_2);
     cv105_2->setName("cv105.2");
-    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv260->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.3.weight"], weightMap["model.261.m.3.bias"]);
+    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv260->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.261.m.3.weight"], weightMap["model.261.m.3.bias"]);
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
@@ -728,16 +728,16 @@ IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
 
 
     // out
-    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv158->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.0.weight"], weightMap["model.162.m.0.bias"]);
+    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv158->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.0.weight"], weightMap["model.162.m.0.bias"]);
     assert(cv105_0);
     cv105_0->setName("cv105.0");
-    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv159->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.1.weight"], weightMap["model.162.m.1.bias"]);
+    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv159->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.1.weight"], weightMap["model.162.m.1.bias"]);
     assert(cv105_1);
     cv105_1->setName("cv105.1");
-    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv160->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.2.weight"], weightMap["model.162.m.2.bias"]);
+    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv160->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.2.weight"], weightMap["model.162.m.2.bias"]);
     assert(cv105_2);
     cv105_2->setName("cv105.2");
-    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv161->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.3.weight"], weightMap["model.162.m.3.bias"]);
+    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv161->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.162.m.3.weight"], weightMap["model.162.m.3.bias"]);
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
@@ -999,16 +999,16 @@ IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 
 
      // out
-    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv136->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.0.weight"], weightMap["model.140.m.0.bias"]);
+    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv136->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.0.weight"], weightMap["model.140.m.0.bias"]);
     assert(cv105_0);
     cv105_0->setName("cv105.0");
-    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv137->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.1.weight"], weightMap["model.140.m.1.bias"]);
+    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv137->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.1.weight"], weightMap["model.140.m.1.bias"]);
     assert(cv105_1);
     cv105_1->setName("cv105.1");
-    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv138->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.2.weight"], weightMap["model.140.m.2.bias"]);
+    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv138->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.2.weight"], weightMap["model.140.m.2.bias"]);
     assert(cv105_2);
     cv105_2->setName("cv105.2");
-    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv139->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.3.weight"], weightMap["model.140.m.3.bias"]);
+    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv139->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.140.m.3.weight"], weightMap["model.140.m.3.bias"]);
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
@@ -1237,16 +1237,16 @@ IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv117 = convBnSilu(network, weightMap, *conv113->getOutput(0), 1024, 3, 1, 1, "model.117");
 
     // out
-    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv114->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.0.weight"], weightMap["model.118.m.0.bias"]);
+    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv114->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.0.weight"], weightMap["model.118.m.0.bias"]);
     assert(cv105_0);
     cv105_0->setName("cv105.0");
-    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv115->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.1.weight"], weightMap["model.118.m.1.bias"]);
+    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv115->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.1.weight"], weightMap["model.118.m.1.bias"]);
     assert(cv105_1);
     cv105_1->setName("cv105.1");
-    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv116->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.2.weight"], weightMap["model.118.m.2.bias"]);
+    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv116->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.2.weight"], weightMap["model.118.m.2.bias"]);
     assert(cv105_2);
     cv105_2->setName("cv105.2");
-    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv117->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.3.weight"], weightMap["model.118.m.3.bias"]);
+    IConvolutionLayer* cv105_3 = network->addConvolutionNd(*conv117->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.118.m.3.weight"], weightMap["model.118.m.3.bias"]);
     assert(cv105_3);
     cv105_3->setName("cv105.3");
 
@@ -1524,13 +1524,13 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
 
 
     /*----------------------------------yolov7 out-----------------------------------------*/
-    IConvolutionLayer* det0 = network->addConvolutionNd(*con_0->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.121.m.0.weight"], weightMap["model.121.m.0.bias"]);
+    IConvolutionLayer* det0 = network->addConvolutionNd(*con_0->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.121.m.0.weight"], weightMap["model.121.m.0.bias"]);
     assert(det0);
     det0->setName("det0");
-    IConvolutionLayer* det1 = network->addConvolutionNd(*con_1->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.121.m.1.weight"], weightMap["model.121.m.1.bias"]);
+    IConvolutionLayer* det1 = network->addConvolutionNd(*con_1->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.121.m.1.weight"], weightMap["model.121.m.1.bias"]);
     assert(det1);
     det1->setName("det1");
-    IConvolutionLayer* det2 = network->addConvolutionNd(*con_2->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.121.m.2.weight"], weightMap["model.121.m.2.bias"]);
+    IConvolutionLayer* det2 = network->addConvolutionNd(*con_2->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.121.m.2.weight"], weightMap["model.121.m.2.bias"]);
     assert(det2);
     det2->setName("det2");
 
@@ -1732,13 +1732,13 @@ IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     IElementWiseLayer* conv104 = RepConv(network, weightMap, *conv101->getOutput(0), 1024, 3, 1, "model.104");
 
     /*----------------------------------yolov7 out-----------------------------------------*/
-    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv102->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.105.m.0.weight"], weightMap["model.105.m.0.bias"]);
+    IConvolutionLayer* cv105_0 = network->addConvolutionNd(*conv102->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.105.m.0.weight"], weightMap["model.105.m.0.bias"]);
     assert(cv105_0);
     cv105_0->setName("cv105.0");
-    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv103->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.105.m.1.weight"], weightMap["model.105.m.1.bias"]);
+    IConvolutionLayer* cv105_1 = network->addConvolutionNd(*conv103->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.105.m.1.weight"], weightMap["model.105.m.1.bias"]);
     assert(cv105_1);
     cv105_1->setName("cv105.1");
-    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv104->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.105.m.2.weight"], weightMap["model.105.m.2.bias"]);
+    IConvolutionLayer* cv105_2 = network->addConvolutionNd(*conv104->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.105.m.2.weight"], weightMap["model.105.m.2.bias"]);
     assert(cv105_2);
     cv105_2->setName("cv105.2");
 
@@ -2087,11 +2087,11 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(conv76);
 
     /* ------ detect ------ */
-    IConvolutionLayer* det0 = network->addConvolutionNd(*conv74->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.0.weight"], weightMap["model.77.m.0.bias"]);
+    IConvolutionLayer* det0 = network->addConvolutionNd(*conv74->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.0.weight"], weightMap["model.77.m.0.bias"]);
    
-    IConvolutionLayer* det1 = network->addConvolutionNd(*conv75->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.1.weight"], weightMap["model.77.m.1.bias"]);
+    IConvolutionLayer* det1 = network->addConvolutionNd(*conv75->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.1.weight"], weightMap["model.77.m.1.bias"]);
 
-    IConvolutionLayer* det2 = network->addConvolutionNd(*conv76->getOutput(0), 3 * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.2.weight"], weightMap["model.77.m.2.bias"]);
+    IConvolutionLayer* det2 = network->addConvolutionNd(*conv76->getOutput(0), kNumAnchor * (kNumClass + 5), DimsHW{ 1, 1 }, weightMap["model.77.m.2.weight"], weightMap["model.77.m.2.bias"]);
 
     auto yolo = addYoLoLayer(network, weightMap, "model.77", std::vector<IConvolutionLayer*>{det0, det1, det2});
     yolo->getOutput(0)->setName(kOutputTensorName);
