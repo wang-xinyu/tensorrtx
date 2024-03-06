@@ -92,7 +92,7 @@ IElementWiseLayer* convBnSilu(INetworkDefinition* network, std::map<std::string,
     conv1->setPaddingNd(DimsHW{ p, p });
 
 
-    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-5);
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
 
 
     // silu = x * sigmoid(x)
