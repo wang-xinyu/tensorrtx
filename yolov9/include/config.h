@@ -7,10 +7,10 @@
 
 // For INT8, you need prepare the calibration dataset, please refer to
 // https://github.com/wang-xinyu/tensorrtx/tree/master/yolov5#int8-quantization
-#define USE_FP32  // set USE_INT8 or USE_FP16 or USE_FP32
+#define USE_INT8  // set USE_INT8 or USE_FP16 or USE_FP32
 
 #ifdef USE_INT8
-const static char* gCalibTablePath = "./calib/";
+const static char* gCalibTablePath = "/media/benol/131710FB9319A910/DataSet/coco128/images/train2017/";
 #endif
 
 // These are used to define input/output tensor names,

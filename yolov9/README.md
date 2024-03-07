@@ -5,10 +5,45 @@ The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/
 ## Contributors
 
 
+## Progress
+- [x] YOLOv9-c:
+    - [x] FP32
+    - [x] FP16
+    - [x] INT8
+- [x] YOLOv9-e:
+    - [x] FP32
+    - [x] FP16
+    - [x] INT8
+
 ## Requirements
 
 - TensorRT 8.0+
 - OpenCV 3.4.0+
+
+## Speed Test
+
+The speed test is done on a desktop with R7-5700G CPU and RTX 4060Ti GPU. The input size is 640x640. The FP32, FP16 and INT8 models are tested. The time only includes the inference time, not includes the pre-processing and post-processing. The time is the average of 1000 times inference.
+
+| frame  | Model | FP32 | FP16 | INT8 |
+| --- | --- | --- | --- | --- |
+| pytorch | YOLOv9-c | - | 15.5ms | - |
+| pytorch | YOLOv9-e | - | 19.7ms | - |
+| tensorrt | YOLOv9-c | 13.5ms | 4.6ms | 3.0ms |
+| tensorrt | YOLOv9-e | 8.3ms | 3.2ms | 2.15ms |
+
+YOLOv9-e is faster than YOLOv9-c in tensorrt, because the YOLOv9-e requires fewer layers of inference.
+```
+YOLOv9-c:
+[[31, 34, 37, 16, 19, 22], 1, DualDDetect, [nc]] # [A3, A4, A5, P3, P4, P5]
+
+YOLOv9-e:
+[[35, 32, 29, 42, 45, 48], 1, DualDDetect, [nc]]
+
+```
+
+In DualDDetect, the A3, A4, A5, P3, P4, P5 are the output of the backbone. The first 3 layers are used for the inference of the final result. 
+
+The YOLOv9-c requires 37 layers of inference, but YOLOv9-e requires 35 layers of inference.
 
 ## How to Run, yolov9 as example
 
@@ -48,6 +83,7 @@ sudo ./yolov9 -d yolov9-c.engine ../images
 // ensure the yolov9.engine and libmyplugins.so have been built
 python yolov9_trt.py
 ```
+
 
 # INT8 Quantization
 

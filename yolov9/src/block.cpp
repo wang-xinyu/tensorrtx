@@ -24,55 +24,55 @@ void PrintDim(const ILayer* layer, std::string log) {
     std::cout << std::endl;
 }
 std::map<std::string, Weights> loadWeights(const std::string file) {
-  std::cout << "Loading weights: " << file << std::endl;
-  std::map<std::string, Weights> weightMap;
+    std::cout << "Loading weights: " << file << std::endl;
+    std::map<std::string, Weights> weightMap;
 
-  // Open weights file
-  std::ifstream input(file);
-  assert(input.is_open() && "Unable to load weight file. please check if the .wts file path is right!!!!!!");
+    // Open weights file
+    std::ifstream input(file);
+    assert(input.is_open() && "Unable to load weight file. please check if the .wts file path is right!!!!!!");
 
-  // Read number of weight blobs
-  int32_t count;
-  input >> count;
-  assert(count > 0 && "Invalid weight map file.");
+    // Read number of weight blobs
+    int32_t count;
+    input >> count;
+    assert(count > 0 && "Invalid weight map file.");
 
-  while (count--) {
-    Weights wt{ DataType::kFLOAT, nullptr, 0 };
-    uint32_t size;
+    while (count--) {
+        Weights wt{ DataType::kFLOAT, nullptr, 0 };
+        uint32_t size;
 
-    // Read name and type of blob
-    std::string name;
-    input >> name >> std::dec >> size;
-    wt.type = DataType::kFLOAT;
+        // Read name and type of blob
+        std::string name;
+        input >> name >> std::dec >> size;
+        wt.type = DataType::kFLOAT;
 
-    // Load blob
-    uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-    for (uint32_t x = 0, y = size; x < y; ++x) {
-      input >> std::hex >> val[x];
+        // Load blob
+        uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
+        for (uint32_t x = 0, y = size; x < y; ++x) {
+            input >> std::hex >> val[x];
+        }
+        wt.values = val;
+
+        wt.count = size;
+        weightMap[name] = wt;
     }
-    wt.values = val;
 
-    wt.count = size;
-    weightMap[name] = wt;
-  }
-
-  return weightMap;
+    return weightMap;
 }
 
 int get_width(int x, float gw, int divisor) {
-  return int(ceil((x * gw) / divisor)) * divisor;
+    return int(ceil((x * gw) / divisor)) * divisor;
 }
 
 int get_depth(int x, float gd) {
-  if (x == 1) return 1;
-  int r = round(x * gd);
-  if (x * gd - int(x * gd) == 0.5 && (int(x * gd) % 2) == 0) {
-    --r;
-  }
-  return std::max<int>(r, 1);
+    if (x == 1) return 1;
+    int r = round(x * gd);
+    if (x * gd - int(x * gd) == 0.5 && (int(x * gd) % 2) == 0) {
+        --r;
+    }
+    return std::max<int>(r, 1);
 }
 static nvinfer1::IScaleLayer* addBatchNorm2d(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap,
-nvinfer1::ITensor& input, std::string lname, float eps){
+nvinfer1::ITensor& input, std::string lname, float eps) {
     float* gamma = (float*)weightMap[lname + ".weight"].values;
     float* beta = (float*)weightMap[lname + ".bias"].values;
     float* mean = (float*)weightMap[lname + ".running_mean"].values;
@@ -80,13 +80,13 @@ nvinfer1::ITensor& input, std::string lname, float eps){
     int len = weightMap[lname + ".running_var"].count;
 
     float* scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
-    for(int i = 0; i < len; i++){
+    for(int i = 0; i < len; i++) {
         scval[i] = gamma[i] / sqrt(var[i] + eps);
     }
     nvinfer1::Weights scale{nvinfer1::DataType::kFLOAT, scval, len};
 
     float* shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
-    for(int i = 0; i < len; i++){
+    for(int i = 0; i < len; i++) {
         shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
     }
     nvinfer1::Weights shift{nvinfer1::DataType::kFLOAT, shval, len};
@@ -148,12 +148,9 @@ ILayer* RepConvN(INetworkDefinition *network, std::map<std::string, Weights>& we
     ILayer* conv1 = convBnNoAct(network, weightMap, input, c2, k, s, p, lname + ".conv1", g);
     ILayer* conv2 = convBnNoAct(network, weightMap, input, c2, 1, s, p - k / 2, lname + ".conv2", g);
     ILayer* ew0 = network->addElementWise(*conv1->getOutput(0), *conv2->getOutput(0), ElementWiseOperation::kSUM);
-    // if (bn) {
-    //     ILayer* bn = convBnSiLU(network, weightMap, input, c2, 1, 1, 0, lname + ".bn", 1);
-    //     return network->addElementWise(*ew->getOutput(0), *bn->getOutput(0), ElementWiseOperation::kSUM);
-    // }
     nvinfer1::IActivationLayer* sigmoid = network->addActivation(*ew0->getOutput(0), nvinfer1::ActivationType::kSIGMOID);
     assert(sigmoid);
+    
     auto ew = network->addElementWise(*ew0->getOutput(0), *sigmoid->getOutput(0), nvinfer1::ElementWiseOperation::kPROD);
     assert(ew);
     return ew;
@@ -178,7 +175,7 @@ ILayer* RepNCSP(INetworkDefinition *network, std::map<std::string, Weights>& wei
     auto cv1 = convBnSiLU(network, weightMap, input, c_, 1, 1, 0, lname + ".cv1", 1);
     
     ILayer* m = cv1;
-    for(int i = 0;i<n;i++){
+    for(int i = 0;i<n;i++) {
         m = RepNBottleneck(network, weightMap, *m->getOutput(0), c_, c_, shortcut, 3, g, 1.0, lname + ".m." + std::to_string(i)); 
     }
 
@@ -193,7 +190,7 @@ ILayer* RepNCSP(INetworkDefinition *network, std::map<std::string, Weights>& wei
     auto cv3 = convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname + ".cv3", 1);
     return cv3;
 }
-ILayer* RepNCSPELAN4(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int c3, int c4, int c5, std::string lname){
+ILayer* RepNCSPELAN4(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2, int c3, int c4, int c5, std::string lname) {
   
     auto cv1 = convBnSiLU(network, weightMap, input, c3, 1, 1, 0, lname + ".cv1", 1);
     // 将cv1的输出分成两部分 chunk(2, 1)
@@ -261,7 +258,7 @@ ILayer* CBFuse(INetworkDefinition *network, std::vector<std::vector<ILayer*>> in
 	ILayer** res = new ILayer*[input.size()];
     res[input.size()-1] = input[input.size()-1][0];
 
-	for(int i = input.size()-2;i>=0;i--){
+	for(int i = input.size()-2;i>=0;i--) {
 		auto upsample = network->addResize(*input[i][idx[i]]->getOutput(0));
 		upsample->setResizeMode(ResizeMode::kNEAREST);
 		const float scales[] = {1, strides[i]/strides[strides.size() - 1], strides[i]/strides[strides.size() - 1]};
@@ -269,7 +266,7 @@ ILayer* CBFuse(INetworkDefinition *network, std::vector<std::vector<ILayer*>> in
 		res[i] = upsample;
 	}
 
-	for(int i = 1;i<input.size();i++){
+	for(int i = 1;i<input.size();i++) {
 		auto ew = network->addElementWise(*res[0]->getOutput(0), *res[i]->getOutput(0), ElementWiseOperation::kSUM);
 		res[0] = ew;
 	}
@@ -370,7 +367,7 @@ std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition *network, std::
 	std::vector<ILayer*> bboxlayers;
 	std::vector<ILayer*> clslayers;
 
- 	for(int i = 0;i<dets.size();i++){
+ 	for(int i = 0;i<dets.size();i++) {
 		// Conv(x, c2, 3), Conv(c2, c2, 3, g=4), nn.Conv2d(c2, 4 * self.reg_max, 1, groups=4)
 		bboxlayers.push_back(DetectBbox_Conv(network, weightMap, *dets[i]->getOutput(0), c2, reg_max, lname + ".cv2." + std::to_string(i)));
 		// Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, self.nc, 1)
@@ -383,7 +380,7 @@ std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition *network, std::
 	}
     std::vector<IConcatenationLayer*> ret;
 
-	for(int i = 0;i<dets.size();i++){
+	for(int i = 0;i<dets.size();i++) {
 		// softmax 16*4, w, h => 16, 4, w, h
 		auto loc = DFL(network, weightMap, *bboxlayers[i]->getOutput(0), 16, 1, 1, 0, lname + ".dfl");
         nvinfer1::ITensor* inputTensor[] = {loc->getOutput(0), clslayers[i]->getOutput(0)};
