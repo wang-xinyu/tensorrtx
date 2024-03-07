@@ -14,6 +14,7 @@ The basic workflow of TensorRTx is:
 4. Load the TensorRT engine and run inference.
 
 ## News
+- `7 Mar 2024`. [AadeIT](https://github.com/AadeIT): CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes
 - `17 Oct 2023`. [Rex-LK](https://github.com/Rex-LK): YOLOv8-Seg
 - `30 Jun 2023`. [xiaocao-tian](https://github.com/xiaocao-tian) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv8
 - `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn) and [UNet](./unet) upgrade to support TensorRT 8.
@@ -28,7 +29,6 @@ The basic workflow of TensorRTx is:
 - `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
 - `19 May 2022`. [vjsrinivas](https://github.com/vjsrinivas): YOLOv3 TRT8 support and Python script.
 - `15 Mar 2022`. [sky_hole](https://github.com/wdhao): Swin Transformer - Semantic Segmentation.
-- `19 Oct 2021`. [liuqi123123](https://github.com/liuqi123123) added cuda preprossing for yolov5, preprocessing + inference is 3x faster when batchsize=8.
 
 ## Tutorials
 
@@ -101,6 +101,7 @@ Following models are implemented.
 |[swin-transformer](./swin-transformer)| Swin Transformer - Semantic Segmentation, only support Swin-T. The Pytorch implementation is [microsoft/Swin-Transformer](https://github.com/microsoft/Swin-Transformer.git) |
 |[real-esrgan](./real-esrgan)| Real-ESRGAN. The Pytorch implementation is [real-esrgan](https://github.com/xinntao/Real-ESRGAN) |
 |[superpoint](./superpoint)| SuperPoint. The Pytorch model is from [magicleap/SuperPointPretrainedNetwork](https://github.com/magicleap/SuperPointPretrainedNetwork) |
+|[csrnet](./csrnet)| CSRNet. The Pytorch implementation is [leeyeehoo/CSRNet-pytorch](https://github.com/leeyeehoo/CSRNet-pytorch) |
 
 ## Model Zoo
 
