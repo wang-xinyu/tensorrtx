@@ -39,10 +39,17 @@ sudo ./csrnet -s  ./csrnet.wts
 Loading weights: ./csrnet.wts
 build engine successfully : ./csrnet.engine
 
-sudo ./csrnet -d  ./data
+sudo ./csrnet -d  ./images
 
 // output e.g
-enqueueV2 time: 0.0328306s
-detect time:44ms
-Sum: 22.9101
+// enqueueV2 time: 0.0323869s
+// detect time:44ms
+// people num :22.9101 write_path: ../images/result_test.jpg
 ```
+
+
+# result 
+
+inference people num: 22.9101
+
+<img src="https://raw.githubusercontent.com/wang-xinyu/tensorrtx/e358a5dd798a308d8213e2c8ad45730b26188f27/result_test.jpg"  alt="result jpg">
