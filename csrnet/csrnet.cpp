@@ -419,7 +419,7 @@ int main(int argc, char **argv) {
     std::cerr << "./csrnet -s  ./csrnet.wts // serialize model to plan file"
               << std::endl;
     std::cerr
-        << "./csrnet -d  ../data  // deserialize plan file and run inference"
+        << "./csrnet -d  ../images  // deserialize plan file and run inference"
         << std::endl;
     return -1;
   }
@@ -505,11 +505,17 @@ int main(int argc, char **argv) {
                                                                        start)
                      .count()
               << "ms" << std::endl;
-    float sum = std::accumulate(
+    float num = std::accumulate(
         prob, prob + ((src_img.rows * src_img.cols) >> 6), 0.0f);
 
-    // 输出总和
-    std::cout << "Sum: " << sum << std::endl;
+    // write to jpg
+    cv::putText(src_img, std::string("people num: ") + std::to_string(num),
+                cv::Point(10, 50), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+                cv::Scalar(255, 255, 255), 1);
+    std::string write_path = std::string(argv[2]) + "result_" + f;
+    std::cout << "people num :" << num << " write_path: " << write_path
+              << std::endl;
+    cv::imwrite(write_path, src_img);
   }
   delete[] data;
   delete[] prob;
