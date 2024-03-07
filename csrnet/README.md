@@ -39,12 +39,13 @@ sudo ./csrnet -s  ./csrnet.wts
 Loading weights: ./csrnet.wts
 build engine successfully : ./csrnet.engine
 
+// download images https://github.com/wang-xinyu/tensorrtx/assets/46584679/46bc4def-e573-44ae-996d-5d68927c78ff and copy to images
 sudo ./csrnet -d  ./images
 
 // output e.g
 // enqueueV2 time: 0.0323869s
 // detect time:44ms
-// people num :22.9101 write_path: ../images/result_test.jpg
+// people num :22.9101 write_path: ../images/data.jpg
 ```
 
 
@@ -52,4 +53,6 @@ sudo ./csrnet -d  ./images
 
 inference people num: 22.9101
 
-<img src="https://raw.githubusercontent.com/wang-xinyu/tensorrtx/e358a5dd798a308d8213e2c8ad45730b26188f27/result_test.jpg"  alt="result jpg">
+<p align="center">
+<img src= https://raw.githubusercontent.com/wang-xinyu/tensorrtx/dbf857d25f77bf64113fc99a745ccf4973bdd44e/Density_Plot.jpg>
+</p>

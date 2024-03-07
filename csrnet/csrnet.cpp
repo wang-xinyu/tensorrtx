@@ -508,6 +508,18 @@ int main(int argc, char **argv) {
     float num = std::accumulate(
         prob, prob + ((src_img.rows * src_img.cols) >> 6), 0.0f);
 
+    cv::Mat densityMap(src_img.rows >> 3, src_img.cols >> 3, CV_32FC1,
+                       (void *)prob);
+
+    cv::Mat densityMapScaled;
+    cv::normalize(densityMap, densityMapScaled, 0, 255, cv::NORM_MINMAX,
+                  CV_8UC1);
+    cv::Mat densityColorMap;
+    cv::applyColorMap(densityMapScaled, densityColorMap, cv::COLORMAP_VIRIDIS);
+
+    cv::resize(densityColorMap, densityColorMap, src_img.size());
+    cv::addWeighted(densityColorMap, 0.5, src_img, 0.5, 0, src_img);
+
     // write to jpg
     cv::putText(src_img, std::string("people num: ") + std::to_string(num),
                 cv::Point(10, 50), cv::FONT_HERSHEY_SIMPLEX, 0.5,
