@@ -59,7 +59,7 @@ IHostMemory* build_engine_yolov9_e(unsigned int maxBatchSize, IBuilder* builder,
     auto repncspelan_9 = RepNCSPELAN4(network, weightMap, *adown_8->getOutput(0), 512, 1024, 512, 256, 2, "model.9");
 
     // [1, 1, CBLinear, [[64]]], # 10
-    auto cblinear_10 = CBLinear(network, weightMap, *conv_1->getOutput(0), { 64}, 1, 1, 0, 1, "model.10");
+    auto cblinear_10 = CBLinear(network, weightMap, *conv_1->getOutput(0), { 64 }, 1, 1, 0, 1, "model.10");
     // [3, 1, CBLinear, [[64, 128]]], # 11
     auto cblinear_11 = CBLinear(network, weightMap, *repncspelan_3->getOutput(0), { 64, 128 }, 1, 1, 0, 1, "model.11");
     // [5, 1, CBLinear, [[64, 128, 256]]], # 12
@@ -73,17 +73,13 @@ IHostMemory* build_engine_yolov9_e(unsigned int maxBatchSize, IBuilder* builder,
     // [0, 1, Conv, [64, 3, 2]],  # 15-P1/2
     auto conv_15 = convBnSiLU(network, weightMap, *data, 64, 3, 2, 1, "model.15", 1);
     // [[10, 11, 12, 13, 14, -1], 1, CBFuse, [[0, 0, 0, 0, 0]]], # 16
-    auto cbfuse_16 = CBFuse(network, {cblinear_10, cblinear_11, cblinear_12, cblinear_13, cblinear_14, std::vector<ILayer*>{conv_15}}, 
-                            {0, 0, 0, 0, 0, 0}, 
-                            {2, 4, 8, 16, 32, 2});
+    auto cbfuse_16 = CBFuse(network, { cblinear_10, cblinear_11, cblinear_12, cblinear_13, cblinear_14, std::vector<ILayer*>{ conv_15 } }, { 0, 0, 0, 0, 0, 0 }, { 2, 4, 8, 16, 32, 2 });
     
     // conv down
     // [-1, 1, Conv, [128, 3, 2]],  # 17-P2/4
     auto conv_17 = convBnSiLU(network, weightMap, *cbfuse_16->getOutput(0), 128, 3, 2, 1, "model.17");
     // [[11, 12, 13, 14, -1], 1, CBFuse, [[1, 1, 1, 1]]], # 18  
-    auto cbfuse_18 = CBFuse(network, {cblinear_11, cblinear_12, cblinear_13, cblinear_14, std::vector<ILayer*>{conv_17}},
-                            {1, 1, 1, 1, 0},
-                            {4, 8, 16, 32, 4});
+    auto cbfuse_18 = CBFuse(network, { cblinear_11, cblinear_12, cblinear_13, cblinear_14, std::vector<ILayer*>{ conv_17 } }, { 1, 1, 1, 1, 0 }, { 4, 8, 16, 32, 4 });
     
     // csp-elan block
     // [-1, 1, RepNCSPELAN4, [256, 128, 64, 2]],  # 19
@@ -93,9 +89,7 @@ IHostMemory* build_engine_yolov9_e(unsigned int maxBatchSize, IBuilder* builder,
     // [-1, 1, ADown, [256]],  # 20-P3/8
     auto adown_20 = ADown(network, weightMap, *repncspelan_19->getOutput(0), 256, "model.20");
     // [[12, 13, 14, -1], 1, CBFuse, [[2, 2, 2]]], # 21  
-    auto cbfuse_21 = CBFuse(network, {cblinear_12, cblinear_13, cblinear_14, std::vector<ILayer*>{adown_20}},
-                            {2, 2, 2, 0},
-                            {8, 16, 32, 8});
+    auto cbfuse_21 = CBFuse(network, { cblinear_12, cblinear_13, cblinear_14, std::vector<ILayer*>{ adown_20 } }, { 2, 2, 2, 0 }, { 8, 16, 32, 8 });
 
     // csp-elan block
     // [-1, 1, RepNCSPELAN4, [512, 256, 128, 2]],  # 22
@@ -105,9 +99,7 @@ IHostMemory* build_engine_yolov9_e(unsigned int maxBatchSize, IBuilder* builder,
     // [-1, 1, ADown, [512]],  # 23-P4/16
     auto adown_23 = ADown(network, weightMap, *repncspelan_22->getOutput(0), 512, "model.23");
     // [[13, 14, -1], 1, CBFuse, [[3, 3]]], # 24 
-    auto cbfuse_24 = CBFuse(network, {cblinear_13, cblinear_14, std::vector<ILayer*>{adown_23}},
-                            {3, 3, 0},
-                            {16, 32, 16});
+    auto cbfuse_24 = CBFuse(network, { cblinear_13, cblinear_14, std::vector<ILayer*>{ adown_23 } }, { 3, 3, 0 }, { 16, 32, 16 });
 
     // csp-elan block
     // [-1, 1, RepNCSPELAN4, [1024, 512, 256, 2]],  # 25
@@ -117,9 +109,7 @@ IHostMemory* build_engine_yolov9_e(unsigned int maxBatchSize, IBuilder* builder,
     // [-1, 1, ADown, [1024]],  # 26-P5/32
     auto adown_26 = ADown(network, weightMap, *repncspelan_25->getOutput(0), 1024, "model.26");
     // [[14, -1], 1, CBFuse, [[4]]], # 27
-    auto cbfuse_27 = CBFuse(network, {cblinear_14, std::vector<ILayer*>{adown_26}},
-                            {4, 0},
-                            {32, 32});
+    auto cbfuse_27 = CBFuse(network, { cblinear_14, std::vector<ILayer*>{ adown_26 } }, { 4, 0 }, { 32, 32 });
 
     // csp-elan block
     // [-1, 1, RepNCSPELAN4, [1024, 512, 256, 2]],  # 28
@@ -210,7 +200,7 @@ IHostMemory* build_engine_yolov9_e(unsigned int maxBatchSize, IBuilder* builder,
     auto repncspelan_48 = RepNCSPELAN4(network, weightMap, *cat_47->getOutput(0), 1024, 512, 1024, 512, 2, "model.48");
     
     // auto DualDDetect_49 = DualDDetect(network, weightMap, std::vector<ILayer*>{RepNCSPELAN_42, RepNCSPELAN_45, RepNCSPELAN_48}, kNumClass, {256, 512, 512}, "model.49");
-    auto dualddetect_49 = DualDDetect(network, weightMap, std::vector<ILayer*>{repncspelan_35, repncspelan_32, sppelan_29}, kNumClass, {256, 512, 512}, "model.49");
+    auto dualddetect_49 = DualDDetect(network, weightMap, std::vector<ILayer*>{ repncspelan_35, repncspelan_32, sppelan_29 }, kNumClass, { 256, 512, 512 }, "model.49");
     
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(network, dualddetect_49, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
@@ -335,7 +325,7 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
 
     // # routing
     // [5, 1, CBLinear, [[256]]], # 23
-    auto cblinear_23 = CBLinear(network, weightMap, *repncspelan_5->getOutput(0), { 256}, 1, 1, 0, 1, "model.23");
+    auto cblinear_23 = CBLinear(network, weightMap, *repncspelan_5->getOutput(0), { 256 }, 1, 1, 0, 1, "model.23");
     // [7, 1, CBLinear, [[256, 512]]], # 24
     auto cblinear_24 = CBLinear(network, weightMap, *repncspelan_7->getOutput(0), { 256, 512 }, 1, 1, 0, 1, "model.24");
     // [9, 1, CBLinear, [[256, 512, 512]]], # 25
@@ -357,9 +347,7 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
     // [-1, 1, ADown, [256]],  # 29-P3/8
     auto adown_29 = ADown(network, weightMap, *repncspelan_28->getOutput(0), 256, "model.29");
     // [[23, 24, 25, -1], 1, CBFuse, [[0, 0, 0]]], # 30  
-    auto cbfuse = CBFuse(network, {cblinear_23, cblinear_24, cblinear_25, std::vector<ILayer*>{adown_29}},
-                            {0, 0, 0, 0},
-                            {8, 16, 32, 8});
+    auto cbfuse = CBFuse(network, { cblinear_23, cblinear_24, cblinear_25, std::vector<ILayer*>{ adown_29 } }, { 0, 0, 0, 0 }, { 8, 16, 32, 8 });
 
     // # elan-2 block
     // [-1, 1, RepNCSPELAN4, [512, 256, 128, 1]],  # 31
@@ -369,9 +357,7 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
     // [-1, 1, ADown, [512]],  # 32-P4/16
     auto adown_32 = ADown(network, weightMap, *repncspelan_31->getOutput(0), 512, "model.32");
     // [[24, 25, -1], 1, CBFuse, [[1, 1]]], # 33 
-    auto cbfuse_33 = CBFuse(network, {cblinear_24, cblinear_25, std::vector<ILayer*>{adown_32}},
-                            {1, 1, 0},
-                            {16, 32, 16});
+    auto cbfuse_33 = CBFuse(network, { cblinear_24, cblinear_25, std::vector<ILayer*>{ adown_32 } }, { 1, 1, 0 }, { 16, 32, 16 });
 
     // # elan-2 block
     // [-1, 1, RepNCSPELAN4, [512, 512, 256, 1]],  # 34
@@ -383,9 +369,7 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
 
 
     // [[25, -1], 1, CBFuse, [[2]]], # 36
-    auto cbfuse_36 = CBFuse(network, {cblinear_25, std::vector<ILayer*>{adown_35}},
-                            {2, 0},
-                            {32, 32});
+    auto cbfuse_36 = CBFuse(network, { cblinear_25, std::vector<ILayer*>{ adown_35 } }, { 2, 0 }, { 32, 32 });
 
     // # elan-2 block
     // [-1, 1, RepNCSPELAN4, [512, 512, 256, 1]],  # 37
@@ -394,7 +378,7 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
     // # detection head
     // # detect
     // [[31, 34, 37, 16, 19, 22], 1, DualDDetect, [nc]],  # DualDDetect(A3, A4, A5, P3, P4, P5)
-    auto dualddetect_38 = DualDDetect(network, weightMap, std::vector<ILayer*>{repncspelan_31, repncspelan_34, repncspelan_37}, kNumClass, {512, 512, 512}, "model.38");
+    auto dualddetect_38 = DualDDetect(network, weightMap, std::vector<ILayer*>{ repncspelan_31, repncspelan_34, repncspelan_37 }, kNumClass, { 512, 512, 512 }, "model.38");
     
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(network, dualddetect_38, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
