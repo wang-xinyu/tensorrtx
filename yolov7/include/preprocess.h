@@ -3,6 +3,7 @@
 #include <cuda_runtime.h>
 #include <cstdint>
 #include <opencv2/opencv.hpp>
+#include <iostream>
 
 void cuda_preprocess_init(int max_image_size);
 void cuda_preprocess_destroy();
