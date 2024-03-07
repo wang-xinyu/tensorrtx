@@ -206,7 +206,7 @@ ILayer* RepNCSPELAN4(INetworkDefinition *network, std::map<std::string, Weights>
     auto cv3_0 = RepNCSP(network, weightMap, *cv2_1->getOutput(0), c4, c4, c5, true, 1, 0.5, lname + ".cv3.0");
     auto cv3_1 = convBnSiLU(network, weightMap, *cv3_0->getOutput(0), c4, 3, 1, 1, lname + ".cv3.1", 1);
     
-    ITensor* inputTensors[] = {split1->getOutput(0), split2->getOutput(0), cv2_1->getOutput(0), cv3_1->getOutput(0) };
+    ITensor* inputTensors[] = { split1->getOutput(0), split2->getOutput(0), cv2_1->getOutput(0), cv3_1->getOutput(0) };
     auto cat = network->addConcatenation(inputTensors, 4);
     auto cv4 = convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname + ".cv4", 1);
     return cv4;
@@ -219,8 +219,8 @@ ILayer* ADown(INetworkDefinition *network, std::map<std::string, Weights>& weigh
     pool->setPaddingNd(DimsHW{ 0, 0 });
 
     nvinfer1::Dims d = pool->getOutput(0)->getDimensions();
-    nvinfer1::ISliceLayer* split1 = network->addSlice(*pool->getOutput(0), nvinfer1::Dims3{0,0,0}, nvinfer1::Dims3{d.d[0]/2, d.d[1], d.d[2]}, nvinfer1::Dims3{1,1,1});
-    nvinfer1::ISliceLayer* split2 = network->addSlice(*pool->getOutput(0), nvinfer1::Dims3{d.d[0]/2,0,0}, nvinfer1::Dims3{d.d[0]/2, d.d[1], d.d[2]}, nvinfer1::Dims3{1,1,1});
+    nvinfer1::ISliceLayer* split1 = network->addSlice(*pool->getOutput(0), nvinfer1::Dims3{ 0, 0, 0}, nvinfer1::Dims3{ d.d[0]/2, d.d[1], d.d[2] }, nvinfer1::Dims3{ 1, 1, 1 });
+    nvinfer1::ISliceLayer* split2 = network->addSlice(*pool->getOutput(0), nvinfer1::Dims3{ d.d[0]/2, 0, 0}, nvinfer1::Dims3{ d.d[0]/2, d.d[1], d.d[2] }, nvinfer1::Dims3{ 1, 1, 1 });
  
     // auto chunklayer = layer_split(1, pool->getOutput(0), network);
     auto cv1 = convBnSiLU(network, weightMap, *split1->getOutput(0), c_, 3, 2, 1, lname + ".cv1", 1);
@@ -261,7 +261,7 @@ ILayer* CBFuse(INetworkDefinition *network, std::vector<std::vector<ILayer*>> in
     for(int i = input.size()-2; i >= 0; i--) {
         auto upsample = network->addResize(*input[i][idx[i]]->getOutput(0));
         upsample->setResizeMode(ResizeMode::kNEAREST);
-        const float scales[] = {1, strides[i]/strides[strides.size() - 1], strides[i]/strides[strides.size() - 1]};
+        const float scales[] = { 1, strides[i] / strides[strides.size() - 1], strides[i] / strides[strides.size() - 1] };
         upsample->setScales(scales, 3);
         res[i] = upsample;
     }
@@ -314,23 +314,22 @@ ILayer* DetectCls_Conv(INetworkDefinition *network, std::map<std::string, Weight
     return cv_2;
 }
 
-nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
-        nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname){
+nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname){
     auto dim = input.getDimensions();
     int c = dim.d[0];
     int grid = dim.d[1] * dim.d[2];
     int split_num = c / ch;
 
     nvinfer1::IShuffleLayer* shuffle1 = network->addShuffle(input);
-    shuffle1->setReshapeDimensions(nvinfer1::Dims3{split_num, ch, grid});
-    shuffle1->setSecondTranspose(nvinfer1::Permutation{1, 0, 2});
+    shuffle1->setReshapeDimensions(nvinfer1::Dims3{ split_num, ch, grid });
+    shuffle1->setSecondTranspose(nvinfer1::Permutation{ 1, 0, 2 });
     nvinfer1::ISoftMaxLayer* softmax = network->addSoftMax(*shuffle1->getOutput(0));
-    nvinfer1::Weights bias_empty{nvinfer1::DataType::kFLOAT, nullptr, 0};
+    nvinfer1::Weights bias_empty{ nvinfer1::DataType::kFLOAT, nullptr, 0 };
     nvinfer1::IConvolutionLayer* conv = network->addConvolutionNd(*softmax->getOutput(0), 1, nvinfer1::DimsHW{1, 1}, weightMap[lname + ".conv.weight"], bias_empty);
-    conv->setStrideNd(nvinfer1::DimsHW{s, s});
-    conv->setPaddingNd(nvinfer1::DimsHW{p, p});
+    conv->setStrideNd(nvinfer1::DimsHW{ s, s });
+    conv->setPaddingNd(nvinfer1::DimsHW{ p, p });
     nvinfer1::IShuffleLayer* shuffle2 = network->addShuffle(*conv->getOutput(0));
-    shuffle2->setReshapeDimensions(nvinfer1::Dims2{4, grid});
+    shuffle2->setReshapeDimensions(nvinfer1::Dims2{ 4, grid });
     return shuffle2;
 }
 
@@ -338,7 +337,7 @@ nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, st
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
 
     nvinfer1::PluginField plugin_fields[1];
-    int netinfo[5] = {kNumClass, kInputW, kInputH, kMaxNumOutputBbox, is_segmentation};
+    int netinfo[5] = { kNumClass, kInputW, kInputH, kMaxNumOutputBbox, is_segmentation };
     plugin_fields[0].data = netinfo;
     plugin_fields[0].length = 5;
     plugin_fields[0].name = "netinfo";
@@ -371,7 +370,7 @@ std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition *network, std::
         auto cls_layer = DetectCls_Conv(network, weightMap, *dets[i]->getOutput(0), c3, cls, lname + ".cv3." + std::to_string(i));
         auto dim = cls_layer->getOutput(0)->getDimensions();
         nvinfer1::IShuffleLayer* shuffle = network->addShuffle(*cls_layer->getOutput(0));
-        shuffle->setReshapeDimensions(nvinfer1::Dims2{kNumClass, dim.d[1] * dim.d[2]});
+        shuffle->setReshapeDimensions(nvinfer1::Dims2{ kNumClass, dim.d[1] * dim.d[2] });
         clslayers.push_back(shuffle);
     }
 
@@ -379,7 +378,7 @@ std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition *network, std::
     for (int i = 0; i < dets.size(); i++) {
         // softmax 16*4, w, h => 16, 4, w, h
         auto loc = DFL(network, weightMap, *bboxlayers[i]->getOutput(0), 16, 1, 1, 0, lname + ".dfl");
-        nvinfer1::ITensor* inputTensor[] = {loc->getOutput(0), clslayers[i]->getOutput(0)};
+        nvinfer1::ITensor* inputTensor[] = { loc->getOutput(0), clslayers[i]->getOutput(0) };
         ret.push_back(network->addConcatenation(inputTensor, 2));  
     }
     return ret;
