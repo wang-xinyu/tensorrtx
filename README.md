@@ -14,6 +14,8 @@ The basic workflow of TensorRTx is:
 4. Load the TensorRT engine and run inference.
 
 ## News
+
+- `11 Mar 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information
 - `7 Mar 2024`. [AadeIT](https://github.com/AadeIT): CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes
 - `17 Oct 2023`. [Rex-LK](https://github.com/Rex-LK): YOLOv8-Seg
 - `30 Jun 2023`. [xiaocao-tian](https://github.com/xiaocao-tian) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv8
@@ -28,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
 - `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
 - `19 May 2022`. [vjsrinivas](https://github.com/vjsrinivas): YOLOv3 TRT8 support and Python script.
-- `15 Mar 2022`. [sky_hole](https://github.com/wdhao): Swin Transformer - Semantic Segmentation.
 
 ## Tutorials
 
@@ -77,6 +78,7 @@ Following models are implemented.
 |[yolov5](./yolov5)| yolov5 v1.0-v7.0 of [ultralytics/yolov5](https://github.com/ultralytics/yolov5), detection, classification and instance segmentation |
 |[yolov7](./yolov7)| yolov7 v0.1, pytorch implementation from [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7) |
 |[yolov8](./yolov8)| yolov8, pytorch implementation from [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) |
+|[yolov9](./yolov9)| The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/yolov9). |
 |[yolop](./yolop)| yolop, pytorch implementation from [hustvl/YOLOP](https://github.com/hustvl/YOLOP) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, LResNet100E-IR and MobileFaceNet, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
