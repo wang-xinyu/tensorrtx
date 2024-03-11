@@ -10,7 +10,7 @@
 #define USE_INT8  // set USE_INT8 or USE_FP16 or USE_FP32
 
 #ifdef USE_INT8
-const static char* gCalibTablePath = "/media/benol/131710FB9319A910/DataSet/coco128/images/train2017/";
+const static char* gCalibTablePath = "./calib";
 #endif
 
 // These are used to define input/output tensor names,
