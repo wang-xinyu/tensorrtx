@@ -16,7 +16,6 @@ using namespace nvinfer1;
 static Logger gLogger;
 const static int kOutputSize = kClsNumClass;
 
-
 void batch_preprocess(std::vector<cv::Mat>& imgs, float* output, int dst_width=224, int dst_height=224) {
     for (size_t b = 0; b < imgs.size(); b++) {
     int h = imgs[b].rows;
@@ -51,12 +50,12 @@ std::vector<float> softmax(float *prob, int n) {
     float sum = 0.0f;
     float t;
     for (int i = 0; i < n; i++) {
-    t = expf(prob[i]);
-    res.push_back(t);
-    sum += t;
+        t = expf(prob[i]);
+        res.push_back(t);
+        sum += t;
     }
     for (int i = 0; i < n; i++) {
-    res[i] /= sum;
+        res[i] /= sum;
     }
     return res;
 }
@@ -71,7 +70,7 @@ std::vector<int> topk(const std::vector<float>& vec, int k) {
     int k_num = std::min<int>(vec.size(), k);
 
     for (int i = 0; i < k_num; ++i) {
-    topk_index.push_back(vec_index[i]);
+        topk_index.push_back(vec_index[i]);
     }
 
     return topk_index;
@@ -81,12 +80,12 @@ std::vector<std::string> read_classes(std::string file_name) {
     std::vector<std::string> classes;
     std::ifstream ifs(file_name, std::ios::in);
     if (!ifs.is_open()) {
-    std::cerr << file_name << " is not found, pls refer to README and download it." << std::endl;
-    assert(0);
+        std::cerr << file_name << " is not found, pls refer to README and download it." << std::endl;
+        assert(0);
     }
     std::string s;
     while (std::getline(ifs, s)) {
-    classes.push_back(s);
+        classes.push_back(s);
     }
     ifs.close();
     return classes;
@@ -95,32 +94,32 @@ std::vector<std::string> read_classes(std::string file_name) {
 bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir) {
     if (argc < 4) return false;
     if (std::string(argv[1]) == "-s" && (argc == 5)) {
-    wts = std::string(argv[2]);
-    engine = std::string(argv[3]);
-    auto net = std::string(argv[4]);
-    if (net[0] == 'n') {
-      gd = 0.33;
-      gw = 0.25;
-    } else if (net[0] == 's') {
-      gd = 0.33;
-      gw = 0.50;
-    } else if (net[0] == 'm') {
-      gd = 0.67;
-      gw = 0.75;
-    } else if (net[0] == 'l') {
-      gd = 1.0;
-      gw = 1.0;
-    } else if (net[0] == 'x') {
-      gd = 1.0;
-      gw = 1.25;
-    }  else {
-      return false;
-    }
+        wts = std::string(argv[2]);
+        engine = std::string(argv[3]);
+        auto net = std::string(argv[4]);
+        if (net[0] == 'n') {
+          gd = 0.33;
+          gw = 0.25;
+        } else if (net[0] == 's') {
+          gd = 0.33;
+          gw = 0.50;
+        } else if (net[0] == 'm') {
+          gd = 0.67;
+          gw = 0.75;
+        } else if (net[0] == 'l') {
+          gd = 1.0;
+          gw = 1.0;
+        } else if (net[0] == 'x') {
+          gd = 1.0;
+          gw = 1.25;
+        }  else {
+          return false;
+        }
     } else if (std::string(argv[1]) == "-d" && argc == 4) {
-    engine = std::string(argv[2]);
-    img_dir = std::string(argv[3]);
+        engine = std::string(argv[2]);
+        img_dir = std::string(argv[3]);
     } else {
-    return false;
+        return false;
     }
     return true;
 }
@@ -160,8 +159,8 @@ void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::str
     // Save engine to file
     std::ofstream p(engine_name, std::ios::binary);
     if (!p) {
-    std::cerr << "Could not open plan output file" << std::endl;
-    assert(false);
+        std::cerr << "Could not open plan output file" << std::endl;
+        assert(false);
     }
     p.write(reinterpret_cast<const char*>(serialized_engine->data()), serialized_engine->size());
 
@@ -174,8 +173,8 @@ void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::str
 void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
-    std::cerr << "read " << engine_name << " error!" << std::endl;
-    assert(false);
+        std::cerr << "read " << engine_name << " error!" << std::endl;
+        assert(false);
     }
     size_t size = 0;
     file.seekg(0, file.end);
@@ -233,8 +232,8 @@ int main(int argc, char** argv) {
     // Read images from directory
     std::vector<std::string> file_names;
     if (read_files_in_dir(img_dir.c_str(), file_names) < 0) {
-    std::cerr << "read_files_in_dir failed." << std::endl;
-    return -1;
+        std::cerr << "read_files_in_dir failed." << std::endl;
+        return -1;
     }
 
     // Read imagenet labels
@@ -242,34 +241,34 @@ int main(int argc, char** argv) {
 
     // batch predict
     for (size_t i = 0; i < file_names.size(); i += kBatchSize) {
-    // Get a batch of images
-    std::vector<cv::Mat> img_batch;
-    std::vector<std::string> img_name_batch;
-    for (size_t j = i; j < i + kBatchSize && j < file_names.size(); j++) {
-      cv::Mat img = cv::imread(img_dir + "/" + file_names[j]);
-      img_batch.push_back(img);
-      img_name_batch.push_back(file_names[j]);
-    }
+        // Get a batch of images
+        std::vector<cv::Mat> img_batch;
+        std::vector<std::string> img_name_batch;
+        for (size_t j = i; j < i + kBatchSize && j < file_names.size(); j++) {
+            cv::Mat img = cv::imread(img_dir + "/" + file_names[j]);
+            img_batch.push_back(img);
+            img_name_batch.push_back(file_names[j]);
+        }
 
-    // Preprocess
-    batch_preprocess(img_batch, cpu_input_buffer);
+        // Preprocess
+        batch_preprocess(img_batch, cpu_input_buffer);
 
-    // Run inference
-    auto start = std::chrono::system_clock::now();
-    infer(*context, stream, (void**)device_buffers, cpu_input_buffer, output_buffer_host, kBatchSize);
-    auto end = std::chrono::system_clock::now();
-    std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        // Run inference
+        auto start = std::chrono::system_clock::now();
+        infer(*context, stream, (void**)device_buffers, cpu_input_buffer, output_buffer_host, kBatchSize);
+        auto end = std::chrono::system_clock::now();
+        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
 
-    // Postprocess and get top-k result
-    for (size_t b = 0; b < img_name_batch.size(); b++) {
-      float* p = &output_buffer_host[b * kOutputSize];
-      auto res = softmax(p, kOutputSize);
-      auto topk_idx = topk(res, 3);
-      std::cout << img_name_batch[b] << std::endl;
-      for (auto idx: topk_idx) {
-        std::cout << "  " << classes[idx] << " " << res[idx] << std::endl;
-      }
-    }
+        // Postprocess and get top-k result
+        for (size_t b = 0; b < img_name_batch.size(); b++) {
+            float* p = &output_buffer_host[b * kOutputSize];
+            auto res = softmax(p, kOutputSize);
+            auto topk_idx = topk(res, 3);
+            std::cout << img_name_batch[b] << std::endl;
+            for (auto idx: topk_idx) {
+              std::cout << "  " << classes[idx] << " " << res[idx] << std::endl;
+        }
+        }
     }
 
     // Release stream and buffers
