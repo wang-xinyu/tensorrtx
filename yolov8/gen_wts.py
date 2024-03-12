@@ -4,8 +4,34 @@ import os
 import struct
 import torch
 
-pt_file = "./weights/yolov8s.pt"
-wts_file = "./weights/yolov8s.wts"
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Convert .pt file to .wts')
+    parser.add_argument('-w', '--weights', required=True,
+                        help='Input weights (.pt) file path (required)')
+    parser.add_argument(
+        '-o', '--output', help='Output (.wts) file path (optional)')
+    parser.add_argument(
+        '-t', '--type', type=str, default='detect', choices=['detect', 'cls', 'seg'],
+        help='determines the model is detection/classification')
+    args = parser.parse_args()
+    if not os.path.isfile(args.weights):
+        raise SystemExit('Invalid input file')
+    if not args.output:
+        args.output = os.path.splitext(args.weights)[0] + '.wts'
+    elif os.path.isdir(args.output):
+        args.output = os.path.join(
+            args.output,
+            os.path.splitext(os.path.basename(args.weights))[0] + '.wts')
+    return args.weights, args.output, args.type
+
+
+pt_file, wts_file, m_type = parse_args()
+
+print(f'Generating .wts for {m_type} model')
+
+# Load model
+print(f'Loading {pt_file}')
 
 # Initialize
 device = 'cpu'
@@ -13,9 +39,10 @@ device = 'cpu'
 # Load model
 model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
 
-anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
+if m_type in ['detect', 'seg']:
+    anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
 
-delattr(model.model[-1], 'anchors')
+    delattr(model.model[-1], 'anchors')
 
 model.to(device).eval()
 

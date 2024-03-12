@@ -36,7 +36,6 @@ std::map<std::string, nvinfer1::Weights> loadWeights(const std::string file){
     return WeightMap;
 }
 
-
 static nvinfer1::IScaleLayer* addBatchNorm2d(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap,
 nvinfer1::ITensor& input, std::string lname, float eps){
     float* gamma = (float*)weightMap[lname + ".weight"].values;
@@ -70,7 +69,6 @@ nvinfer1::ITensor& input, std::string lname, float eps){
     return output;
 }
 
-
 nvinfer1::IElementWiseLayer* convBnSiLU(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
 nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname){
     nvinfer1::Weights bias_empty{nvinfer1::DataType::kFLOAT, nullptr, 0};
@@ -79,14 +77,13 @@ nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname){
     conv->setStrideNd(nvinfer1::DimsHW{s, s});
     conv->setPaddingNd(nvinfer1::DimsHW{p, p});
 
-    nvinfer1::IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv->getOutput(0), lname+".bn", 1e-5);
+    nvinfer1::IScaleLayer* bn = addBatchNorm2d(network, weightMap, *conv->getOutput(0), lname+".bn", 1e-3);
 
     nvinfer1::IActivationLayer* sigmoid = network->addActivation(*bn->getOutput(0), nvinfer1::ActivationType::kSIGMOID);
     nvinfer1::IElementWiseLayer* ew = network->addElementWise(*bn->getOutput(0), *sigmoid->getOutput(0), nvinfer1::ElementWiseOperation::kPROD);
     assert(ew);
     return ew;
 }
-
 
 nvinfer1::ILayer* bottleneck(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
 nvinfer1::ITensor& input, int c1, int c2, bool shortcut, float e, std::string lname){
@@ -99,7 +96,6 @@ nvinfer1::ITensor& input, int c1, int c2, bool shortcut, float e, std::string ln
     }
     return conv2;
 }
-
 
 nvinfer1::IElementWiseLayer* C2F(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
 nvinfer1::ITensor& input, int c1, int c2, int n, bool shortcut, float e, std::string lname){
@@ -126,13 +122,10 @@ nvinfer1::ITensor& input, int c1, int c2, int n, bool shortcut, float e, std::st
     return conv2;
 }
 
-
 nvinfer1::IElementWiseLayer* SPPF(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
 nvinfer1::ITensor& input, int c1, int c2, int k, std::string lname){
     int c_ = c1 / 2;
-    
     nvinfer1::IElementWiseLayer* conv1 = convBnSiLU(network, weightMap, input, c_, 1, 1, 0, lname+".cv1");
-    
     nvinfer1::IPoolingLayer* pool1 = network->addPoolingNd(*conv1->getOutput(0), nvinfer1::PoolingType::kMAX, nvinfer1::DimsHW{k,k});
     pool1->setStrideNd(nvinfer1::DimsHW{1, 1});
     pool1->setPaddingNd(nvinfer1::DimsHW{ k / 2, k / 2 });
@@ -147,7 +140,6 @@ nvinfer1::ITensor& input, int c1, int c2, int k, std::string lname){
     nvinfer1::IElementWiseLayer* conv2 = convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname+".cv2");
     return conv2;
 }
-
 
 nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
 nvinfer1::ITensor& input, int ch, int grid, int k, int s, int p, std::string lname){
@@ -168,7 +160,6 @@ nvinfer1::ITensor& input, int ch, int grid, int k, int s, int p, std::string lna
     return shuffle2;
 }
 
-
 nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, std::vector<nvinfer1::IConcatenationLayer*> dets, bool is_segmentation) {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
 
@@ -178,8 +169,6 @@ nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition *network, st
     plugin_fields[0].length = 5;
     plugin_fields[0].name = "netinfo";
     plugin_fields[0].type = nvinfer1::PluginFieldType::kFLOAT32;
-
-
     nvinfer1::PluginFieldCollection plugin_data;
     plugin_data.nbFields = 1;
     plugin_data.fields = plugin_fields;
