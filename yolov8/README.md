@@ -41,6 +41,7 @@ python gen_wts.py -w yolov8n.pt -o yolov8n.wts -t detect
 ```
 
 2. build tensorrtx/yolov8 and run
+
 ### Detection
 ```
 cd {tensorrtx}/yolov8/
@@ -56,8 +57,8 @@ sudo ./yolov8_det -d [.engine] [image folder]  [c/g] // deserialize and run infe
 sudo ./yolov8_det -s yolov8n.wts yolov8.engine n
 sudo ./yolov8_det -d yolov8n.engine ../images c //cpu postprocess
 sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
-
 ```
+
 ### Instance Segmentation
 ```
 # Build and serialize TensorRT engine
@@ -67,10 +68,10 @@ sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
 wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
 
 # Run inference with labels file
-./yolov8_seg -d yolov8s-seg.engine ../images c coco.txt //cpu postprocess
+./yolov8_seg -d yolov8s-seg.engine ../images c coco.txt
 ```
 
-### classification
+### Classification
 ```
 cd {tensorrtx}/yolov8/
 // Download inference images
@@ -80,7 +81,7 @@ cp -r  1709970363.6990473rescls.jpg samples
 // Download ImageNet labels
 wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/imagenet_classes.txt
 
-// update kNumClass in config.h if your model is trained on custom dataset
+// update kClsNumClass in config.h if your model is trained on custom dataset
 mkdir build
 cd build
 cp {ultralytics}/ultralytics/yolov8n-cls.wts {tensorrtx}/yolov8/build
@@ -88,11 +89,10 @@ cmake ..
 make
 sudo ./yolov8_cls -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file
 sudo ./yolov8_cls -d [.engine] [image folder]  // deserialize and run inference, the images in [image folder] will be processed.
-// For example yolov8
+
+// For example yolov8n
 sudo ./yolov8_cls -s yolov8n-cls.wts yolov8-cls.engine n
 sudo ./yolov8_cls -d yolov8n-cls.engine ../samples
-
-
 ```
 
 4. optional, load and run the tensorrt model in python
@@ -100,9 +100,9 @@ sudo ./yolov8_cls -d yolov8n-cls.engine ../samples
 ```
 // install python-tensorrt, pycuda, etc.
 // ensure the yolov8n.engine and libmyplugins.so have been built
-python yolov8_det.py  #Detection
-python yolov8_seg.py  #Segmentation
-python yolov8_cls.py  #classification
+python yolov8_det.py  # Detection
+python yolov8_seg.py  # Segmentation
+python yolov8_cls.py  # Classification
 ```
 
 # INT8 Quantization
