@@ -141,13 +141,11 @@ void prepare_buffers(ICudaEngine* engine, float** gpu_input_buffer, float** gpu_
     *output_buffer_host = new float[kBatchSize * kOutputSize];
 }
 
-
 void infer(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* input, float* output, int batchSize) {
     CUDA_CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * kClsInputH * kClsInputW * sizeof(float), cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
     CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
-  
 }
 
 void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::string& wts_name, std::string& engine_name) {
@@ -206,16 +204,16 @@ int main(int argc, char** argv) {
     std::string img_dir;
 
     if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir)) {
-    std::cerr << "arguments not right!" << std::endl;
-    std::cerr << "./yolov8_cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
-    std::cerr << "./yolov8_cls -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
-    return -1;
+        std::cerr << "arguments not right!" << std::endl;
+        std::cerr << "./yolov8_cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov8_cls -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+        return -1;
     }
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
-    serialize_engine(kBatchSize, gd, gw, wts_name, engine_name);
-    return 0;
+        serialize_engine(kBatchSize, gd, gw, wts_name, engine_name);
+        return 0;
     }
 
     // Deserialize the engine from file
@@ -284,7 +282,5 @@ int main(int argc, char** argv) {
     delete context;
     delete engine;
     delete runtime;
-
     return 0;
 }
-
