@@ -197,8 +197,10 @@ class YoLov8TRT(object):
 	    
 	    # Convert the image to row-major order, also known as "C order"
 	    image = np.ascontiguousarray(image)
+
+	    batch_data = np.expand_dims(image, axis=0)
 	    
-	    return image
+	    return batch_data
 
     def postprocess_cls(self, output_data):
         classes_ls = []
