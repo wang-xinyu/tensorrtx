@@ -184,9 +184,9 @@ int num_heads = 8
     assert(softmax);
     softmax->setAxes(4);
     #if NV_TENSORRT_MAJOR >= 8
-        auto attn_product_v = network->addMatrixMultiply(*softmax->getOutput(0), nvinfer1::MatrixOperation::kNONE, *v_shuffle->getOutput(0), nvinfer1::MatrixOperation::kNONE);
+    auto attn_product_v = network->addMatrixMultiply(*softmax->getOutput(0), nvinfer1::MatrixOperation::kNONE, *v_shuffle->getOutput(0), nvinfer1::MatrixOperation::kNONE);
     #else
-        auto attn_product_v = network->addMatrixMultiply(*softmax->getOutput(0), false, *v_shuffle->getOutput(0), false);
+    auto attn_product_v = network->addMatrixMultiply(*softmax->getOutput(0), false, *v_shuffle->getOutput(0), false);
     #endif
     assert(attn_product_v);
 
