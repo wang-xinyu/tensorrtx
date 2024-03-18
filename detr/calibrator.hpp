@@ -8,9 +8,8 @@
 #include <fstream>
 #include <algorithm>
 #include "common.hpp"
-
 #include "macros.h"
-
+ 
 //! \class Int8EntropyCalibrator2
 //!
 //! \brief Implements Entropy calibrator 2.
