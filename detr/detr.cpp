@@ -170,8 +170,11 @@ int num_heads = 8
     v_shuffle->setName((lname + ".v_shuffle").c_str());
     v_shuffle->setReshapeDimensions(Dims3{ -1, num_heads, head_dim });
     v_shuffle->setSecondTranspose(Permutation{ 1, 0, 2 });
-
+#if NV_TENSORRT_MAJOR >= 8
+    auto q_product_k = network->addMatrixMultiply(*q_shuffle->getOutput(0), nvinfer1::MatrixOperation::kNONE, *k_shuffle->getOutput(0), nvinfer1::MatrixOperation::kTRANSPOSE);
+#else
     auto q_product_k = network->addMatrixMultiply(*q_shuffle->getOutput(0), false, *k_shuffle->getOutput(0), true);
+#endif
     assert(q_product_k);
 
     // src_key_padding_mask are all false, so do nothing here
@@ -180,8 +183,11 @@ int num_heads = 8
     auto softmax = network->addSoftMax(*q_product_k->getOutput(0));
     assert(softmax);
     softmax->setAxes(4);
-
+#if NV_TENSORRT_MAJOR >= 8
+    auto attn_product_v = network->addMatrixMultiply(*softmax->getOutput(0), nvinfer1::MatrixOperation::kNONE, *v_shuffle->getOutput(0), nvinfer1::MatrixOperation::kNONE);
+#else
     auto attn_product_v = network->addMatrixMultiply(*softmax->getOutput(0), false, *v_shuffle->getOutput(0), false);
+#endif
     assert(attn_product_v);
 
     auto attn_shuffle = network->addShuffle(*attn_product_v->getOutput(0));
