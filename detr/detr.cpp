@@ -171,9 +171,9 @@ int num_heads = 8
     v_shuffle->setReshapeDimensions(Dims3{ -1, num_heads, head_dim });
     v_shuffle->setSecondTranspose(Permutation{ 1, 0, 2 });
     #if NV_TENSORRT_MAJOR >= 8
-        auto q_product_k = network->addMatrixMultiply(*q_shuffle->getOutput(0), nvinfer1::MatrixOperation::kNONE, *k_shuffle->getOutput(0), nvinfer1::MatrixOperation::kTRANSPOSE);
+    auto q_product_k = network->addMatrixMultiply(*q_shuffle->getOutput(0), nvinfer1::MatrixOperation::kNONE, *k_shuffle->getOutput(0), nvinfer1::MatrixOperation::kTRANSPOSE);
     #else
-        auto q_product_k = network->addMatrixMultiply(*q_shuffle->getOutput(0), false, *k_shuffle->getOutput(0), true);
+    auto q_product_k = network->addMatrixMultiply(*q_shuffle->getOutput(0), false, *k_shuffle->getOutput(0), true);
     #endif
     assert(q_product_k);
 
