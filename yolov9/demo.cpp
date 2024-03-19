@@ -1,19 +1,20 @@
-#include "config.h"
-#include "model.h"
-#include "cuda_utils.h"
-#include "logging.h"
-#include "utils.h"
-#include "preprocess.h"
-#include "postprocess.h"
 #include <chrono>
 #include <fstream>
+#include "config.h"
+#include "cuda_utils.h"
+#include "logging.h"
+#include "model.h"
+#include "postprocess.h"
+#include "preprocess.h"
+#include "utils.h"
 
 using namespace nvinfer1;
 
 const static int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 static Logger gLogger;
 
-void serialize_engine(unsigned int maxBatchSize, std::string& wts_name, std::string& sub_type, std::string& engine_name) {
+void serialize_engine(unsigned int max_batchsize, std::string& wts_name, std::string& sub_type,
+                      std::string& engine_name) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
@@ -21,11 +22,10 @@ void serialize_engine(unsigned int maxBatchSize, std::string& wts_name, std::str
     // Create model to populate the network, then set the outputs and create an engine
     IHostMemory* serialized_engine = nullptr;
     if (sub_type == "e") {
-        serialized_engine = build_engine_yolov9_e(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    } else if(sub_type == "c"){
-        serialized_engine = build_engine_yolov9_c(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
-    }
-    else {
+        serialized_engine = build_engine_yolov9_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    } else if (sub_type == "c") {
+        serialized_engine = build_engine_yolov9_c(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    } else {
         return;
     }
     assert(serialized_engine != nullptr);
@@ -42,7 +42,8 @@ void serialize_engine(unsigned int maxBatchSize, std::string& wts_name, std::str
     delete builder;
 }
 
-void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
+void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine,
+                        IExecutionContext** context) {
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
         std::cerr << "read " << engine_name << " error!" << std::endl;
@@ -66,7 +67,8 @@ void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngin
     delete[] serialized_engine;
 }
 
-void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** output_buffer_device, float** output_buffer_host) {
+void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** output_buffer_device,
+                    float** output_buffer_host) {
     assert(engine->getNbBindings() == 2);
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
@@ -84,12 +86,15 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
 void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* output, int batchSize) {
     // infer on the batch asynchronously, and DMA output back to host
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,
+                               stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, std::string& img_dir, std::string& sub_type) {
-    if (argc < 4) return false;
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, std::string& img_dir,
+                std::string& sub_type) {
+    if (argc < 4)
+        return false;
     if (std::string(argv[1]) == "-s" && argc == 5) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
@@ -120,7 +125,6 @@ int main(int argc, char** argv) {
         std::cerr << "./yolov9 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
-
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
@@ -171,7 +175,10 @@ int main(int argc, char** argv) {
         }
         // infer(*context, stream, (void**)device_buffers, output_buffer_host, kBatchSize);
         auto end = std::chrono::system_clock::now();
-        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0 / speed_test_iter << "ms" << std::endl;
+        std::cout << "inference time: "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0 /
+                             speed_test_iter
+                  << "ms" << std::endl;
 
         // NMS
         std::vector<std::vector<Detection>> res_batch;
@@ -208,4 +215,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
