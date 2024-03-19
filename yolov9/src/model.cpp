@@ -379,7 +379,7 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
     // # detect
     // [[31, 34, 37, 16, 19, 22], 1, DualDDetect, [nc]],  # DualDDetect(A3, A4, A5, P3, P4, P5)
     auto dualddetect_38 = DualDDetect(network, weightMap, std::vector<ILayer*>{ repncspelan_31, repncspelan_34, repncspelan_37 }, kNumClass, { 512, 512, 512 }, "model.38");
-    
+
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(network, dualddetect_38, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
