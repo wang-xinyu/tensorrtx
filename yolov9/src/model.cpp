@@ -362,11 +362,10 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
     // # elan-2 block
     // [-1, 1, RepNCSPELAN4, [512, 512, 256, 1]],  # 34
     auto repncspelan_34 = RepNCSPELAN4(network, weightMap, *cbfuse_33->getOutput(0), 512, 512, 512, 256, 1, "model.34");
-    
+
     // # avg-conv down fuse
     // [-1, 1, ADown, [512]],  # 35-P5/32
     auto adown_35 = ADown(network, weightMap, *repncspelan_34->getOutput(0), 512, "model.35");
-
 
     // [[25, -1], 1, CBFuse, [[2]]], # 36
     auto cbfuse_36 = CBFuse(network, { cblinear_25, std::vector<ILayer*>{ adown_35 } }, { 2, 0 }, { 32, 32 });
