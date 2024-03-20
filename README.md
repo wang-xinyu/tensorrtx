@@ -33,6 +33,7 @@ The basic workflow of TensorRTx is:
 
 ## Tutorials
 
+- [How to make contribution](./tutorials/contribution.md)
 - [Install the dependencies.](./tutorials/install.md)
 - [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
 - [The .wts file content format](./tutorials/getting_started.md#the-wts-content-format)
@@ -145,7 +146,7 @@ Some tricky operations encountered in these models, already solved, but might ha
 | YOLOv3-spp(darknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 38.5 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 35.7 |
 | YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 40.9 |
-| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 41.3 | 
+| YOLOv4(CSPDarknet53) | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 41.3 |
 | YOLOv5-s v3.0 | Xeon E5-2620/GTX1080 | 1 | FP32 | 608x608 | 142 |
 | YOLOv5-s v3.0 | Xeon E5-2620/GTX1080 | 4 | FP32 | 608x608 | 173 |
 | YOLOv5-s v3.0 | Xeon E5-2620/GTX1080 | 8 | FP32 | 608x608 | 190 |

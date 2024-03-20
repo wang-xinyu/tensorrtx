@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        # grab the history of the PR
+        fetch-depth: 0
     - uses: actions/setup-python@v3
     - uses: pre-commit/action@v3.0.1
       with:
