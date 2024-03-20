@@ -33,6 +33,7 @@ The basic workflow of TensorRTx is:
 
 ## Tutorials
 
+- [How to make contribution](./tutorials/contribution.md)
 - [Install the dependencies.](./tutorials/install.md)
 - [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
 - [The .wts file content format](./tutorials/getting_started.md#the-wts-content-format)
