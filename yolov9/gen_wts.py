@@ -32,7 +32,7 @@ print(f'Generating .wts for {m_type} model')
 print(f'Loading {pt_file}')
 device = select_device('cpu')
 model = torch.load(pt_file, map_location=device)  # Load FP32 weights
-model.model.float()
+model = model["model"].float()
 
 if m_type in ['detect', 'seg']:
     # update anchor_grid info
