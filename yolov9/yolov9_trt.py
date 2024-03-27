@@ -10,7 +10,7 @@ import threading
 import time
 import cv2
 import numpy as np
-import pycuda.autoinit
+import pycuda.autoinit  # noqa: F401
 import pycuda.driver as cuda
 import tensorrt as trt
 
@@ -36,7 +36,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,
                  this function comes from yolov9 project.
-    param: 
+    param:
         x:      a box likes [x1,y1,x2,y2]
         img:    a opencv image object
         color:  color to draw rectangle, such as (0,255,0)
@@ -129,7 +129,6 @@ class yolov9TRT(object):
         # Restore
         stream = self.stream
         context = self.context
-        engine = self.engine
         host_inputs = self.host_inputs
         cuda_inputs = self.cuda_inputs
         host_outputs = self.host_outputs
@@ -274,11 +273,12 @@ class yolov9TRT(object):
             y /= r_h
 
         return y
+
     def post_process(self, output, origin_h, origin_w):
         """
         description: postprocess the prediction
         param:
-            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...] 
+            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...]
             origin_h:   height of original image
             origin_w:   width of original image
         return:
@@ -302,7 +302,7 @@ class yolov9TRT(object):
         description: compute the IoU of two bounding boxes
         param:
             box1: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))            
+            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
             x1y1x2y2: select the coordinate format
         return:
             iou: computed iou
@@ -325,7 +325,7 @@ class yolov9TRT(object):
         inter_rect_y2 = np.minimum(b1_y2, b2_y2)
         # Intersection area
         inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * \
-                     np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
+            np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
         # Union Area
         b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
         b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
