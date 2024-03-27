@@ -3,7 +3,6 @@
 #include "NvInfer.h"
 #include <string>
 #include <vector>
-#include "macros.h"
 namespace nvinfer1 {
 class API YoloLayerPlugin : public IPluginV2IOExt {
 public:
