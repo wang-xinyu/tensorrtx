@@ -122,6 +122,37 @@ nvinfer1::ITensor& input, int c1, int c2, int n, bool shortcut, float e, std::st
     return conv2;
 }
 
+nvinfer1::IElementWiseLayer* C2(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap,
+nvinfer1::ITensor& input, int c1, int c2, int n, bool shortcut, float e, std::string lname) {
+    assert(network != nullptr);
+    int hidden_channels = static_cast<int>(c2 * e);
+
+    // cv1 branch
+    nvinfer1::IElementWiseLayer* conv1 = convBnSiLU(network, weightMap, input, 2 * hidden_channels, 1, 1, 0, lname + ".cv1");
+    nvinfer1::ITensor* cv1_out = conv1->getOutput(0);
+
+    // Split the output of cv1 into two tensors
+    nvinfer1::Dims dims = cv1_out->getDimensions();
+    nvinfer1::ISliceLayer* split1 = network->addSlice(*cv1_out, nvinfer1::Dims3{0, 0, 0}, nvinfer1::Dims3{dims.d[0] / 2, dims.d[1], dims.d[2]}, nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::ISliceLayer* split2 = network->addSlice(*cv1_out, nvinfer1::Dims3{dims.d[0] / 2, 0, 0}, nvinfer1::Dims3{dims.d[0] / 2, dims.d[1], dims.d[2]}, nvinfer1::Dims3{1, 1, 1});
+
+    // Create y1 bottleneck sequence
+    nvinfer1::ITensor* y1 = split1->getOutput(0);
+    for (int i = 0; i < n; ++i) {
+        auto* bottleneck_layer = bottleneck(network, weightMap, *y1, hidden_channels, hidden_channels, shortcut, 1.0, lname + ".m." + std::to_string(i));
+        y1 = bottleneck_layer->getOutput(0);  // update 'y1' to be the output of the current bottleneck
+    }
+
+    // Concatenate y1 with the second split of cv1
+    nvinfer1::ITensor* concatInputs[2] = {y1, split2->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat = network->addConcatenation(concatInputs, 2);
+
+    // cv2 to produce the final output
+    nvinfer1::IElementWiseLayer* conv2 = convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname + ".cv2");
+
+    return conv2;
+}
+
 nvinfer1::IElementWiseLayer* SPPF(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap, 
 nvinfer1::ITensor& input, int c1, int c2, int k, std::string lname){
     int c_ = c1 / 2;
