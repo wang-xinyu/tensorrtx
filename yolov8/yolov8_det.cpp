@@ -115,7 +115,6 @@ bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, bo
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
         auto sub_type = std::string(argv[4]);
-
         if (sub_type[0] == 'n') {
             gd = 0.33;
             gw = 0.25;
