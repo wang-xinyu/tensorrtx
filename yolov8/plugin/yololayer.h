@@ -99,4 +99,3 @@ public:
     };
     REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 } // namespace nvinfer1
-
