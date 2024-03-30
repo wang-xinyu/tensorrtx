@@ -15,4 +15,3 @@
 #endif  // CUDA_CHECK
 
 #endif  // TRTX_CUDA_UTILS_H_
-

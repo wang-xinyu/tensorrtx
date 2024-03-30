@@ -83,4 +83,3 @@ static inline int read_labels(const std::string labels_filename, std::unordered_
 
     return 0;
 }
-

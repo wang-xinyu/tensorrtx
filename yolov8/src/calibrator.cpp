@@ -77,4 +77,3 @@ void Int8EntropyCalibrator2::writeCalibrationCache(const void* cache, size_t len
     std::ofstream output(calib_table_name_, std::ios::binary);
     output.write(reinterpret_cast<const char*>(cache), length);
 }
-
