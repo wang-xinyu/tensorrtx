@@ -13,12 +13,16 @@ Logger gLogger;
 using namespace nvinfer1;
 const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 
-void serialize_engine(std::string &wts_name, std::string &engine_name, std::string &sub_type, float &gd, float &gw, int &max_channels) {
+void serialize_engine(std::string &wts_name, std::string &engine_name, bool& is_p6, std::string &sub_type, float &gd, float &gw, int &max_channels) {
     IBuilder *builder = createInferBuilder(gLogger);
     IBuilderConfig *config = builder->createBuilderConfig();
     IHostMemory *serialized_engine = nullptr;
 
-    serialized_engine = buildEngineYolov8Det(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
+    if (is_p6) {
+        serialized_engine = buildEngineYolov8DetP6(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
+    } else {
+        serialized_engine = buildEngineYolov8Det(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
+    }
 
     assert(serialized_engine);
     std::ofstream p(engine_name, std::ios::binary);
@@ -104,35 +108,39 @@ void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, flo
 }
 
 
-bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, std::string &img_dir, std::string &sub_type, 
+bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, bool& is_p6, std::string &img_dir, std::string &sub_type,
                 std::string &cuda_post_process, float &gd, float &gw, int &max_channels) {
     if (argc < 4) return false;
-    if (std::string(argv[1]) == "-s" && argc == 5) {
+    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
-        sub_type = std::string(argv[4]);
-        if (sub_type == "n") {
+        auto sub_type = std::string(argv[4]);
+
+        if (sub_type[0] == 'n') {
           gd = 0.33;
           gw = 0.25;
           max_channels = 1024;
-        } else if (sub_type == "s"){
+        } else if (sub_type[0] == 's'){
           gd = 0.33;
           gw = 0.50;
           max_channels = 1024;
-        } else if (sub_type == "m") {
+        } else if (sub_type[0] == 'm') {
           gd = 0.67;
           gw = 0.75;
-          max_channels = 576; 
-        } else if (sub_type == "l") {
+          max_channels = 576;
+        } else if (sub_type[0] == 'l') {
           gd = 1.0;
           gw = 1.0;
           max_channels = 512;
-        } else if (sub_type == "x") {
+        } else if (sub_type[0] == 'x') {
           gd = 1.0;
           gw = 1.25;
           max_channels = 640;
         } else {
-          return false;
+            return false;
+        }
+        if (sub_type.size() == 2 && sub_type[1] == '6') {
+            is_p6 = true;
         }
     } else if (std::string(argv[1]) == "-d" && argc == 5) {
         engine = std::string(argv[2]);
@@ -152,19 +160,20 @@ int main(int argc, char **argv) {
     std::string sub_type = "";
     std::string cuda_post_process="";
     int model_bboxes;
+    bool is_p6 = false;
     float gd = 0.0f, gw = 0.0f;
     int max_channels = 0;
 
-    if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type, cuda_post_process, gd, gw, max_channels)) {
+    if (!parse_args(argc, argv, wts_name, engine_name, is_p6, img_dir, sub_type, cuda_post_process, gd, gw, max_channels)) {
         std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolov8 -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov8 -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6]  // serialize model to plan file" << std::endl;
         std::cerr << "./yolov8 -d [.engine] ../samples  [c/g]// deserialize plan file and run inference" << std::endl;
         return -1;
     }
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {
-        serialize_engine(wts_name, engine_name, sub_type, gd, gw, max_channels);
+        serialize_engine(wts_name, engine_name, is_p6, sub_type, gd, gw, max_channels);
         return 0;
     }
 
