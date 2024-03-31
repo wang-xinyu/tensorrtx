@@ -25,7 +25,7 @@ Currently, we support yolov8
 
 ## Config
 
-- Choose the model n/s/m/l/x from command line arguments.
+- Choose the model n/s/m/l/x/n6/s6/m6/l6/x6 from command line arguments.
 - Check more configs in [include/config.h](./include/config.h)
 
 ## How to Run, yolov8n as example
