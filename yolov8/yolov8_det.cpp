@@ -52,7 +52,6 @@ void deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngin
     assert(serialized_engine);
     file.read(serialized_engine, size);
     file.close();
-
     *runtime = createInferRuntime(gLogger);
     assert(*runtime);
     *engine = (*runtime)->deserializeCudaEngine(serialized_engine, size);
