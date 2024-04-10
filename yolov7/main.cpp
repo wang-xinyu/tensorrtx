@@ -44,9 +44,9 @@ void serialize_engine(unsigned int maxBatchSize, std::string& wts_name, std::str
   }
   p.write(reinterpret_cast<const char*>(serialized_engine->data()), serialized_engine->size());
 
-  delete builder;
   delete config;
   delete serialized_engine;
+  delete builder;
 }
 
 void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
