@@ -21,7 +21,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 
 Currently, we support yolov8
 
-- For yolov8 , download .pt from https://github.com/ultralytics/assets/releases, then follow how-to-run in current page.
+- For yolov8 , download .pt from [https://github.com/ultralytics/assets/releases](https://github.com/ultralytics/assets/releases), then follow how-to-run in current page.
 ## Config
 
 - Choose the model n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6 from command line arguments.
