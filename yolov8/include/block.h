@@ -26,4 +26,5 @@ nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std
                              nvinfer1::ITensor& input, int ch, int grid, int k, int s, int p, std::string lname);
 
 nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
-                                       std::vector<nvinfer1::IConcatenationLayer*> dets, bool is_segmentation = false);
+                                       std::vector<nvinfer1::IConcatenationLayer*> dets, const int* px_arry,
+                                       int px_arry_num, bool is_segmentation);
