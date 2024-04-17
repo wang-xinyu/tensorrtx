@@ -20,7 +20,6 @@ void serialize_engine(std::string& wts_name, std::string& engine_name, int& is_p
     IHostMemory* serialized_engine = nullptr;
 
     if (is_p == 6) {
-        std::cout << "Subtype: " << is_p << std::endl;
         serialized_engine = buildEngineYolov8DetP6(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
     } else if (is_p == 2) {
         serialized_engine = buildEngineYolov8DetP2(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
@@ -152,10 +151,8 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, in
             return false;
         }
         if (sub_type.size() == 2 && sub_type[1] == '6') {
-            std::cout << "Subtype: " << sub_type[1] << std::endl;
             is_p = 6;
         } else if (sub_type.size() == 2 && sub_type[1] == '2') {
-            std::cout << "Subtype: " << sub_type[1] << std::endl;
             is_p = 2;
         }
     } else if (std::string(argv[1]) == "-d" && argc == 5) {
