@@ -739,9 +739,6 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP2(nvinfer1::IBuilder* builder, nvinf
     int base_in_channel = 64;
     int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kNumClass, 100)) : get_width(128, gw, max_channels);
 
-    std::cout << "base_in_channel is : " << base_in_channel << std::endl;
-    std::cout << "base_out_channel is : " << base_out_channel << std::endl;
-
     // output0
     nvinfer1::IElementWiseLayer* conv28_cv2_0_0 =
             convBnSiLU(network, weightMap, *conv18->getOutput(0), base_in_channel, 3, 1, 1, "model.28.cv2.0.0");
@@ -838,8 +835,6 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP2(nvinfer1::IBuilder* builder, nvinf
     int stridesLength = sizeof(strides) / sizeof(int);
 
     // P2 processing steps (remains unchanged)
-    std::cout << "kNumClass is : " << kNumClass << std::endl;
-    std::cout << "kInputH is : " << kInputH << std::endl;
     nvinfer1::IShuffleLayer* shuffle28_0 = network->addShuffle(*cat28_0->getOutput(0));
     shuffle28_0->setReshapeDimensions(nvinfer1::Dims2{64 + kNumClass, (kInputH / strides[0]) * (kInputW / strides[0])});
     nvinfer1::ISliceLayer* split28_0_0 = network->addSlice(
