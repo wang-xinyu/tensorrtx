@@ -4,7 +4,7 @@
 
 const static char* kInputTensorName = "images";
 const static char* kOutputTensorName = "output";
-const static int kNumClass = 10;
+const static int kNumClass = 80;
 const static int kBatchSize = 1;
 const static int kGpuId = 0;
 const static int kInputH = 640;
