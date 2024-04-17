@@ -302,7 +302,6 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP6(nvinfer1::IBuilder* builder, nvinf
                                               int& max_channels) {
     std::map<std::string, nvinfer1::Weights> weightMap = loadWeights(wts_path);
     nvinfer1::INetworkDefinition* network = builder->createNetworkV2(0U);
-    std::cout << "gd: " << gd << ", gw: " << gw << std::endl;
     /*******************************************************************************************************
     ******************************************  YOLOV8 INPUT  **********************************************
     *******************************************************************************************************/
