@@ -301,19 +301,6 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP6(nvinfer1::IBuilder* builder, nvinf
                                               nvinfer1::DataType dt, const std::string& wts_path, float& gd, float& gw,
                                               int& max_channels) {
     std::map<std::string, nvinfer1::Weights> weightMap = loadWeights(wts_path);
-    for (const auto& kv : weightMap) {
-        if (kv.first.find("conv.weight") != std::string::npos ||
-            kv.first.find("linear.weight") != std::string::npos) {  // 检查 conv.weight 或 linear.weight
-            std::cout << "Weight name: " << kv.first << ", ";
-            std::cout << "Count: " << kv.second.count << ", ";
-            std::cout << "Type: "
-                      << (kv.second.type == nvinfer1::DataType::kFLOAT  ? "FLOAT"
-                          : kv.second.type == nvinfer1::DataType::kHALF ? "HALF"
-                                                                        : "INT8")
-                      << std::endl;
-        }
-    }
-
     nvinfer1::INetworkDefinition* network = builder->createNetworkV2(0U);
     std::cout << "gd: " << gd << ", gw: " << gw << std::endl;
     /*******************************************************************************************************
