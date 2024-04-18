@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
 - `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
 - `11 Mar 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information
 - `7 Mar 2024`. [AadeIT](https://github.com/AadeIT): CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
 - `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
 - `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
-- `23 May 2022`. [yhpark](https://github.com/yester31): Real-ESRGAN, Practical Algorithms for General Image/Video Restoration.
 
 ## Tutorials
 
