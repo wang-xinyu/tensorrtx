@@ -22,10 +22,9 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 Currently, we support yolov8
 
 - For yolov8 , download .pt from [https://github.com/ultralytics/assets/releases](https://github.com/ultralytics/assets/releases), then follow how-to-run in current page.
-
 ## Config
 
-- Choose the model n/s/m/l/x/n6/s6/m6/l6/x6 from command line arguments.
+- Choose the model n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6 from command line arguments.
 - Check more configs in [include/config.h](./include/config.h)
 
 ## How to Run, yolov8n as example
@@ -34,10 +33,13 @@ Currently, we support yolov8
 
 ```
 // download https://github.com/ultralytics/assets/releases/yolov8n.pt
+// download https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt (only for  10 cls p2 model)
 cp {tensorrtx}/yolov8/gen_wts.py {ultralytics}/ultralytics
 cd {ultralytics}/ultralytics
 python gen_wts.py -w yolov8n.pt -o yolov8n.wts -t detect
 // a file 'yolov8n.wts' will be generated.
+python gen_wts.py -w VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt -o VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts -t detect (only for  10 cls p2 model)
+// a file 'VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts' will be generated.
 ```
 
 2. build tensorrtx/yolov8 and run
@@ -51,12 +53,20 @@ cd build
 cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
 cmake ..
 make
-sudo ./yolov8_det -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6]  // serialize model to plan file
+sudo ./yolov8_det -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to plan file
 sudo ./yolov8_det -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8
 sudo ./yolov8_det -s yolov8n.wts yolov8.engine n
 sudo ./yolov8_det -d yolov8n.engine ../images c //cpu postprocess
 sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
+
+for p2 model:
+change the  "const static int kNumClass" in config.h to 10;
+sudo ./yolov8_det -s VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine x2
+wget https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last/0000008_01999_d_0000040.jpg
+cp -r 0000008_01999_d_0000040.jpg ../images
+sudo ./yolov8_det -d VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine ../images c //cpu postprocess
+sudo ./yolov8_det -d VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine ../images g //gpu postprocess
 ```
 
 ### Instance Segmentation
