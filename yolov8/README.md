@@ -119,8 +119,12 @@ python yolov8_cls.py  # Classification
 
 1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
 
-2. unzip it in yolov8/build
-
+2. unzip it in yolov8/build.
+Notice: if you use your own dataset, you should change its name into coco_calib if you don't want to chang the path (which means "./coco_calib/") in src/model.cpp in line 284:
+```
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+```
 3. set the macro `USE_INT8` in config.h and make
 
 4. serialize the model and test
