@@ -1,4 +1,4 @@
-# yolov8
+# YOLOv8
 
 The Pytorch implementation is [ultralytics/yolov8](https://github.com/ultralytics/ultralytics/tree/main/ultralytics).
 
