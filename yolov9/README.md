@@ -1,9 +1,10 @@
-# yolov9
+# YOLOv9
 
 The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/yolov9).
 
 ## Contributors
 
+<a href="https://github.com/WuxinrongY"><img src="https://avatars.githubusercontent.com/u/53141838?v=4?s=48" width="40px;" alt=""/></a>
 
 ## Progress
 - [x] YOLOv9-c:
