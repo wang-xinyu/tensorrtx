@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `22 Apr 2024`. [B1SH0PP](https://github.com/B1SH0PP): EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies.
 - `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
 - `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
 - `11 Mar 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `7 Sep 2022`. [xiang-wuu](https://github.com/xiang-wuu): YOLOv5 v6.2 classification models.
 - `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
 - `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
-- `26 May 2022`. [triple-Mu](https://github.com/triple-Mu): YOLOv5 python script with CUDA Python API.
 
 ## Tutorials
 
@@ -105,6 +105,7 @@ Following models are implemented.
 |[real-esrgan](./real-esrgan)| Real-ESRGAN. The Pytorch implementation is [real-esrgan](https://github.com/xinntao/Real-ESRGAN) |
 |[superpoint](./superpoint)| SuperPoint. The Pytorch model is from [magicleap/SuperPointPretrainedNetwork](https://github.com/magicleap/SuperPointPretrainedNetwork) |
 |[csrnet](./csrnet)| CSRNet. The Pytorch implementation is [leeyeehoo/CSRNet-pytorch](https://github.com/leeyeehoo/CSRNet-pytorch) |
+|[EfficientAd](./efficient_ad)| EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies. From [anomalib](https://github.com/openvinotoolkit/anomalib) |
 
 ## Model Zoo
 
