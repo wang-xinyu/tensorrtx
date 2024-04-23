@@ -6,6 +6,7 @@ The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/
 
 <a href="https://github.com/WuxinrongY"><img src="https://avatars.githubusercontent.com/u/53141838?v=4?s=48" width="40px;" alt=""/></a>
 
+
 ## Progress
 - [x] YOLOv9-c:
   - [x] FP32
@@ -53,7 +54,7 @@ YOLOv9-e:
 
 ```
 
-In DualDDetect, the A3, A4, A5, P3, P4, P5 are the output of the backbone. The first 3 layers are used for the inference of the final result. 
+In DualDDetect, the A3, A4, A5, P3, P4, P5 are the output of the backbone. The first 3 layers are used for the inference of the final result.
 
 The YOLOv9-c requires 37 layers of inference, but YOLOv9-e requires 35 layers of inference.
 
@@ -114,5 +115,3 @@ python yolov9_trt.py
 ## More Information
 
 See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
-
-
