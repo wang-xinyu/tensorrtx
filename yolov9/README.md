@@ -6,7 +6,6 @@ The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/
 
 <a href="https://github.com/WuxinrongY"><img src="https://avatars.githubusercontent.com/u/53141838?v=4?s=48" width="40px;" alt=""/></a>
 
-
 ## Progress
 - [x] YOLOv9-c:
   - [x] FP32
@@ -71,7 +70,6 @@ python gen_wts.py
 ```
 2. build tensorrtx/yolov9 and run
 
-
 ```
 cd {tensorrtx}/yolov9/
 // update kNumClass in config.h if your model is trained on custom dataset
@@ -97,12 +95,11 @@ sudo ./yolov9 -d yolov9-c.engine ../images
 python yolov9_trt.py
 ```
 
-
 # INT8 Quantization
 
 1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
 
-2. unzip it in yolov8/build
+2. unzip it in yolov9/build
 
 3. set the macro `USE_INT8` in config.h and change the path of calibration images in config.h, such as 'gCalibTablePath="./coco_calib/";'
 
