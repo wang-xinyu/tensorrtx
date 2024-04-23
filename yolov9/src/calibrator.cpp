@@ -2,12 +2,11 @@
 #include "cuda_utils.h"
 #include "utils.h"
 
+#include <fstream>
 #include <iostream>
 #include <iterator>
-#include <fstream>
-#include <opencv2/opencv.hpp>
 #include <opencv2/dnn/dnn.hpp>
-
+#include <opencv2/opencv.hpp>
 static cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
     int w, h, x, y;
     float r_w = input_w / (img.cols * 1.0);
@@ -30,7 +29,9 @@ static cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
     return out;
 }
 
-Int8EntropyCalibrator2::Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir, const char* calib_table_name, const char* input_blob_name, bool read_cache)
+Int8EntropyCalibrator2::Int8EntropyCalibrator2(int batchsize, int input_w, int input_h, const char* img_dir,
+                                               const char* calib_table_name, const char* input_blob_name,
+                                               bool read_cache)
     : batchsize_(batchsize),
       input_w_(input_w),
       input_h_(input_h),
@@ -69,7 +70,8 @@ bool Int8EntropyCalibrator2::getBatch(void* bindings[], const char* names[], int
         input_imgs_.push_back(pr_img);
     }
     img_idx_ += batchsize_;
-    cv::Mat blob = cv::dnn::blobFromImages(input_imgs_, 1.0 / 255.0, cv::Size(input_w_, input_h_), cv::Scalar(0, 0, 0), true, false);
+    cv::Mat blob = cv::dnn::blobFromImages(input_imgs_, 1.0 / 255.0, cv::Size(input_w_, input_h_), cv::Scalar(0, 0, 0),
+                                           true, false);
 
     CUDA_CHECK(cudaMemcpy(device_input_, blob.ptr<float>(0), input_count_ * sizeof(float), cudaMemcpyHostToDevice));
     assert(!strcmp(names[0], input_blob_name_));
@@ -94,4 +96,3 @@ void Int8EntropyCalibrator2::writeCalibrationCache(const void* cache, size_t len
     std::ofstream output(calib_table_name_, std::ios::binary);
     output.write(reinterpret_cast<const char*>(cache), length);
 }
-
