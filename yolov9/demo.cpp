@@ -25,7 +25,12 @@ void serialize_engine(unsigned int max_batchsize, std::string& wts_name, std::st
         serialized_engine = build_engine_yolov9_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "c") {
         serialized_engine = build_engine_yolov9_c(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
-    } else {
+    } else if (sub_type == "ge") {
+        serialized_engine = build_engine_gelan_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    } else if (sub_type == "gc") {
+        serialized_engine = build_engine_gelan_c(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    }
+    else {
         return;
     }
     assert(serialized_engine != nullptr);
@@ -113,7 +118,7 @@ int main(int argc, char** argv) {
 
     std::string wts_name = "";
     std::string engine_name = "";
-    std::string img_dir;
+    std::string img_dir = "";
     std::string sub_type = "";
     // speed test or inference
     // const int speed_test_iter = 1000;
@@ -121,7 +126,7 @@ int main(int argc, char** argv) {
 
     if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type)) {
         std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolov9 -s [.wts] [.engine] [c/e]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov9 -s [.wts] [.engine] [c/e/gc/ge]  // serialize model to plan file" << std::endl;
         std::cerr << "./yolov9 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }

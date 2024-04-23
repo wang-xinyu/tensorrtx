@@ -8,13 +8,21 @@ The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/
 
 ## Progress
 - [x] YOLOv9-c:
-    - [x] FP32
-    - [x] FP16
-    - [x] INT8
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
 - [x] YOLOv9-e:
-    - [x] FP32
-    - [x] FP16
-    - [x] INT8
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
+- [x] GELAN-c:
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
+- [x] GELAN-e:
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
 
 ## Requirements
 
@@ -32,7 +40,10 @@ The speed test is done on a desktop with R7-5700G CPU and RTX 4060Ti GPU. The in
 | tensorrt | YOLOv9-c | 13.5ms | 4.6ms | 3.0ms |
 | tensorrt | YOLOv9-e | 8.3ms | 3.2ms | 2.15ms |
 
+**GELAN will be updated later.**
+
 YOLOv9-e is faster than YOLOv9-c in tensorrt, because the YOLOv9-e requires fewer layers of inference.
+
 ```
 YOLOv9-c:
 [[31, 34, 37, 16, 19, 22], 1, DualDDetect, [nc]] # [A3, A4, A5, P3, P4, P5]
