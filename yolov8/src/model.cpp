@@ -20,15 +20,6 @@ static int get_depth(int x, float gd) {
     return std::max<int>(r, 1);
 }
 
-void calculateStrides(nvinfer1::IElementWiseLayer* conv_layers[], int size, int reference_size, int strides[]) {
-    for (int i = 0; i < size; ++i) {
-        nvinfer1::ILayer* layer = conv_layers[i];
-        nvinfer1::Dims dims = layer->getOutput(0)->getDimensions();
-        int feature_map_size = dims.d[1];
-        strides[i] = reference_size / feature_map_size;
-    }
-}
-
 static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network,
                                           std::map<std::string, nvinfer1::Weights>& weightMap, nvinfer1::ITensor& input,
                                           std::string lname, float gw, int max_channels) {
@@ -229,9 +220,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder, nvinfer
     *********************************************  YOLOV8 DETECT  ******************************************
     *******************************************************************************************************/
 
-    nvinfer1::IElementWiseLayer* conv_layers[] = {conv3, conv5, conv7};
-    int strides[sizeof(conv_layers) / sizeof(conv_layers[0])];
-    calculateStrides(conv_layers, sizeof(conv_layers) / sizeof(conv_layers[0]), kInputH, strides);
+    int strides[] = {8, 16, 32};
     int stridesLength = sizeof(strides) / sizeof(int);
 
     nvinfer1::IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
@@ -291,8 +280,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder, nvinfer
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator =
-            new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -518,9 +507,7 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP6(nvinfer1::IBuilder* builder, nvinf
     /*******************************************************************************************************
     *********************************************  YOLOV8 DETECT  ******************************************
     *******************************************************************************************************/
-    nvinfer1::IElementWiseLayer* conv_layers[] = {conv3, conv5, conv7, conv9};
-    int strides[sizeof(conv_layers) / sizeof(conv_layers[0])];
-    calculateStrides(conv_layers, sizeof(conv_layers) / sizeof(conv_layers[0]), kInputH, strides);
+    int strides[] = {8, 16, 32, 64};
     int stridesLength = sizeof(strides) / sizeof(int);
 
     // P3 processing steps (remains unchanged)
@@ -601,8 +588,8 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP6(nvinfer1::IBuilder* builder, nvinf
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator =
-            new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -830,9 +817,7 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP2(nvinfer1::IBuilder* builder, nvinf
     *********************************************  YOLOV8 DETECT  ******************************************
     *******************************************************************************************************/
 
-    nvinfer1::IElementWiseLayer* conv_layers[] = {conv1, conv3, conv5, conv7};
-    int strides[sizeof(conv_layers) / sizeof(conv_layers[0])];
-    calculateStrides(conv_layers, sizeof(conv_layers) / sizeof(conv_layers[0]), kInputH, strides);
+    int strides[] = {4, 8, 16, 32};
     int stridesLength = sizeof(strides) / sizeof(int);
 
     // P2 processing steps (remains unchanged)
@@ -911,8 +896,8 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP2(nvinfer1::IBuilder* builder, nvinf
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator =
-            new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -994,8 +979,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Cls(nvinfer1::IBuilder* builder, nvinfer
     std::cout << "Your platform supports int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator = new Int8EntropyCalibrator2(1, kClsInputW, kClsInputH, "../coco_calib/", "int8calib.table",
-                                                  kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kClsInputW, kClsInputH, kInputQuantizationFolder,
+                                                  "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -1163,9 +1148,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder, nvinfer
     *********************************************  YOLOV8 DETECT  ******************************************
     *******************************************************************************************************/
 
-    nvinfer1::IElementWiseLayer* conv_layers[] = {conv3, conv5, conv7};
-    int strides[sizeof(conv_layers) / sizeof(conv_layers[0])];
-    calculateStrides(conv_layers, sizeof(conv_layers) / sizeof(conv_layers[0]), kInputH, strides);
+    int strides[] = {8, 16, 32};
     int stridesLength = sizeof(strides) / sizeof(int);
 
     nvinfer1::IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
@@ -1241,8 +1224,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder, nvinfer
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator =
-            new Int8EntropyCalibrator2(1, kInputW, kInputH, "../coco_calib/", "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 

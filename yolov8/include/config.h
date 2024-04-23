@@ -19,3 +19,6 @@ constexpr static int kClsNumClass = 1000;
 // Classfication model's input shape
 constexpr static int kClsInputH = 224;
 constexpr static int kClsInputW = 224;
+
+//Quantization input image folder path
+const static char* kInputQuantizationFolder = "./coco_calib";
