@@ -11,7 +11,6 @@
 #include "yololayer.h"
 
 using namespace nvinfer1;
-
 #ifdef USE_INT8
 void Calibrator(IBuilder* builder, IBuilderConfig* config) {
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
@@ -433,8 +432,9 @@ IHostMemory* build_engine_yolov9_c(unsigned int maxBatchSize, IBuilder* builder,
     return serialized_model;
 }
 
-nvinfer1::IHostMemory* build_engine_gelan_e(unsigned int maxBatchSize, nvinfer1::IBuilder *builder, nvinfer1::IBuilderConfig *config,
-                     nvinfer1::DataType dt, std::string &wts_name) {
+nvinfer1::IHostMemory* build_engine_gelan_e(unsigned int maxBatchSize, nvinfer1::IBuilder* builder,
+                                            nvinfer1::IBuilderConfig* config, nvinfer1::DataType dt,
+                                            std::string& wts_name) {
     /* ------ Create the builder ------ */
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
@@ -591,9 +591,8 @@ nvinfer1::IHostMemory* build_engine_gelan_e(unsigned int maxBatchSize, nvinfer1:
     // [-1, 1, RepNCSPELAN4, [512, 1024, 512, 2]],  # 41 (P5/32-large)
     auto repncspelan_41 = RepNCSPELAN4(network, weightMap, *cat_40->getOutput(0), 1024, 512, 1024, 512, 2, "model.41");
 
-    auto ddetect_42 =
-            DDetect(network, weightMap, std::vector<ILayer*>{repncspelan_35, repncspelan_38, repncspelan_41}, kNumClass,
-                        {256, 512, 512}, "model.42");
+    auto ddetect_42 = DDetect(network, weightMap, std::vector<ILayer*>{repncspelan_35, repncspelan_38, repncspelan_41},
+                              kNumClass, {256, 512, 512}, "model.42");
 
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(network, ddetect_42, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
@@ -626,8 +625,9 @@ nvinfer1::IHostMemory* build_engine_gelan_e(unsigned int maxBatchSize, nvinfer1:
 
     return serialized_model;
 }
-nvinfer1::IHostMemory* build_engine_gelan_c(unsigned int maxBatchSize, nvinfer1::IBuilder *builder, nvinfer1::IBuilderConfig *config,
-                                            nvinfer1::DataType dt, std::string &wts_name) {
+nvinfer1::IHostMemory* build_engine_gelan_c(unsigned int maxBatchSize, nvinfer1::IBuilder* builder,
+                                            nvinfer1::IBuilderConfig* config, nvinfer1::DataType dt,
+                                            std::string& wts_name) {
     /* ------ Create the builder ------ */
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
@@ -719,9 +719,8 @@ nvinfer1::IHostMemory* build_engine_gelan_c(unsigned int maxBatchSize, nvinfer1:
     // # detection head
     // # detect
     // [[31, 34, 37, 16, 19, 22], 1, DualDDetect, [nc]],  # DualDDetect(A3, A4, A5, P3, P4, P5)
-    auto ddetect_23 =
-            DDetect(network, weightMap, std::vector<ILayer*>{repncspelan_16, repncspelan_19, repncspelan_22},
-                        kNumClass, {256, 512, 512}, "model.22");
+    auto ddetect_23 = DDetect(network, weightMap, std::vector<ILayer*>{repncspelan_16, repncspelan_19, repncspelan_22},
+                              kNumClass, {256, 512, 512}, "model.22");
 
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(network, ddetect_23, false);
     yolo->getOutput(0)->setName(kOutputTensorName);

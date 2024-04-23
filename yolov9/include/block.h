@@ -43,5 +43,4 @@ nvinfer1::ILayer* convBnNoAct(nvinfer1::INetworkDefinition* network,
                               std::map<std::string, nvinfer1::Weights>& weightMap, nvinfer1::ITensor& input, int ch,
                               int k, int s, int p, std::string lname, int g);
 std::vector<IConcatenationLayer*> DDetect(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
-                                           std::vector<ILayer*> dets, int cls, std::vector<int> ch,
-                                           std::string lname);
+                                          std::vector<ILayer*> dets, int cls, std::vector<int> ch, std::string lname);

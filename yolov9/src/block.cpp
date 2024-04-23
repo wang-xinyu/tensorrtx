@@ -14,7 +14,6 @@
 #include <vector>
 
 using namespace nvinfer1;
-
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
 void PrintDim(const ILayer* layer, std::string log) {
@@ -425,8 +424,7 @@ std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition* network, std::
 }
 
 std::vector<IConcatenationLayer*> DDetect(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
-                                              std::vector<ILayer*> dets, int cls, std::vector<int> ch,
-                                              std::string lname) {
+                                          std::vector<ILayer*> dets, int cls, std::vector<int> ch, std::string lname) {
     int c2 = std::max(int(ch[0] / 4), int(16 * 4));
     int c3 = std::max(ch[0], std::min(cls * 2, 128));
     int reg_max = 16;

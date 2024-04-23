@@ -9,10 +9,8 @@
 #include "utils.h"
 
 using namespace nvinfer1;
-
 const static int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 static Logger gLogger;
-
 void serialize_engine(unsigned int max_batchsize, std::string& wts_name, std::string& sub_type,
                       std::string& engine_name) {
     // Create builder
@@ -29,8 +27,7 @@ void serialize_engine(unsigned int max_batchsize, std::string& wts_name, std::st
         serialized_engine = build_engine_gelan_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
     } else if (sub_type == "gc") {
         serialized_engine = build_engine_gelan_c(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
-    }
-    else {
+    } else {
         return;
     }
     assert(serialized_engine != nullptr);
