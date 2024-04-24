@@ -20,6 +20,15 @@ static int get_depth(int x, float gd) {
     return std::max<int>(r, 1);
 }
 
+void calculateStrides(nvinfer1::IElementWiseLayer* conv_layers[], int size, int reference_size, int strides[]) {
+    for (int i = 0; i < size; ++i) {
+        nvinfer1::ILayer* layer = conv_layers[i];
+        nvinfer1::Dims dims = layer->getOutput(0)->getDimensions();
+        int feature_map_size = dims.d[1];
+        strides[i] = reference_size / feature_map_size;
+    }
+}
+
 static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network,
                                           std::map<std::string, nvinfer1::Weights>& weightMap, nvinfer1::ITensor& input,
                                           std::string lname, float gw, int max_channels) {
