@@ -105,6 +105,17 @@ sudo ./yolov8_cls -s yolov8n-cls.wts yolov8-cls.engine n
 sudo ./yolov8_cls -d yolov8n-cls.engine ../samples
 ```
 
+
+### Pose Estimation
+```
+# Build and serialize TensorRT engine
+./yolov8_pose -s yolov8n-pose.wts yolov8n-pose.engine n
+
+# Run inference with labels file
+./yolov8_pose -d yolov8n-pose.engine ../images c
+```
+
+
 4. optional, load and run the tensorrt model in python
 
 ```
