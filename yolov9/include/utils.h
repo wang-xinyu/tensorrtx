@@ -1,23 +1,22 @@
 #pragma once
 
 #include <dirent.h>
-#include <fstream>
-#include <unordered_map>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <cstring>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 static inline int read_files_in_dir(const char* p_dir_name, std::vector<std::string>& file_names) {
-    DIR *p_dir = opendir(p_dir_name);
+    DIR* p_dir = opendir(p_dir_name);
     if (p_dir == nullptr) {
         return -1;
     }
 
     struct dirent* p_file = nullptr;
     while ((p_file = readdir(p_dir)) != nullptr) {
-        if (strcmp(p_file->d_name, ".") != 0 &&
-            strcmp(p_file->d_name, "..") != 0) {
+        if (strcmp(p_file->d_name, ".") != 0 && strcmp(p_file->d_name, "..") != 0) {
             //std::string cur_file_name(p_dir_name);
             //cur_file_name += "/";
             //cur_file_name += p_file->d_name;
@@ -29,7 +28,6 @@ static inline int read_files_in_dir(const char* p_dir_name, std::vector<std::str
     closedir(p_dir);
     return 0;
 }
-
 // Function to trim leading and trailing whitespace from a string
 static inline std::string trim_leading_whitespace(const std::string& str) {
     size_t first = str.find_first_not_of(' ');
@@ -67,4 +65,3 @@ static inline int read_labels(const std::string labels_filename, std::unordered_
 
     return 0;
 }
-

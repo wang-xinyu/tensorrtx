@@ -14,7 +14,6 @@
 #include <vector>
 
 using namespace nvinfer1;
-
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
 void PrintDim(const ILayer* layer, std::string log) {
@@ -394,6 +393,38 @@ nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
 std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
                                               std::vector<ILayer*> dets, int cls, std::vector<int> ch,
                                               std::string lname) {
+    int c2 = std::max(int(ch[0] / 4), int(16 * 4));
+    int c3 = std::max(ch[0], std::min(cls * 2, 128));
+    int reg_max = 16;
+
+    std::vector<ILayer*> bboxlayers;
+    std::vector<ILayer*> clslayers;
+
+    for (int i = 0; i < dets.size(); i++) {
+        // Conv(x, c2, 3), Conv(c2, c2, 3, g=4), nn.Conv2d(c2, 4 * self.reg_max, 1, groups=4)
+        bboxlayers.push_back(DetectBbox_Conv(network, weightMap, *dets[i]->getOutput(0), c2, reg_max,
+                                             lname + ".cv2." + std::to_string(i)));
+        // Conv(x, c2, 3), Conv(c2, c2, 3), nn.Conv2d(c2, self.nc, 1)
+        auto cls_layer = DetectCls_Conv(network, weightMap, *dets[i]->getOutput(0), c3, cls,
+                                        lname + ".cv3." + std::to_string(i));
+        auto dim = cls_layer->getOutput(0)->getDimensions();
+        nvinfer1::IShuffleLayer* shuffle = network->addShuffle(*cls_layer->getOutput(0));
+        shuffle->setReshapeDimensions(nvinfer1::Dims2{kNumClass, dim.d[1] * dim.d[2]});
+        clslayers.push_back(shuffle);
+    }
+
+    std::vector<IConcatenationLayer*> ret;
+    for (int i = 0; i < dets.size(); i++) {
+        // softmax 16*4, w, h => 16, 4, w, h
+        auto loc = DFL(network, weightMap, *bboxlayers[i]->getOutput(0), 16, 1, 1, 0, lname + ".dfl");
+        nvinfer1::ITensor* inputTensor[] = {loc->getOutput(0), clslayers[i]->getOutput(0)};
+        ret.push_back(network->addConcatenation(inputTensor, 2));
+    }
+    return ret;
+}
+
+std::vector<IConcatenationLayer*> DDetect(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
+                                          std::vector<ILayer*> dets, int cls, std::vector<int> ch, std::string lname) {
     int c2 = std::max(int(ch[0] / 4), int(16 * 4));
     int c3 = std::max(ch[0], std::min(cls * 2, 128));
     int reg_max = 16;

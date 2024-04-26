@@ -8,13 +8,21 @@ The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/
 
 ## Progress
 - [x] YOLOv9-c:
-    - [x] FP32
-    - [x] FP16
-    - [x] INT8
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
 - [x] YOLOv9-e:
-    - [x] FP32
-    - [x] FP16
-    - [x] INT8
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
+- [x] GELAN-c:
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
+- [x] GELAN-e:
+  - [x] FP32
+  - [x] FP16
+  - [x] INT8
 
 ## Requirements
 
@@ -32,7 +40,10 @@ The speed test is done on a desktop with R7-5700G CPU and RTX 4060Ti GPU. The in
 | tensorrt | YOLOv9-c | 13.5ms | 4.6ms | 3.0ms |
 | tensorrt | YOLOv9-e | 8.3ms | 3.2ms | 2.15ms |
 
+**GELAN will be updated later.**
+
 YOLOv9-e is faster than YOLOv9-c in tensorrt, because the YOLOv9-e requires fewer layers of inference.
+
 ```
 YOLOv9-c:
 [[31, 34, 37, 16, 19, 22], 1, DualDDetect, [nc]] # [A3, A4, A5, P3, P4, P5]
@@ -42,7 +53,7 @@ YOLOv9-e:
 
 ```
 
-In DualDDetect, the A3, A4, A5, P3, P4, P5 are the output of the backbone. The first 3 layers are used for the inference of the final result. 
+In DualDDetect, the A3, A4, A5, P3, P4, P5 are the output of the backbone. The first 3 layers are used for the inference of the final result.
 
 The YOLOv9-c requires 37 layers of inference, but YOLOv9-e requires 35 layers of inference.
 
@@ -58,7 +69,6 @@ python gen_wts.py
 // a file 'yolov9.wts' will be generated.
 ```
 2. build tensorrtx/yolov9 and run
-
 
 ```
 cd {tensorrtx}/yolov9/
@@ -85,12 +95,11 @@ sudo ./yolov9 -d yolov9-c.engine ../images
 python yolov9_trt.py
 ```
 
-
 # INT8 Quantization
 
 1. Prepare calibration images, you can randomly select 1000s images from your train set. For coco, you can also download my calibration images `coco_calib` from [GoogleDrive](https://drive.google.com/drive/folders/1s7jE9DtOngZMzJC1uL307J2MiaGwdRSI?usp=sharing) or [BaiduPan](https://pan.baidu.com/s/1GOm_-JobpyLMAqZWCDUhKg) pwd: a9wh
 
-2. unzip it in yolov8/build
+2. unzip it in yolov9/build
 
 3. set the macro `USE_INT8` in config.h and change the path of calibration images in config.h, such as 'gCalibTablePath="./coco_calib/";'
 
@@ -103,5 +112,3 @@ python yolov9_trt.py
 ## More Information
 
 See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
-
-

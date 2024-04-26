@@ -1,6 +1,5 @@
 #include "postprocess.h"
 #include "utils.h"
-
 cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     float l, r, t, b;
     float r_w = kInputW / (img.cols * 1.0);
@@ -29,16 +28,16 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
 
 static float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
-            (std::max)(lbox[0] - lbox[2] / 2.f , rbox[0] - rbox[2] / 2.f), //left
-            (std::min)(lbox[0] + lbox[2] / 2.f , rbox[0] + rbox[2] / 2.f), //right
-            (std::max)(lbox[1] - lbox[3] / 2.f , rbox[1] - rbox[3] / 2.f), //top
-            (std::min)(lbox[1] + lbox[3] / 2.f , rbox[1] + rbox[3] / 2.f), //bottom
+            (std::max)(lbox[0] - lbox[2] / 2.f, rbox[0] - rbox[2] / 2.f),  //left
+            (std::min)(lbox[0] + lbox[2] / 2.f, rbox[0] + rbox[2] / 2.f),  //right
+            (std::max)(lbox[1] - lbox[3] / 2.f, rbox[1] - rbox[3] / 2.f),  //top
+            (std::min)(lbox[1] + lbox[3] / 2.f, rbox[1] + rbox[3] / 2.f),  //bottom
     };
 
     if (interBox[2] > interBox[3] || interBox[0] > interBox[1])
         return 0.0f;
 
-    float interBoxS = (interBox[1] - interBox[0])*(interBox[3] - interBox[2]);
+    float interBoxS = (interBox[1] - interBox[0]) * (interBox[3] - interBox[2]);
     return interBoxS / (lbox[2] * lbox[3] + rbox[2] * rbox[3] - interBoxS);
 }
 
@@ -50,15 +49,17 @@ void nms(std::vector<Detection>& res, float* output, float conf_thresh, float nm
     int det_size = sizeof(Detection) / sizeof(float);
     std::map<float, std::vector<Detection>> m;
     for (int i = 0; i < output[0] && i < kMaxNumOutputBbox; i++) {
-        if (output[1 + det_size * i + 4] <= conf_thresh) continue;
+        if (output[1 + det_size * i + 4] <= conf_thresh)
+            continue;
         Detection det;
         memcpy(&det, &output[1 + det_size * i], det_size * sizeof(float));
-        if (m.count(det.class_id) == 0) m.emplace(det.class_id, std::vector<Detection>());
+        if (m.count(det.class_id) == 0)
+            m.emplace(det.class_id, std::vector<Detection>());
         // x1x2y1y2 -> xywh
-        float c_x = (det.bbox[0]+det.bbox[2])/2;
-        float c_y = (det.bbox[1]+det.bbox[3])/2;
-        float w = det.bbox[2]-det.bbox[0];
-        float h = det.bbox[3]-det.bbox[1];
+        float c_x = (det.bbox[0] + det.bbox[2]) / 2;
+        float c_y = (det.bbox[1] + det.bbox[3]) / 2;
+        float w = det.bbox[2] - det.bbox[0];
+        float h = det.bbox[3] - det.bbox[1];
         det.bbox[0] = c_x;
         det.bbox[1] = c_y;
         det.bbox[2] = w;
@@ -81,7 +82,8 @@ void nms(std::vector<Detection>& res, float* output, float conf_thresh, float nm
     }
 }
 
-void batch_nms(std::vector<std::vector<Detection>>& res_batch, float *output, int batch_size, int output_size, float conf_thresh, float nms_thresh) {
+void batch_nms(std::vector<std::vector<Detection>>& res_batch, float* output, int batch_size, int output_size,
+               float conf_thresh, float nms_thresh) {
     res_batch.resize(batch_size);
     for (int i = 0; i < batch_size; i++) {
         nms(res_batch[i], &output[i * output_size], conf_thresh, nms_thresh);
@@ -95,12 +97,14 @@ void draw_bbox(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detectio
         for (size_t j = 0; j < res.size(); j++) {
             cv::Rect r = get_rect(img, res[j].bbox);
             cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
-            cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+            cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
+                        cv::Scalar(0xFF, 0xFF, 0xFF), 2);
         }
     }
     // draw num of objets to img
     for (size_t i = 0; i < img_batch.size(); i++) {
-        cv::putText(img_batch[i], std::to_string(res_batch[i].size()), cv::Point(0, 20), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+        cv::putText(img_batch[i], std::to_string(res_batch[i].size()), cv::Point(0, 20), cv::FONT_HERSHEY_PLAIN, 1.2,
+                    cv::Scalar(0xFF, 0xFF, 0xFF), 2);
     }
 }
 
@@ -158,11 +162,11 @@ cv::Mat scale_mask(cv::Mat mask, cv::Mat img) {
     return res;
 }
 
-void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks, std::unordered_map<int, std::string>& labels_map) {
-    static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A,
-                                           0x92CC17, 0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF,
-                                           0x344593, 0x6473FF, 0x0018EC, 0x8438FF, 0x520085, 0xCB38FF,
-                                           0xFF95C8, 0xFF37C7};
+void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks,
+                    std::unordered_map<int, std::string>& labels_map) {
+    static std::vector<uint32_t> colors = {0xFF3838, 0xFF9D97, 0xFF701F, 0xFFB21D, 0xCFD231, 0x48F90A, 0x92CC17,
+                                           0x3DDB86, 0x1A9334, 0x00D4BB, 0x2C99A8, 0x00C2FF, 0x344593, 0x6473FF,
+                                           0x0018EC, 0x8438FF, 0x520085, 0xCB38FF, 0xFF95C8, 0xFF37C7};
     for (size_t i = 0; i < dets.size(); i++) {
         cv::Mat img_mask = scale_mask(masks[i], img);
         auto color = colors[(int)dets[i].class_id % colors.size()];
@@ -172,7 +176,8 @@ void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::
         for (int x = r.x; x < r.x + r.width; x++) {
             for (int y = r.y; y < r.y + r.height; y++) {
                 float val = img_mask.at<float>(y, x);
-                if (val <= 0.5) continue;
+                if (val <= 0.5)
+                    continue;
                 img.at<cv::Vec3b>(y, x)[0] = img.at<cv::Vec3b>(y, x)[0] / 2 + bgr[0] / 2;
                 img.at<cv::Vec3b>(y, x)[1] = img.at<cv::Vec3b>(y, x)[1] / 2 + bgr[1] / 2;
                 img.at<cv::Vec3b>(y, x)[2] = img.at<cv::Vec3b>(y, x)[2] / 2 + bgr[2] / 2;
@@ -182,7 +187,9 @@ void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::
         cv::rectangle(img, r, bgr, 2);
 
         // Get the size of the text
-        cv::Size textSize = cv::getTextSize(labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::FONT_HERSHEY_PLAIN, 1.2, 2, NULL);
+        cv::Size textSize =
+                cv::getTextSize(labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf),
+                                cv::FONT_HERSHEY_PLAIN, 1.2, 2, NULL);
         // Set the top left corner of the rectangle
         cv::Point topLeft(r.x, r.y - textSize.height);
 
@@ -195,11 +202,12 @@ void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::
         // Draw the rectangle on the image
         cv::rectangle(img, topLeft, bottomRight, bgr, -1);
 
-        cv::putText(img, labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf), cv::Point(r.x, r.y + 4), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
-
+        cv::putText(img, labels_map[(int)dets[i].class_id] + " " + to_string_with_precision(dets[i].conf),
+                    cv::Point(r.x, r.y + 4), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar::all(0xFF), 2);
     }
 }
-void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_ptr_host, int bbox_element, cv::Mat& img, int count) {
+void process_decode_ptr_host(std::vector<Detection>& res, const float* decode_ptr_host, int bbox_element, cv::Mat& img,
+                             int count) {
     Detection det;
     for (int i = 0; i < count; i++) {
         int basic_pos = 1 + i * bbox_element;
@@ -215,7 +223,8 @@ void process_decode_ptr_host(std::vector<Detection> &res, const float* decode_pt
         }
     }
 }
-void batch_process(std::vector<std::vector<Detection>> &res_batch, const float* decode_ptr_host, int batch_size, int bbox_element, const std::vector<cv::Mat>& img_batch) {
+void batch_process(std::vector<std::vector<Detection>>& res_batch, const float* decode_ptr_host, int batch_size,
+                   int bbox_element, const std::vector<cv::Mat>& img_batch) {
     res_batch.resize(batch_size);
     int count = static_cast<int>(*decode_ptr_host);
     count = count > kMaxNumOutputBbox ? kMaxNumOutputBbox : count;
@@ -225,4 +234,3 @@ void batch_process(std::vector<std::vector<Detection>> &res_batch, const float* 
         process_decode_ptr_host(res_batch[i], &decode_ptr_host[i * count], bbox_element, img, count);
     }
 }
-
