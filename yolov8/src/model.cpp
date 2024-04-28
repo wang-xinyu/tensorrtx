@@ -6,31 +6,6 @@
 #include "config.h"
 #include "model.h"
 
-// Get the dimensions of the layer's output.
-nvinfer1::Dims dims = layer->getOutput(0)->getDimensions();
-
-// Print the layer's name and output dimensions.
-std::cout << "name: " << layerName << "  Layer name: " << layer->getName() << " Output Dims: ";
-for (int i = 0; i < dims.nbDims; ++i) {
-    std::cout << dims.d[i] << (i < dims.nbDims - 1 ? "x" : "");
-}
-std::cout << std::endl;
-}
-
-for (int t = 0; t < numTensors; ++t) {
-    std::cout << tensorsName << "[" << t << "]: ";
-    if (tensors[t] != nullptr) {
-        nvinfer1::Dims dims = tensors[t]->getDimensions();
-        for (int i = 0; i < dims.nbDims; ++i) {
-            std::cout << dims.d[i] << (i < dims.nbDims - 1 ? "x" : "");
-        }
-        std::cout << std::endl;
-    } else {
-        std::cout << "nullptr" << std::endl;
-    }
-}
-}
-
 static int get_width(int x, float gw, int max_channels, int divisor = 8) {
     auto channel = int(ceil((x * gw) / divisor)) * divisor;
     return channel >= max_channels ? max_channels : channel;
