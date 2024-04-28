@@ -6,8 +6,8 @@
 namespace nvinfer1 {
 class API YoloLayerPlugin : public IPluginV2IOExt {
    public:
-    YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation, const int* strides,
-                    int stridesLength);
+    YoloLayerPlugin(int classCount, int numberofpoints, float confthreshkeypoints, int netWidth, int netHeight,
+                    int maxOut, bool is_segmentation, bool is_pose, const int* strides, int stridesLength);
 
     YoloLayerPlugin(const void* data, size_t length);
     ~YoloLayerPlugin();
@@ -68,10 +68,13 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
     int mThreadCount = 256;
     const char* mPluginNamespace;
     int mClassCount;
+    int mNumberofpoints;
+    float mConfthreshkeypoints;
     int mYoloV8NetWidth;
     int mYoloV8netHeight;
     int mMaxOutObject;
     bool is_segmentation_;
+    bool is_pose_;
     int* mStrides;
     int mStridesLength;
 };
