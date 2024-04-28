@@ -28,6 +28,34 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
+cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[51]) {
+    int l, r, t, b;
+    float r_w = kInputW / (img.cols * 1.0);
+    float r_h = kInputH / (img.rows * 1.0);
+    if (r_h > r_w) {
+        l = bbox[0] / r_w;
+        r = bbox[2] / r_w;
+        t = (bbox[1] - (kInputH - r_w * img.rows) / 2) / r_w;
+        b = (bbox[3] - (kInputH - r_w * img.rows) / 2) / r_w;
+        for (int i = 0; i < 51; i += 3) {
+            lmk[i] /= r_w;
+            lmk[i + 1] = (lmk[i + 1] - (kInputH - r_w * img.rows) / 2) / r_w;
+            // lmk[i + 2]
+        }
+    } else {
+        l = (bbox[0] - (kInputW - r_h * img.cols) / 2) / r_h;
+        r = (bbox[2] - (kInputW - r_h * img.cols) / 2) / r_h;
+        t = bbox[1] / r_h;
+        b = bbox[3] / r_h;
+        for (int i = 0; i < 51; i += 3) {
+            lmk[i] = (lmk[i] - (kInputW - r_h * img.cols) / 2) / r_h;
+            lmk[i + 1] /= r_h;
+            // lmk[i + 2]
+        }
+    }
+    return cv::Rect(l, t, r - l, b - t);
+}
+
 static float iou(float lbox[4], float rbox[4]) {
     float interBox[] = {
             (std::max)(lbox[0], rbox[0]),
@@ -126,6 +154,40 @@ void draw_bbox(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detectio
             cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
             cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
                         cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+        }
+    }
+}
+
+void draw_bbox_keypoints_line(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detection>>& res_batch) {
+    const std::vector<std::pair<int, int>> skeleton_pairs = {
+            {0, 1}, {0, 2},  {0, 5}, {0, 6},  {1, 2},   {1, 3},   {2, 4},   {5, 6},   {5, 7},  {5, 11},
+            {6, 8}, {6, 12}, {7, 9}, {8, 10}, {11, 12}, {11, 13}, {12, 14}, {13, 15}, {14, 16}};
+
+    for (size_t i = 0; i < img_batch.size(); i++) {
+        auto& res = res_batch[i];
+        cv::Mat img = img_batch[i];
+        for (size_t j = 0; j < res.size(); j++) {
+            cv::Rect r = get_rect_adapt_landmark(img, res[j].bbox, res[j].keypoints);
+            cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
+            cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
+                        cv::Scalar(0xFF, 0xFF, 0xFF), 2);
+
+            for (int k = 0; k < 51; k += 3) {
+                if (res[j].keypoints[k + 2] > 0.5) {
+                    cv::circle(img, cv::Point((int)res[j].keypoints[k], (int)res[j].keypoints[k + 1]), 3,
+                               cv::Scalar(0, 0x27, 0xC1), -1);
+                }
+            }
+
+            for (const auto& bone : skeleton_pairs) {
+                int kp1_idx = bone.first * 3;
+                int kp2_idx = bone.second * 3;
+                if (res[j].keypoints[kp1_idx + 2] > 0.5 && res[j].keypoints[kp2_idx + 2] > 0.5) {
+                    cv::Point p1((int)res[j].keypoints[kp1_idx], (int)res[j].keypoints[kp1_idx + 1]);
+                    cv::Point p2((int)res[j].keypoints[kp2_idx], (int)res[j].keypoints[kp2_idx + 1]);
+                    cv::line(img, p1, p2, cv::Scalar(0, 0x27, 0xC1), 2);
+                }
+            }
         }
     }
 }

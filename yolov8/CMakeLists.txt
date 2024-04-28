@@ -27,8 +27,8 @@ else()
   # tensorrt
   include_directories(/home/lindsay/TensorRT-8.4.1.5/include)
   link_directories(/home/lindsay/TensorRT-8.4.1.5/lib)
-#  include_directories(/home/lindsay/TensorRT-7.2.3.4/include)
-#  link_directories(/home/lindsay/TensorRT-7.2.3.4/lib)
+  #  include_directories(/home/lindsay/TensorRT-7.2.3.4/include)
+  #  link_directories(/home/lindsay/TensorRT-7.2.3.4/lib)
 
 
 endif()
@@ -50,6 +50,10 @@ target_link_libraries(yolov8_det ${OpenCV_LIBS})
 
 add_executable(yolov8_seg ${PROJECT_SOURCE_DIR}/yolov8_seg.cpp ${SRCS})
 target_link_libraries(yolov8_seg nvinfer cudart myplugins ${OpenCV_LIBS})
+
+
+add_executable(yolov8_pose ${PROJECT_SOURCE_DIR}/yolov8_pose.cpp ${SRCS})
+target_link_libraries(yolov8_pose nvinfer cudart myplugins ${OpenCV_LIBS})
 
 add_executable(yolov8_cls ${PROJECT_SOURCE_DIR}/yolov8_cls.cpp ${SRCS})
 target_link_libraries(yolov8_cls nvinfer cudart myplugins ${OpenCV_LIBS})
