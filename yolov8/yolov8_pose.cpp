@@ -20,9 +20,9 @@ void serialize_engine(std::string& wts_name, std::string& engine_name, int& is_p
     IHostMemory* serialized_engine = nullptr;
 
     if (is_p == 6) {
-        std::cout << "p6 is not support in gpu right nowe" << std::endl;
+        std::cout << "p6 is not supported right nowe" << std::endl;
     } else if (is_p == 2) {
-        std::cout << "p2 is not support in gpu right now" << std::endl;
+        std::cout << "p2 is not supported right now" << std::endl;
     } else {
         serialized_engine = buildEngineYolov8Pose(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
     }
