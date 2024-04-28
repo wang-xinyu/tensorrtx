@@ -6,6 +6,31 @@
 #include "config.h"
 #include "model.h"
 
+// Get the dimensions of the layer's output.
+nvinfer1::Dims dims = layer->getOutput(0)->getDimensions();
+
+// Print the layer's name and output dimensions.
+std::cout << "name: " << layerName << "  Layer name: " << layer->getName() << " Output Dims: ";
+for (int i = 0; i < dims.nbDims; ++i) {
+    std::cout << dims.d[i] << (i < dims.nbDims - 1 ? "x" : "");
+}
+std::cout << std::endl;
+}
+
+for (int t = 0; t < numTensors; ++t) {
+    std::cout << tensorsName << "[" << t << "]: ";
+    if (tensors[t] != nullptr) {
+        nvinfer1::Dims dims = tensors[t]->getDimensions();
+        for (int i = 0; i < dims.nbDims; ++i) {
+            std::cout << dims.d[i] << (i < dims.nbDims - 1 ? "x" : "");
+        }
+        std::cout << std::endl;
+    } else {
+        std::cout << "nullptr" << std::endl;
+    }
+}
+}
+
 static int get_width(int x, float gw, int max_channels, int divisor = 8) {
     auto channel = int(ceil((x * gw) / divisor)) * divisor;
     return channel >= max_channels ? max_channels : channel;
@@ -47,30 +72,49 @@ static nvinfer1::IElementWiseLayer* Proto(nvinfer1::INetworkDefinition* network,
     return cv3;
 }
 
-static nvinfer1::IShuffleLayer* ProtoCoef(nvinfer1::INetworkDefinition* network,
-                                          std::map<std::string, nvinfer1::Weights>& weightMap, nvinfer1::ITensor& input,
-                                          std::string lname, int grid_shape, float gw) {
-
+static nvinfer1::IShuffleLayer* cv4_conv_combined(nvinfer1::INetworkDefinition* network,
+                                                  std::map<std::string, nvinfer1::Weights>& weightMap,
+                                                  nvinfer1::ITensor& input, std::string lname, int grid_shape, float gw,
+                                                  std::string algo_type) {
     int mid_channle = 0;
-    if (gw == 0.25 || gw == 0.5) {
-        mid_channle = 32;
-    } else if (gw == 0.75) {
-        mid_channle = 48;
-    } else if (gw == 1.00) {
-        mid_channle = 64;
-    } else if (gw == 1.25) {
-        mid_channle = 80;
+    int output_channel = 0;
+
+    if (algo_type == "seg") {
+        if (gw == 0.25 || gw == 0.5) {
+            mid_channle = 32;
+        } else if (gw == 0.75) {
+            mid_channle = 48;
+        } else if (gw == 1.00) {
+            mid_channle = 64;
+        } else if (gw == 1.25) {
+            mid_channle = 80;
+        }
+
+        output_channel = 32;
+
+    } else if (algo_type == "pose") {
+        if (gw == 0.25 || gw == 0.5 || gw == 0.75) {
+            mid_channle = 51;
+        } else if (gw == 1.00) {
+            mid_channle = 64;
+        } else if (gw == 1.25) {
+            mid_channle = 80;
+        }
+
+        output_channel = 51;
     }
+
     auto cv0 = convBnSiLU(network, weightMap, input, mid_channle, 3, 1, 1, lname + ".0");
     auto cv1 = convBnSiLU(network, weightMap, *cv0->getOutput(0), mid_channle, 3, 1, 1, lname + ".1");
     float* cv2_bais_value = (float*)weightMap[lname + ".2" + ".bias"].values;
     int cv2_bais_len = weightMap[lname + ".2" + ".bias"].count;
     nvinfer1::Weights cv2_bais{nvinfer1::DataType::kFLOAT, cv2_bais_value, cv2_bais_len};
-    auto cv2 = network->addConvolutionNd(*cv1->getOutput(0), 32, nvinfer1::DimsHW{1, 1},
+    auto cv2 = network->addConvolutionNd(*cv1->getOutput(0), output_channel, nvinfer1::DimsHW{1, 1},
                                          weightMap[lname + ".2" + ".weight"], cv2_bais);
     cv2->setStrideNd(nvinfer1::DimsHW{1, 1});
     nvinfer1::IShuffleLayer* cv2_shuffle = network->addShuffle(*cv2->getOutput(0));
-    cv2_shuffle->setReshapeDimensions(nvinfer1::Dims2{32, grid_shape});
+    cv2_shuffle->setReshapeDimensions(nvinfer1::Dims2{output_channel, grid_shape});
+
     return cv2_shuffle;
 }
 
@@ -278,7 +322,8 @@ nvinfer1::IHostMemory* buildEngineYolov8Det(nvinfer1::IBuilder* builder, nvinfer
 
     nvinfer1::IPluginV2Layer* yolo =
             addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2},
-                         strides, stridesLength, false);
+                         strides, stridesLength, false, false);
+
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
@@ -588,7 +633,7 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP6(nvinfer1::IBuilder* builder, nvinf
 
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(
             network, std::vector<nvinfer1::IConcatenationLayer*>{cat30_dfl_0, cat30_dfl_1, cat30_dfl_2, cat30_dfl_3},
-            strides, stridesLength, false);
+            strides, stridesLength, false, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
@@ -847,6 +892,7 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP2(nvinfer1::IBuilder* builder, nvinf
     nvinfer1::IShuffleLayer* dfl28_0 =
             DFL(network, weightMap, *split28_0_0->getOutput(0), 4, (kInputH / strides[0]) * (kInputW / strides[0]), 1,
                 1, 0, "model.28.dfl.conv.weight");
+
     nvinfer1::ITensor* inputTensor28_dfl_0[] = {dfl28_0->getOutput(0), split28_0_1->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat28_dfl_0 = network->addConcatenation(inputTensor28_dfl_0, 2);
 
@@ -897,8 +943,7 @@ nvinfer1::IHostMemory* buildEngineYolov8DetP2(nvinfer1::IBuilder* builder, nvinf
 
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(
             network, std::vector<nvinfer1::IConcatenationLayer*>{cat28_dfl_0, cat28_dfl_1, cat28_dfl_2, cat28_dfl_3},
-            strides, stridesLength, false);
-
+            strides, stridesLength, false, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
@@ -1205,26 +1250,29 @@ nvinfer1::IHostMemory* buildEngineYolov8Seg(nvinfer1::IBuilder* builder, nvinfer
                 1, 0, "model.22.dfl.conv.weight");
 
     // det0
-    auto proto_coef_0 = ProtoCoef(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0", 6400, gw);
+    auto proto_coef_0 = cv4_conv_combined(network, weightMap, *conv15->getOutput(0), "model.22.cv4.0",
+                                          (kInputH / strides[0]) * (kInputW / strides[0]), gw, "seg");
     nvinfer1::ITensor* inputTensor22_dfl_0[] = {dfl22_0->getOutput(0), split22_0_1->getOutput(0),
                                                 proto_coef_0->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat22_dfl_0 = network->addConcatenation(inputTensor22_dfl_0, 3);
 
     // det1
-    auto proto_coef_1 = ProtoCoef(network, weightMap, *conv18->getOutput(0), "model.22.cv4.1", 1600, gw);
+    auto proto_coef_1 = cv4_conv_combined(network, weightMap, *conv18->getOutput(0), "model.22.cv4.1",
+                                          (kInputH / strides[1]) * (kInputW / strides[1]), gw, "seg");
     nvinfer1::ITensor* inputTensor22_dfl_1[] = {dfl22_1->getOutput(0), split22_1_1->getOutput(0),
                                                 proto_coef_1->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat22_dfl_1 = network->addConcatenation(inputTensor22_dfl_1, 3);
 
     // det2
-    auto proto_coef_2 = ProtoCoef(network, weightMap, *conv21->getOutput(0), "model.22.cv4.2", 400, gw);
+    auto proto_coef_2 = cv4_conv_combined(network, weightMap, *conv21->getOutput(0), "model.22.cv4.2",
+                                          (kInputH / strides[2]) * (kInputW / strides[2]), gw, "seg");
     nvinfer1::ITensor* inputTensor22_dfl_2[] = {dfl22_2->getOutput(0), split22_2_1->getOutput(0),
                                                 proto_coef_2->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat22_dfl_2 = network->addConcatenation(inputTensor22_dfl_2, 3);
 
     nvinfer1::IPluginV2Layer* yolo =
             addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2},
-                         strides, stridesLength, true);
+                         strides, stridesLength, true, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
