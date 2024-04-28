@@ -15,6 +15,8 @@ const static float kConfThresh = 0.5f;
 const static float kConfThreshKeypoints = 0.5f;  // keypoints confidence
 const static int kMaxInputImageSize = 3000 * 3000;
 const static int kMaxNumOutputBbox = 1000;
+//Quantization input image folder path
+const static char* kInputQuantizationFolder = "./coco_calib";
 
 // Classfication model's number of classes
 constexpr static int kClsNumClass = 1000;
