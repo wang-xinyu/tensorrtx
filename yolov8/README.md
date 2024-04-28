@@ -118,9 +118,9 @@ make
 sudo ./yolov8_pose -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to plan file
 sudo ./yolov8_pose -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
 // For example yolov8-pose
-sudo ./yolov8_pose -s yolov8n.wts yolov8.engine n
-sudo ./yolov8_pose -d yolov8n.engine ../images c //cpu postprocess
-sudo ./yolov8_pose -d yolov8n.engine ../images g //gpu postprocess
+sudo ./yolov8_pose -s yolov8n-pose.wts yolov8.engine n
+sudo ./yolov8_pose -d yolov8n-pose.engine ../images c //cpu postprocess
+sudo ./yolov8_pose -d yolov8n-pose.engine ../images g //gpu postprocess
 ```
 
 
