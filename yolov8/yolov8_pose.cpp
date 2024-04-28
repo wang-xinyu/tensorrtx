@@ -180,7 +180,8 @@ int main(int argc, char** argv) {
     if (!parse_args(argc, argv, wts_name, engine_name, is_p, img_dir, sub_type, cuda_post_process, gd, gw,
                     max_channels)) {
         std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolov8 -s [.wts] [.engine] [n/s/m/l/x/n6/s6/m6/l6/x6]  // serialize model to plan file"
+        std::cerr << "./yolov8 -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to "
+                     "plan file"
                   << std::endl;
         std::cerr << "./yolov8 -d [.engine] ../samples  [c/g]// deserialize plan file and run inference" << std::endl;
         return -1;
