@@ -129,9 +129,10 @@ sudo ./yolov8_pose -d yolov8n-pose.engine ../images g //gpu postprocess
 ```
 // install python-tensorrt, pycuda, etc.
 // ensure the yolov8n.engine and libmyplugins.so have been built
-python yolov8_det.py  # Detection
-python yolov8_seg.py  # Segmentation
-python yolov8_cls.py  # Classification
+python yolov8_det_trt.py  # Detection
+python yolov8_seg_trt.py  # Segmentation
+python yolov8_cls_trt.py  # Classification
+python yolov8_pose_trt.py  # Pose Estimation
 ```
 
 # INT8 Quantization
