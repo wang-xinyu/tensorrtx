@@ -1762,7 +1762,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
                                             (kInputH / strides[0]) * (kInputW / strides[0]), gw, "pose");
     nvinfer1::ITensor* inputTensor30_dfl_0[] = {dfl30_0->getOutput(0), split30_0_1->getOutput(0),
                                                 shuffle_conv20->getOutput(0)};
-    nvinfer1::IConcatenationLayer* cat30_dfl_0 = network->addConcatenation(inputTensor30_dfl_0, 2);
+    nvinfer1::IConcatenationLayer* cat30_dfl_0 = network->addConcatenation(inputTensor30_dfl_0, 3);
 
     // P4 processing steps (remains unchanged)
     nvinfer1::IShuffleLayer* shuffle30_1 =
@@ -1783,7 +1783,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
                                             (kInputH / strides[1]) * (kInputW / strides[1]), gw, "pose");
     nvinfer1::ITensor* inputTensor30_dfl_1[] = {dfl30_1->getOutput(0), split30_1_1->getOutput(0),
                                                 shuffle_conv23->getOutput(0)};
-    nvinfer1::IConcatenationLayer* cat30_dfl_1 = network->addConcatenation(inputTensor30_dfl_1, 2);
+    nvinfer1::IConcatenationLayer* cat30_dfl_1 = network->addConcatenation(inputTensor30_dfl_1, 3);
 
     // P5 processing steps (remains unchanged)
     nvinfer1::IShuffleLayer* shuffle30_2 =
@@ -1804,7 +1804,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
                                             (kInputH / strides[2]) * (kInputW / strides[2]), gw, "pose");
     nvinfer1::ITensor* inputTensor30_dfl_2[] = {dfl30_2->getOutput(0), split30_2_1->getOutput(0),
                                                 shuffle_conv26->getOutput(0)};
-    nvinfer1::IConcatenationLayer* cat30_dfl_2 = network->addConcatenation(inputTensor30_dfl_2, 2);
+    nvinfer1::IConcatenationLayer* cat30_dfl_2 = network->addConcatenation(inputTensor30_dfl_2, 3);
 
     // P6 processing steps
     nvinfer1::IShuffleLayer* shuffle30_3 = network->addShuffle(*cat30_3->getOutput(0));
@@ -1819,12 +1819,12 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
             DFL(network, weightMap, *split30_3_0->getOutput(0), 4, (kInputH / strides[3]) * (kInputW / strides[3]), 1,
                 1, 0, "model.30.dfl.conv.weight");
 
-    // det2
+    // det3
     auto shuffle_conv29 = cv4_conv_combined(network, weightMap, *conv29->getOutput(0), "model.30.cv4.3",
                                             (kInputH / strides[3]) * (kInputW / strides[3]), gw, "pose");
     nvinfer1::ITensor* inputTensor30_dfl_3[] = {dfl30_3->getOutput(0), split30_3_1->getOutput(0),
                                                 shuffle_conv29->getOutput(0)};
-    nvinfer1::IConcatenationLayer* cat30_dfl_3 = network->addConcatenation(inputTensor30_dfl_3, 2);
+    nvinfer1::IConcatenationLayer* cat30_dfl_3 = network->addConcatenation(inputTensor30_dfl_3, 3);
 
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(
             network, std::vector<nvinfer1::IConcatenationLayer*>{cat30_dfl_0, cat30_dfl_1, cat30_dfl_2, cat30_dfl_3},
