@@ -11,6 +11,7 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 <a href="https://github.com/xinsuinizhuan"><img src="https://avatars.githubusercontent.com/u/40679769?v=4?s=48" width="40px;" alt=""/></a>
 <a href="https://github.com/Rex-LK"><img src="https://avatars.githubusercontent.com/u/74702576?s=48&v=4" width="40px;" alt=""/></a>
 <a href="https://github.com/emptysoal"><img src="https://avatars.githubusercontent.com/u/57931586?s=48&v=4" width="40px;" alt=""/></a>
+<a href="https://github.com/ChangjunDAI"><img src="https://avatars.githubusercontent.com/u/65420228?s=48&v=4" width="40px;" alt=""/></a>
 
 ## Requirements
 
@@ -33,11 +34,15 @@ Currently, we support yolov8
 
 ```
 // download https://github.com/ultralytics/assets/releases/yolov8n.pt
-// download https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt (only for  10 cls p2 model)
+// download https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt (only for 10 cls p2 model)
 cp {tensorrtx}/yolov8/gen_wts.py {ultralytics}/ultralytics
 cd {ultralytics}/ultralytics
 python gen_wts.py -w yolov8n.pt -o yolov8n.wts -t detect
 // a file 'yolov8n.wts' will be generated.
+
+
+// For p2 model
+// download https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt (only for 10 cls p2 model)
 python gen_wts.py -w VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt -o VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts -t detect (only for  10 cls p2 model)
 // a file 'VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts' will be generated.
 ```
@@ -55,13 +60,15 @@ cmake ..
 make
 sudo ./yolov8_det -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to plan file
 sudo ./yolov8_det -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
-// For example yolov8
+
+// For example yolov8n
 sudo ./yolov8_det -s yolov8n.wts yolov8.engine n
 sudo ./yolov8_det -d yolov8n.engine ../images c //cpu postprocess
 sudo ./yolov8_det -d yolov8n.engine ../images g //gpu postprocess
 
-for p2 model:
-change the  "const static int kNumClass" in config.h to 10;
+
+// For p2 model:
+// change the  "const static int kNumClass" in config.h to 10;
 sudo ./yolov8_det -s VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine x2
 wget https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last/0000008_01999_d_0000040.jpg
 cp -r 0000008_01999_d_0000040.jpg ../images
@@ -117,6 +124,7 @@ cmake ..
 make
 sudo ./yolov8_pose -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to plan file
 sudo ./yolov8_pose -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
+
 // For example yolov8-pose
 sudo ./yolov8_pose -s yolov8n-pose.wts yolov8n-pose.engine n
 sudo ./yolov8_pose -d yolov8n-pose.engine ../images c //cpu postprocess
