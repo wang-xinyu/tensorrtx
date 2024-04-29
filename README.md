@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `28 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-pose
 - `22 Apr 2024`. [B1SH0PP](https://github.com/B1SH0PP): EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies.
 - `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
 - `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.
 - `7 Sep 2022`. [xiang-wuu](https://github.com/xiang-wuu): YOLOv5 v6.2 classification models.
 - `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
-- `6 Jul 2022`. [xiang-wuu](https://github.com/xiang-wuu): SuperPoint - Self-Supervised Interest Point Detection and Description, vSLAM related.
 
 ## Tutorials
 
