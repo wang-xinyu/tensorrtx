@@ -141,7 +141,7 @@ python yolov8_pose_trt.py  # Pose Estimation
 
 2. unzip it in yolov8/build
 
-3. set the macro `USE_INT8` in config.h and make
+3. set the macro `USE_INT8` in config.h, change `kInputQuantizationFolder` into your image folder path and make
 
 4. serialize the model and test
 
