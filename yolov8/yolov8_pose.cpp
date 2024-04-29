@@ -20,7 +20,7 @@ void serialize_engine(std::string& wts_name, std::string& engine_name, int& is_p
     IHostMemory* serialized_engine = nullptr;
 
     if (is_p == 6) {
-        std::cout << "p6 is not supported right nowe" << std::endl;
+        serialized_engine = buildEngineYolov8PoseP6(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
     } else if (is_p == 2) {
         std::cout << "p2 is not supported right now" << std::endl;
     } else {
