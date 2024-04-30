@@ -1,4 +1,4 @@
-import sys
+import sys  # noqa: F401
 import argparse
 import os
 import struct
@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument(
         '-o', '--output', help='Output (.wts) file path (optional)')
     parser.add_argument(
-        '-t', '--type', type=str, default='detect', choices=['detect', 'cls', 'seg'],
+        '-t', '--type', type=str, default='detect', choices=['detect', 'cls', 'seg', 'pose'],
         help='determines the model is detection/classification')
     args = parser.parse_args()
     if not os.path.isfile(args.weights):
@@ -39,7 +39,7 @@ device = 'cpu'
 # Load model
 model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
 
-if m_type in ['detect', 'seg']:
+if m_type in ['detect', 'seg', 'pose']:
     anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
 
     delattr(model.model[-1], 'anchors')
