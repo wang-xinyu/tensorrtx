@@ -68,15 +68,9 @@ static nvinfer1::IShuffleLayer* cv4_conv_combined(nvinfer1::INetworkDefinition* 
         output_channel = 32;
 
     } else if (algo_type == "pose") {
-        if (gw == 0.25 || gw == 0.5 || gw == 0.75) {
-            mid_channle = 51;
-        } else if (gw == 1.00) {
-            mid_channle = 64;
-        } else if (gw == 1.25) {
-            mid_channle = 80;
-        }
-
-        output_channel = 51;
+        std::string bn_weight_key = lname + ".0.bn.weight";
+        mid_channle = weightMap[bn_weight_key].count;
+        output_channel = kNumberOfPoints * 3;
     }
 
     auto cv0 = convBnSiLU(network, weightMap, input, mid_channle, 3, 1, 1, lname + ".0");
