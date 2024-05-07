@@ -28,7 +28,7 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
     return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
-cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[51]) {
+cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[kNumberOfPoints * 3]) {
     int l, r, t, b;
     float r_w = kInputW / (img.cols * 1.0);
     float r_h = kInputH / (img.rows * 1.0);
@@ -37,7 +37,7 @@ cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[51]) {
         r = bbox[2] / r_w;
         t = (bbox[1] - (kInputH - r_w * img.rows) / 2) / r_w;
         b = (bbox[3] - (kInputH - r_w * img.rows) / 2) / r_w;
-        for (int i = 0; i < 51; i += 3) {
+        for (int i = 0; i < kNumberOfPoints * 3; i += 3) {
             lmk[i] /= r_w;
             lmk[i + 1] = (lmk[i + 1] - (kInputH - r_w * img.rows) / 2) / r_w;
             // lmk[i + 2]
@@ -47,7 +47,7 @@ cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[51]) {
         r = (bbox[2] - (kInputW - r_h * img.cols) / 2) / r_h;
         t = bbox[1] / r_h;
         b = bbox[3] / r_h;
-        for (int i = 0; i < 51; i += 3) {
+        for (int i = 0; i < kNumberOfPoints * 3; i += 3) {
             lmk[i] = (lmk[i] - (kInputW - r_h * img.cols) / 2) / r_h;
             lmk[i + 1] /= r_h;
             // lmk[i + 2]
@@ -172,7 +172,7 @@ void draw_bbox_keypoints_line(std::vector<cv::Mat>& img_batch, std::vector<std::
             cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2,
                         cv::Scalar(0xFF, 0xFF, 0xFF), 2);
 
-            for (int k = 0; k < 51; k += 3) {
+            for (int k = 0; k < kNumberOfPoints * 3; k += 3) {
                 if (res[j].keypoints[k + 2] > 0.5) {
                     cv::circle(img, cv::Point((int)res[j].keypoints[k], (int)res[j].keypoints[k + 1]), 3,
                                cv::Scalar(0, 0x27, 0xC1), -1);
