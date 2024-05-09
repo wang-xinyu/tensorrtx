@@ -34,7 +34,7 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
 }
 
 cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[kNumberOfPoints * 3]) {
-    int l, r, t, b;
+    float l, r, t, b;
     float r_w = kInputW / (img.cols * 1.0);
     float r_h = kInputH / (img.rows * 1.0);
     if (r_h > r_w) {
