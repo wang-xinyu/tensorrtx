@@ -258,25 +258,38 @@ void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cuda
     }
     int numElem = 0;
 
-    const int maxGrids = mStridesLength;
-    int grids[maxGrids][2];
+    //    const int maxGrids = mStridesLength;
+    //    int grids[maxGrids][2];
+    //    for (int i = 0; i < maxGrids; ++i) {
+    //        grids[i][0] = mYoloV8netHeight / mStrides[i];
+    //        grids[i][1] = mYoloV8NetWidth / mStrides[i];
+    //    }
+
+    int maxGrids = mStridesLength;
+    int flatGridsLen = 2 * maxGrids;
+    int* flatGrids = new int[flatGridsLen];
+
     for (int i = 0; i < maxGrids; ++i) {
-        grids[i][0] = mYoloV8netHeight / mStrides[i];
-        grids[i][1] = mYoloV8NetWidth / mStrides[i];
+        flatGrids[2 * i] = mYoloV8netHeight / mStrides[i];
+        flatGrids[2 * i + 1] = mYoloV8NetWidth / mStrides[i];
     }
 
     for (unsigned int i = 0; i < maxGrids; i++) {
-        int grid_h = grids[i][0];
-        int grid_w = grids[i][1];
+        // Access the elements of the original 2D array from the flattened 1D array
+        int grid_h = flatGrids[2 * i];      // Corresponds to the access of grids[i][0]
+        int grid_w = flatGrids[2 * i + 1];  // Corresponds to the access of grids[i][1]
         int stride = mStrides[i];
-        numElem = grid_h * grid_w * batchSize;
-        if (numElem < mThreadCount)
+        numElem = grid_h * grid_w * batchSize;  // Calculate the total number of elements
+        if (numElem < mThreadCount)             // Adjust the thread count if needed
             mThreadCount = numElem;
 
+        // The CUDA kernel call remains unchanged
         CalDetection<<<(numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream>>>(
                 inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, mNumberofpoints,
                 mConfthreshkeypoints, outputElem, is_segmentation_, is_pose_);
     }
+
+    delete[] flatGrids;
 }
 
 PluginFieldCollection YoloPluginCreator::mFC{};
