@@ -25,11 +25,16 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
         t = t / r_h;
         b = b / r_h;
     }
-    return cv::Rect(round(l), round(t), round(r - l), round(b - t));
+    l = std::max(0.0f, l);
+    t = std::max(0.0f, t);
+    int width = std::max(0, std::min(int(round(r - l)), img.cols - int(round(l))));
+    int height = std::max(0, std::min(int(round(b - t)), img.rows - int(round(t))));
+
+    return cv::Rect(int(round(l)), int(round(t)), width, height);
 }
 
 cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[kNumberOfPoints * 3]) {
-    int l, r, t, b;
+    float l, r, t, b;
     float r_w = kInputW / (img.cols * 1.0);
     float r_h = kInputH / (img.rows * 1.0);
     if (r_h > r_w) {
@@ -53,7 +58,12 @@ cv::Rect get_rect_adapt_landmark(cv::Mat& img, float bbox[4], float lmk[kNumberO
             // lmk[i + 2]
         }
     }
-    return cv::Rect(l, t, r - l, b - t);
+    l = std::max(0.0f, l);
+    t = std::max(0.0f, t);
+    int width = std::max(0, std::min(int(round(r - l)), img.cols - int(round(l))));
+    int height = std::max(0, std::min(int(round(b - t)), img.rows - int(round(t))));
+
+    return cv::Rect(int(round(l)), int(round(t)), width, height);
 }
 
 static float iou(float lbox[4], float rbox[4]) {
