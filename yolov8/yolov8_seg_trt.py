@@ -10,12 +10,15 @@ import threading
 import time
 import cv2
 import numpy as np
-import pycuda.autoinit
+import pycuda.autoinit  # noqa: F401
 import pycuda.driver as cuda
 import tensorrt as trt
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
+POSE_NUM = 17 * 3
+DET_NUM = 6
+SEG_NUM = 32
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -36,7 +39,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,
                  this function comes from YoLov8 project.
-    param: 
+    param:
         x:      a box likes [x1,y1,x2,y2]
         img:    a opencv image object
         color:  color to draw rectangle, such as (0,255,0)
@@ -122,17 +125,16 @@ class YoLov8TRT(object):
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
 
-        #Data length
-        self.det_output_length  = host_outputs[0].shape[0]
+        # Data length
+        self.det_output_length = host_outputs[0].shape[0]
         self.seg_output_length = host_outputs[1].shape[0]
         self.seg_w = int(self.input_w / 4)
         self.seg_h = int(self.input_h / 4)
         self.seg_c = int(self.seg_output_length / (self.seg_w * self.seg_w))
-        self.det_row_output_length = self.seg_c + 6
+        self.det_row_output_length = self.seg_c + DET_NUM + POSE_NUM
 
         # Draw mask
         self.colors_obj = Colors()
-
 
     def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
@@ -141,7 +143,6 @@ class YoLov8TRT(object):
         # Restore
         stream = self.stream
         context = self.context
-        engine = self.engine
         host_inputs = self.host_inputs
         cuda_inputs = self.cuda_inputs
         host_outputs = self.host_outputs
@@ -181,15 +182,18 @@ class YoLov8TRT(object):
         output_proto_mask = host_outputs[1]
         # Do postprocess
         for i in range(self.batch_size):
-            result_boxes, result_scores, result_classid,result_proto_coef = self.post_process(
-                output[i * 38001: (i + 1) * 38001], batch_origin_h[i], batch_origin_w[i]
+            result_boxes, result_scores, result_classid, result_proto_coef = self.post_process(
+                output[i * self.det_output_length: (i + 1) * self.det_output_length], batch_origin_h[i],
+                batch_origin_w[i]
             )
 
             if result_proto_coef.shape[0] == 0:
                 continue
-            result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i], batch_origin_w[i])
-            
-            self.draw_mask(result_masks, colors_=[self.colors_obj(x, True) for x in result_classid],im_src=batch_image_raw[i])
+            result_masks = self.process_mask(output_proto_mask, result_proto_coef, result_boxes, batch_origin_h[i],
+                                             batch_origin_w[i])
+
+            self.draw_mask(result_masks, colors_=[self.colors_obj(x, True) for x in result_classid],
+                           im_src=batch_image_raw[i])
 
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
@@ -301,7 +305,7 @@ class YoLov8TRT(object):
         """
         description: postprocess the prediction
         param:
-            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...] 
+            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...]
             origin_h:   height of original image
             origin_w:   width of original image
         return:
@@ -312,22 +316,22 @@ class YoLov8TRT(object):
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
-        pred = np.reshape(output[1:], (-1, 38))[:num, :]
+        pred = np.reshape(output[1:], (-1, self.det_row_output_length))[:num, :]
 
         # Do nms
         boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
         result_scores = boxes[:, 4] if len(boxes) else np.array([])
         result_classid = boxes[:, 5] if len(boxes) else np.array([])
-        result_proto_coef = boxes[:, 6:] if len(boxes) else np.array([])
-        return result_boxes, result_scores, result_classid,result_proto_coef
+        result_proto_coef = boxes[:, DET_NUM:int(DET_NUM + SEG_NUM)] if len(boxes) else np.array([])
+        return result_boxes, result_scores, result_classid, result_proto_coef
 
     def bbox_iou(self, box1, box2, x1y1x2y2=True):
         """
         description: compute the IoU of two bounding boxes
         param:
             box1: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))            
+            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
             x1y1x2y2: select the coordinate format
         return:
             iou: computed iou
@@ -349,8 +353,8 @@ class YoLov8TRT(object):
         inter_rect_x2 = np.minimum(b1_x2, b2_x2)
         inter_rect_y2 = np.minimum(b1_y2, b2_y2)
         # Intersection area
-        inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * \
-                     np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
+        inter_area = (np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None)
+                      * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None))
         # Union Area
         b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
         b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
@@ -414,17 +418,17 @@ class YoLov8TRT(object):
             h = self.input_h
             x = int((self.input_w - w) / 2)
             y = 0
-        crop = mask[y:y+h, x:x+w]
+        crop = mask[y:y + h, x:x + w]
         crop = cv2.resize(crop, (iw, ih))
-        return crop 
-    
+        return crop
+
     def process_mask(self, output_proto_mask, result_proto_coef, result_boxes, ih, iw):
         """
         description: Mask pred by yolov8 instance segmentation ,
-        param: 
+        param:
             output_proto_mask: prototype mask e.g. (32, 160, 160) for 640x640 input
             result_proto_coef: prototype mask coefficients (n, 32), n represents n results
-            result_boxes     :  
+            result_boxes     :
             ih: rows of original image
             iw: cols of original image
         return:
@@ -432,13 +436,15 @@ class YoLov8TRT(object):
         """
         result_proto_masks = output_proto_mask.reshape(self.seg_c, self.seg_h, self.seg_w)
         c, mh, mw = result_proto_masks.shape
-        masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh, mw)
-        
+        print(result_proto_masks.shape)
+        print(result_proto_coef.shape)
+        masks = self.sigmoid((result_proto_coef @ result_proto_masks.astype(np.float32).reshape(c, -1))).reshape(-1, mh,
+                                                                                                                 mw)
 
         mask_result = []
         for mask, box in zip(masks, result_boxes):
             mask_s = np.zeros((ih, iw))
-            crop_mask = self.scale_mask(mask, ih, iw)    
+            crop_mask = self.scale_mask(mask, ih, iw)
             x1 = int(box[0])
             y1 = int(box[1])
             x2 = int(box[2])
@@ -455,7 +461,7 @@ class YoLov8TRT(object):
     def draw_mask(self, masks, colors_, im_src, alpha=0.5):
         """
         description: Draw mask on image ,
-        param: 
+        param:
             masks  : result_mask
             colors_: color to draw mask
             im_src : original image
@@ -472,6 +478,7 @@ class YoLov8TRT(object):
         s = masks.sum(2, keepdims=True).clip(0, 1)
         masks = (masks @ colors_).clip(0, 255)
         im_src[:] = masks * alpha + im_src * (1 - s * alpha)
+
 
 class inferThread(threading.Thread):
     def __init__(self, yolov8_wrapper, image_path_batch):
@@ -498,6 +505,7 @@ class warmUpThread(threading.Thread):
         batch_image_raw, use_time = self.yolov8_wrapper.infer(self.yolov8_wrapper.get_raw_image_zeros())
         print('warm_up->{}, time->{:.2f}ms'.format(batch_image_raw[0].shape, use_time * 1000))
 
+
 class Colors:
     def __init__(self):
         hexs = ('FF3838', 'FF9D97', 'FF701F', 'FFB21D', 'CFD231', '48F90A',
@@ -515,10 +523,11 @@ class Colors:
     def hex2rgb(h):  # rgb order (PIL)
         return tuple(int(h[1 + i:1 + i + 2], 16) for i in (0, 2, 4))
 
+
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "yolov8s-seg.engine"
+    engine_file_path = "yolov8n-seg.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]

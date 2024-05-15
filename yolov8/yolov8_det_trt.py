@@ -10,12 +10,15 @@ import threading
 import time
 import cv2
 import numpy as np
-import pycuda.autoinit
+import pycuda.autoinit  # noqa: F401
 import pycuda.driver as cuda
 import tensorrt as trt
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
+POSE_NUM = 17 * 3
+DET_NUM = 6
+SEG_NUM = 32
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -36,7 +39,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,
                  this function comes from YoLov8 project.
-    param: 
+    param:
         x:      a box likes [x1,y1,x2,y2]
         img:    a opencv image object
         color:  color to draw rectangle, such as (0,255,0)
@@ -121,6 +124,7 @@ class YoLov8TRT(object):
         self.cuda_outputs = cuda_outputs
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
+        self.det_output_length = host_outputs[0].shape[0]
 
     def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
@@ -129,7 +133,6 @@ class YoLov8TRT(object):
         # Restore
         stream = self.stream
         context = self.context
-        engine = self.engine
         host_inputs = self.host_inputs
         cuda_inputs = self.cuda_inputs
         host_outputs = self.host_outputs
@@ -167,7 +170,8 @@ class YoLov8TRT(object):
         # Do postprocess
         for i in range(self.batch_size):
             result_boxes, result_scores, result_classid = self.post_process(
-                output[i * 38001: (i + 1) * 38001], batch_origin_h[i], batch_origin_w[i]
+                output[i * self.det_output_length: (i + 1) * self.det_output_length], batch_origin_h[i],
+                batch_origin_w[i]
             )
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
@@ -279,7 +283,7 @@ class YoLov8TRT(object):
         """
         description: postprocess the prediction
         param:
-            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...] 
+            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...]
             origin_h:   height of original image
             origin_w:   width of original image
         return:
@@ -287,10 +291,12 @@ class YoLov8TRT(object):
             result_scores: finally scores, a numpy, each element is the score correspoing to box
             result_classid: finally classid, a numpy, each element is the classid correspoing to box
         """
+        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
-        pred = np.reshape(output[1:], (-1, 38))[:num, :]
+        # pred = np.reshape(output[1:], (-1, 38))[:num, :]
+        pred = np.reshape(output[1:], (-1, num_values_per_detection))[:num, :]
         # Do nms
         boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
@@ -303,7 +309,7 @@ class YoLov8TRT(object):
         description: compute the IoU of two bounding boxes
         param:
             box1: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))            
+            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
             x1y1x2y2: select the coordinate format
         return:
             iou: computed iou
@@ -325,8 +331,8 @@ class YoLov8TRT(object):
         inter_rect_x2 = np.minimum(b1_x2, b2_x2)
         inter_rect_y2 = np.minimum(b1_y2, b2_y2)
         # Intersection area
-        inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * \
-                     np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)
+        inter_area = (np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None)
+                      * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None))
         # Union Area
         b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
         b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
@@ -403,7 +409,7 @@ class warmUpThread(threading.Thread):
 if __name__ == "__main__":
     # load custom plugin and engine
     PLUGIN_LIBRARY = "build/libmyplugins.so"
-    engine_file_path = "yolov8n.engine"
+    engine_file_path = "yolov8s.engine"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
@@ -437,7 +443,7 @@ if __name__ == "__main__":
     try:
         print('batch size is', yolov8_wrapper.batch_size)
 
-        image_dir = "samples/"
+        image_dir = "images/"
         image_path_batches = get_img_path_batches(yolov8_wrapper.batch_size, image_dir)
 
         for i in range(10):
