@@ -331,8 +331,8 @@ class YoLov8TRT(object):
         inter_rect_x2 = np.minimum(b1_x2, b2_x2)
         inter_rect_y2 = np.minimum(b1_y2, b2_y2)
         # Intersection area
-        inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0,
-                                                                                   None)  # noqa: E501
+        inter_area = (np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None)
+                      * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None))
         # Union Area
         b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
         b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
