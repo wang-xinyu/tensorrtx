@@ -16,6 +16,9 @@ import tensorrt as trt
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
+POSE_NUM = 17 * 3
+DET_NUM = 6
+SEG_NUM = 32
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -121,6 +124,7 @@ class YoLov8TRT(object):
         self.cuda_outputs = cuda_outputs
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
+        self.det_output_length = host_outputs[0].shape[0]
 
     def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
@@ -129,7 +133,6 @@ class YoLov8TRT(object):
         # Restore
         stream = self.stream
         context = self.context
-        engine = self.engine  # noqa: F841
         host_inputs = self.host_inputs
         cuda_inputs = self.cuda_inputs
         host_outputs = self.host_outputs
@@ -167,7 +170,8 @@ class YoLov8TRT(object):
         # Do postprocess
         for i in range(self.batch_size):
             result_boxes, result_scores, result_classid = self.post_process(
-                output[i * 89001: (i + 1) * 89001], batch_origin_h[i], batch_origin_w[i]
+                output[i * self.det_output_length: (i + 1) * self.det_output_length], batch_origin_h[i],
+                batch_origin_w[i]
             )
             # Draw rectangles and labels on the original image
             for j in range(len(result_boxes)):
@@ -287,12 +291,12 @@ class YoLov8TRT(object):
             result_scores: finally scores, a numpy, each element is the score correspoing to box
             result_classid: finally classid, a numpy, each element is the classid correspoing to box
         """
+        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
         # pred = np.reshape(output[1:], (-1, 38))[:num, :]
-
-        pred = np.reshape(output[1:], (-1, 89))[:num, :]
+        pred = np.reshape(output[1:], (-1, num_values_per_detection))[:num, :]
         # Do nms
         boxes = self.non_max_suppression(pred, origin_h, origin_w, conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
@@ -327,7 +331,8 @@ class YoLov8TRT(object):
         inter_rect_x2 = np.minimum(b1_x2, b2_x2)
         inter_rect_y2 = np.minimum(b1_y2, b2_y2)
         # Intersection area
-        inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None)  # noqa: E501
+        inter_area = np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None) * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0,
+                                                                                   None)  # noqa: E501
         # Union Area
         b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
         b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)

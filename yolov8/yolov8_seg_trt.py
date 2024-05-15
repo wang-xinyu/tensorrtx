@@ -16,6 +16,9 @@ import tensorrt as trt
 
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
+POSE_NUM = 17 * 3
+DET_NUM = 6
+SEG_NUM = 32
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -128,7 +131,7 @@ class YoLov8TRT(object):
         self.seg_w = int(self.input_w / 4)
         self.seg_h = int(self.input_h / 4)
         self.seg_c = int(self.seg_output_length / (self.seg_w * self.seg_w))
-        self.det_row_output_length = self.seg_c + 6 + 51
+        self.det_row_output_length = self.seg_c + DET_NUM + POSE_NUM
 
         # Draw mask
         self.colors_obj = Colors()
@@ -140,7 +143,6 @@ class YoLov8TRT(object):
         # Restore
         stream = self.stream
         context = self.context
-        engine = self.engine  # noqa: F841
         host_inputs = self.host_inputs
         cuda_inputs = self.cuda_inputs
         host_outputs = self.host_outputs
@@ -321,7 +323,7 @@ class YoLov8TRT(object):
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
         result_scores = boxes[:, 4] if len(boxes) else np.array([])
         result_classid = boxes[:, 5] if len(boxes) else np.array([])
-        result_proto_coef = boxes[:, 6:38] if len(boxes) else np.array([])
+        result_proto_coef = boxes[:, DET_NUM:int(DET_NUM + SEG_NUM)] if len(boxes) else np.array([])
         return result_boxes, result_scores, result_classid, result_proto_coef
 
     def bbox_iou(self, box1, box2, x1y1x2y2=True):

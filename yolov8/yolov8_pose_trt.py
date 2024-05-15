@@ -14,10 +14,11 @@ import pycuda.autoinit  # noqa: F401
 import pycuda.driver as cuda
 import tensorrt as trt
 
-
 CONF_THRESH = 0.5
 IOU_THRESHOLD = 0.4
-
+POSE_NUM = 17 * 3
+DET_NUM = 6
+SEG_NUM = 32
 keypoint_pairs = [
     (0, 1), (0, 2), (0, 5), (0, 6), (1, 2),
     (1, 3), (2, 4), (5, 6), (5, 7), (5, 11),
@@ -128,7 +129,7 @@ class YoLov8TRT(object):
         self.cuda_outputs = cuda_outputs
         self.bindings = bindings
         self.batch_size = engine.max_batch_size
-        self.det_output_size = 89001
+        self.det_output_size = host_outputs[0].shape[0]
 
     def infer(self, raw_image_generator):
         threading.Thread.__init__(self)
@@ -329,7 +330,7 @@ class YoLov8TRT(object):
             each element represents keypoints for a box, shaped as (#keypoints, 3)
         """
         # Number of values per detection: 38 base values + 17 keypoints * 3 values each
-        num_values_per_detection = 38 + 17 * 3
+        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM
         # Get the number of boxes detected
         num = int(output[0])
         # Reshape to a two-dimensional ndarray with the full detection shape
@@ -344,7 +345,7 @@ class YoLov8TRT(object):
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
         result_scores = boxes[:, 4] if len(boxes) else np.array([])
         result_classid = boxes[:, 5] if len(boxes) else np.array([])
-        result_keypoints = boxes[:, -51:] if len(boxes) else np.array([])
+        result_keypoints = boxes[:, -POSE_NUM:] if len(boxes) else np.array([])
 
         # Return the post-processed results including keypoints
         return result_boxes, result_scores, result_classid, result_keypoints
@@ -404,11 +405,11 @@ class YoLov8TRT(object):
         # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
         res_array = np.copy(boxes)
         box_pred_deep_copy = np.copy(boxes[:, :4])
-        keypoints_pred_deep_copy = np.copy(boxes[:, -51:])
+        keypoints_pred_deep_copy = np.copy(boxes[:, -POSE_NUM:])
         res_box, res_keypoints = self.xywh2xyxy_with_keypoints(
             origin_h, origin_w, box_pred_deep_copy, keypoints_pred_deep_copy)
         res_array[:, :4] = res_box
-        res_array[:, -51:] = res_keypoints
+        res_array[:, -POSE_NUM:] = res_keypoints
         # clip the coordinates
         res_array[:, 0] = np.clip(res_array[:, 0], 0, origin_w - 1)
         res_array[:, 2] = np.clip(res_array[:, 2], 0, origin_w - 1)
