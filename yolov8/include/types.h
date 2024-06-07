@@ -8,11 +8,12 @@ struct alignas(float) Detection {
     float class_id;
     float mask[32];
     float keypoints[51];  // 17*3 keypoints
+    float angle; // obb angle
 };
 
 struct AffineMatrix {
-    float value[6];
+    float value[7];
 };
 
 const int bbox_element =
-        sizeof(AffineMatrix) / sizeof(float) + 1;  // left, top, right, bottom, confidence, class, keepflag
+        sizeof(AffineMatrix) / sizeof(float) + 1;  // left, top, right, bottom, confidence, class, keepflag£¬angle

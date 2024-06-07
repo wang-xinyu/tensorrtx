@@ -19,7 +19,7 @@ IOU_THRESHOLD = 0.4
 POSE_NUM = 17 * 3
 DET_NUM = 6
 SEG_NUM = 32
-
+OBB_NUM = 1
 
 def get_img_path_batches(batch_size, img_dir):
     ret = []
@@ -131,7 +131,7 @@ class YoLov8TRT(object):
         self.seg_w = int(self.input_w / 4)
         self.seg_h = int(self.input_h / 4)
         self.seg_c = int(self.seg_output_length / (self.seg_w * self.seg_w))
-        self.det_row_output_length = self.seg_c + DET_NUM + POSE_NUM
+        self.det_row_output_length = self.seg_c + DET_NUM + POSE_NUM + OBB_NUM
 
         # Draw mask
         self.colors_obj = Colors()
@@ -526,7 +526,7 @@ class Colors:
 
 if __name__ == "__main__":
     # load custom plugin and engine
-    PLUGIN_LIBRARY = "build/libmyplugins.so"
+    PLUGIN_LIBRARY = "./build/libmyplugins.so"
     engine_file_path = "yolov8n-seg.engine"
 
     if len(sys.argv) > 1:

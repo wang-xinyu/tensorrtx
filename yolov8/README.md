@@ -132,6 +132,24 @@ sudo ./yolov8_pose -d yolov8n-pose.engine ../images g //gpu postprocess
 ```
 
 
+### Obb Estimation
+```
+cd {tensorrtx}/yolov8/
+// update "kNumClass = 15" "kInputH = 1024" "kInputW = 1024" in config.h
+mkdir build
+cd build
+cp {ultralytics}/ultralytics/yolov8-obb.wts {tensorrtx}/yolov8/build
+cmake ..
+make
+sudo ./yolov8_obb -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to plan file
+sudo ./yolov8_obb -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
+
+// For example yolov8-obb
+sudo ./yolov8_obb -s yolov8n-obb.wts yolov8n-obb.engine n
+sudo ./yolov8_obb -d yolov8n-obb.engine ../images c //cpu postprocess
+sudo ./yolov8_obb -d yolov8n-obb.engine ../images g //gpu postprocess
+```
+
 4. optional, load and run the tensorrt model in python
 
 ```
@@ -141,6 +159,7 @@ python yolov8_det_trt.py  # Detection
 python yolov8_seg_trt.py  # Segmentation
 python yolov8_cls_trt.py  # Classification
 python yolov8_pose_trt.py  # Pose Estimation
+python yolov8_obb_trt.py  # Obb Estimation
 ```
 
 # INT8 Quantization
