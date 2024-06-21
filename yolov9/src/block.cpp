@@ -208,7 +208,7 @@ ILayer* RepNCSP(INetworkDefinition* network, std::map<std::string, Weights>& wei
 ILayer* ELAN1(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2,
               int c3, int c4, std::string lname) {
     auto cv1 = convBnSiLU(network, weightMap, input, c3, 1, 1, 0, lname + ".cv1", 1);
-    // 将cv1的输出分成两部分 chunk(2, 1)
+    // chunk(2, 1)
 
     nvinfer1::Dims d = cv1->getOutput(0)->getDimensions();
     nvinfer1::ISliceLayer* split1 =
@@ -231,7 +231,7 @@ ILayer* RepNCSPELAN4(INetworkDefinition* network, std::map<std::string, Weights>
                      int c2, int c3, int c4, int c5, std::string lname) {
 
     auto cv1 = convBnSiLU(network, weightMap, input, c3, 1, 1, 0, lname + ".cv1", 1);
-    // 将cv1的输出分成两部分 chunk(2, 1)
+    // chunk(2, 1)
 
     nvinfer1::Dims d = cv1->getOutput(0)->getDimensions();
     nvinfer1::ISliceLayer* split1 =
