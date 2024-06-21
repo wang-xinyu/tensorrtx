@@ -204,6 +204,29 @@ ILayer* RepNCSP(INetworkDefinition* network, std::map<std::string, Weights>& wei
     auto cv3 = convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname + ".cv3", 1);
     return cv3;
 }
+
+ILayer* ELAN1(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2,
+              int c3, int c4, std::string lname) {
+    auto cv1 = convBnSiLU(network, weightMap, input, c3, 1, 1, 0, lname + ".cv1", 1);
+    // 将cv1的输出分成两部分 chunk(2, 1)
+
+    nvinfer1::Dims d = cv1->getOutput(0)->getDimensions();
+    nvinfer1::ISliceLayer* split1 =
+            network->addSlice(*cv1->getOutput(0), nvinfer1::Dims3{0, 0, 0}, nvinfer1::Dims3{d.d[0] / 2, d.d[1], d.d[2]},
+                              nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::ISliceLayer* split2 =
+            network->addSlice(*cv1->getOutput(0), nvinfer1::Dims3{d.d[0] / 2, 0, 0},
+                              nvinfer1::Dims3{d.d[0] / 2, d.d[1], d.d[2]}, nvinfer1::Dims3{1, 1, 1});
+    auto cv2 = convBnSiLU(network, weightMap, *split2->getOutput(0), c4, 3, 1, 1, lname + ".cv2", 1);
+
+    auto cv3 = convBnSiLU(network, weightMap, *cv2->getOutput(0), c4, 3, 1, 1, lname + ".cv3", 1);
+
+    ITensor* inputTensors[] = {split1->getOutput(0), split2->getOutput(0), cv2->getOutput(0), cv3->getOutput(0)};
+    auto cat = network->addConcatenation(inputTensors, 4);
+    auto cv4 = convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname + ".cv4", 1);
+    return cv4;
+}
+
 ILayer* RepNCSPELAN4(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1,
                      int c2, int c3, int c4, int c5, std::string lname) {
 
@@ -230,6 +253,14 @@ ILayer* RepNCSPELAN4(INetworkDefinition* network, std::map<std::string, Weights>
     return cv4;
 }
 
+ILayer* AConv(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c2,
+              std::string lname) {
+    auto pool = network->addPoolingNd(input, PoolingType::kAVERAGE, DimsHW{2, 2});
+    pool->setStrideNd(DimsHW{1, 1});
+    pool->setPaddingNd(DimsHW{0, 0});
+    auto cv1 = convBnSiLU(network, weightMap, *pool->getOutput(0), c2, 3, 2, 1, lname + ".cv1", 1);
+    return cv1;
+}
 ILayer* ADown(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c2,
               std::string lname) {
     int c_ = c2 / 2;
@@ -426,7 +457,9 @@ std::vector<IConcatenationLayer*> DualDDetect(INetworkDefinition* network, std::
 std::vector<IConcatenationLayer*> DDetect(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
                                           std::vector<ILayer*> dets, int cls, std::vector<int> ch, std::string lname) {
     int c2 = std::max(int(ch[0] / 4), int(16 * 4));
-    int c3 = std::max(ch[0], std::min(cls * 2, 128));
+    //  max((ch[0], min((self.nc * 2, 128))))
+    // int c3 = std::max(ch[0], std::min(cls * 2, 128));
+    int c3 = std::max(ch[0], std::min(cls, 128));
     int reg_max = 16;
 
     std::vector<ILayer*> bboxlayers;
