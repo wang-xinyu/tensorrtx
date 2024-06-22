@@ -220,9 +220,9 @@ nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std
 
 nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
                                        std::vector<nvinfer1::IConcatenationLayer*> dets, const int* px_arry,
-                                       int px_arry_num, bool is_segmentation, bool is_pose) {
+                                       int px_arry_num, bool is_segmentation, bool is_pose, bool is_obb) {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
-    const int netinfo_count = 8;  // Assuming the first 5 elements are for netinfo as per existing code.
+    const int netinfo_count = 9;  // Assuming the first 5 elements are for netinfo as per existing code.
     const int total_count = netinfo_count + px_arry_num;  // Total number of elements for netinfo and px_arry combined.
 
     std::vector<int> combinedInfo(total_count);
@@ -235,6 +235,7 @@ nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
     combinedInfo[5] = kMaxNumOutputBbox;
     combinedInfo[6] = is_segmentation;
     combinedInfo[7] = is_pose;
+    combinedInfo[8] = is_obb;
 
     // Copy the contents of px_arry into the combinedInfo vector after the initial 5 elements.
     std::copy(px_arry, px_arry + px_arry_num, combinedInfo.begin() + netinfo_count);

@@ -1,13 +1,13 @@
+#include "calibrator.h"
+#include "config.h"
 #include "cuda_utils.h"
 #include "logging.h"
-#include "utils.h"
 #include "model.h"
-#include "config.h"
-#include "calibrator.h"
+#include "utils.h"
 
-#include <iostream>
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <numeric>
 #include <opencv2/opencv.hpp>
 
@@ -16,36 +16,36 @@ using namespace nvinfer1;
 static Logger gLogger;
 const static int kOutputSize = kClsNumClass;
 
-void batch_preprocess(std::vector<cv::Mat>& imgs, float* output, int dst_width=224, int dst_height=224) {
+void batch_preprocess(std::vector<cv::Mat>& imgs, float* output, int dst_width = 224, int dst_height = 224) {
     for (size_t b = 0; b < imgs.size(); b++) {
-    int h = imgs[b].rows;
-    int w = imgs[b].cols;
-    int m = std::min(h, w);
-    int top = (h - m) / 2;
-    int left = (w - m) / 2;
-    cv::Mat img = imgs[b](cv::Rect(left, top, m, m));
-    cv::resize(img, img, cv::Size(dst_width, dst_height), 0, 0, cv::INTER_LINEAR);
-    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
-    img.convertTo(img, CV_32F, 1/255.0);
+        int h = imgs[b].rows;
+        int w = imgs[b].cols;
+        int m = std::min(h, w);
+        int top = (h - m) / 2;
+        int left = (w - m) / 2;
+        cv::Mat img = imgs[b](cv::Rect(left, top, m, m));
+        cv::resize(img, img, cv::Size(dst_width, dst_height), 0, 0, cv::INTER_LINEAR);
+        cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+        img.convertTo(img, CV_32F, 1 / 255.0);
 
-    std::vector<cv::Mat> channels(3);
-    cv::split(img, channels);
+        std::vector<cv::Mat> channels(3);
+        cv::split(img, channels);
 
-    // CHW format
-    for (int c = 0; c < 3; ++c) {
-      int i = 0;
-      for (int row = 0; row < dst_height; ++row) {
-        for (int col = 0; col < dst_width; ++col) {
-          output[b * 3 * dst_height * dst_width + c * dst_height * dst_width + i] =
-            channels[c].at<float>(row, col);
-          ++i;
+        // CHW format
+        for (int c = 0; c < 3; ++c) {
+            int i = 0;
+            for (int row = 0; row < dst_height; ++row) {
+                for (int col = 0; col < dst_width; ++col) {
+                    output[b * 3 * dst_height * dst_width + c * dst_height * dst_width + i] =
+                            channels[c].at<float>(row, col);
+                    ++i;
+                }
+            }
         }
-      }
-    }
     }
 }
 
-std::vector<float> softmax(float *prob, int n) {
+std::vector<float> softmax(float* prob, int n) {
     std::vector<float> res;
     float sum = 0.0f;
     float t;
@@ -65,7 +65,8 @@ std::vector<int> topk(const std::vector<float>& vec, int k) {
     std::vector<size_t> vec_index(vec.size());
     std::iota(vec_index.begin(), vec_index.end(), 0);
 
-    std::sort(vec_index.begin(), vec_index.end(), [&vec](size_t index_1, size_t index_2) { return vec[index_1] > vec[index_2]; });
+    std::sort(vec_index.begin(), vec_index.end(),
+              [&vec](size_t index_1, size_t index_2) { return vec[index_1] > vec[index_2]; });
 
     int k_num = std::min<int>(vec.size(), k);
 
@@ -91,29 +92,31 @@ std::vector<std::string> read_classes(std::string file_name) {
     return classes;
 }
 
-bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw, std::string& img_dir) {
-    if (argc < 4) return false;
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, float& gd, float& gw,
+                std::string& img_dir) {
+    if (argc < 4)
+        return false;
     if (std::string(argv[1]) == "-s" && (argc == 5)) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
         auto net = std::string(argv[4]);
         if (net[0] == 'n') {
-          gd = 0.33;
-          gw = 0.25;
+            gd = 0.33;
+            gw = 0.25;
         } else if (net[0] == 's') {
-          gd = 0.33;
-          gw = 0.50;
+            gd = 0.33;
+            gw = 0.50;
         } else if (net[0] == 'm') {
-          gd = 0.67;
-          gw = 0.75;
+            gd = 0.67;
+            gw = 0.75;
         } else if (net[0] == 'l') {
-          gd = 1.0;
-          gw = 1.0;
+            gd = 1.0;
+            gw = 1.0;
         } else if (net[0] == 'x') {
-          gd = 1.0;
-          gw = 1.25;
-        }  else {
-          return false;
+            gd = 1.0;
+            gw = 1.25;
+        } else {
+            return false;
         }
     } else if (std::string(argv[1]) == "-d" && argc == 4) {
         engine = std::string(argv[2]);
@@ -124,7 +127,8 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, fl
     return true;
 }
 
-void prepare_buffers(ICudaEngine* engine, float** gpu_input_buffer, float** gpu_output_buffer, float** cpu_input_buffer, float** output_buffer_host) {
+void prepare_buffers(ICudaEngine* engine, float** gpu_input_buffer, float** gpu_output_buffer, float** cpu_input_buffer,
+                     float** output_buffer_host) {
     assert(engine->getNbBindings() == 2);
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
@@ -140,19 +144,23 @@ void prepare_buffers(ICudaEngine* engine, float** gpu_input_buffer, float** gpu_
     *output_buffer_host = new float[kBatchSize * kOutputSize];
 }
 
-void infer(IExecutionContext& context, cudaStream_t& stream, void **buffers, float* input, float* output, int batchSize) {
-    CUDA_CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * kClsInputH * kClsInputW * sizeof(float), cudaMemcpyHostToDevice, stream));
+void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* input, float* output,
+           int batchSize) {
+    CUDA_CHECK(cudaMemcpyAsync(buffers[0], input, batchSize * 3 * kClsInputH * kClsInputW * sizeof(float),
+                               cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,
+                               stream));
     cudaStreamSynchronize(stream);
 }
 
-void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::string& wts_name, std::string& engine_name) {
+void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::string& wts_name,
+                      std::string& engine_name) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
     // Create model to populate the network, then set the outputs and create an engine
-    IHostMemory *serialized_engine = nullptr;
+    IHostMemory* serialized_engine = nullptr;
     //engine = buildEngineYolov8Cls(max_batchsize, builder, config, DataType::kFLOAT, gd, gw, wts_name);
     serialized_engine = buildEngineYolov8Cls(builder, config, DataType::kFLOAT, wts_name, gd, gw);
     assert(serialized_engine);
@@ -170,7 +178,8 @@ void serialize_engine(unsigned int max_batchsize, float& gd, float& gw, std::str
     delete builder;
 }
 
-void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine, IExecutionContext** context) {
+void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine,
+                        IExecutionContext** context) {
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
         std::cerr << "read " << engine_name << " error!" << std::endl;
@@ -204,7 +213,8 @@ int main(int argc, char** argv) {
 
     if (!parse_args(argc, argv, wts_name, engine_name, gd, gw, img_dir)) {
         std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov8_cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolov8_cls -s [.wts] [.engine] [n/s/m/l/x or c gd gw]  // serialize model to plan file"
+                  << std::endl;
         std::cerr << "./yolov8_cls -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
         return -1;
     }
@@ -257,7 +267,8 @@ int main(int argc, char** argv) {
         auto start = std::chrono::system_clock::now();
         infer(*context, stream, (void**)device_buffers, cpu_input_buffer, output_buffer_host, kBatchSize);
         auto end = std::chrono::system_clock::now();
-        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+                  << "ms" << std::endl;
 
         // Postprocess and get top-k result
         for (size_t b = 0; b < img_name_batch.size(); b++) {
@@ -265,9 +276,9 @@ int main(int argc, char** argv) {
             auto res = softmax(p, kOutputSize);
             auto topk_idx = topk(res, 3);
             std::cout << img_name_batch[b] << std::endl;
-            for (auto idx: topk_idx) {
-              std::cout << "  " << classes[idx] << " " << res[idx] << std::endl;
-        }
+            for (auto idx : topk_idx) {
+                std::cout << "  " << classes[idx] << " " << res[idx] << std::endl;
+            }
         }
     }
 
@@ -277,7 +288,7 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(device_buffers[1]));
     delete[] cpu_input_buffer;
     delete[] output_buffer_host;
-  // Destroy the engine
+    // Destroy the engine
     delete context;
     delete engine;
     delete runtime;

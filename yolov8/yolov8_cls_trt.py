@@ -34,8 +34,8 @@ with open("imagenet_classes.txt") as f:
 
 class YoLov8TRT(object):
     """
-    description: A YOLOv5 class that warps TensorRT ops, preprocess and postprocess ops.
-    """
+	description: A YOLOv5 class that warps TensorRT ops, preprocess and postprocess ops.
+	"""
 
     def __init__(self, engine_file_path):
         # Create a Context on this device,
@@ -143,64 +143,63 @@ class YoLov8TRT(object):
 
     def get_raw_image(self, image_path_batch):
         """
-        description: Read an image from image path
-        """
+		description: Read an image from image path
+		"""
         for img_path in image_path_batch:
             yield cv2.imread(img_path)
 
     def get_raw_image_zeros(self, image_path_batch=None):
         """
-        description: Ready data for warmup
-        """
+		description: Ready data for warmup
+		"""
         for _ in range(self.batch_size):
             yield np.zeros([self.input_h, self.input_w, 3], dtype=np.uint8)
 
     def preprocess_cls_image(self, raw_bgr_image, dst_width=224, dst_height=224):
+        """
+			description: Convert BGR image to RGB,
+						 crop the center square frame,
+						 resize it to target size, normalize to [0,1],
+						 transform to NCHW format.
+			param:
+				raw_bgr_image: numpy array, raw BGR image
+				dst_width: int, target image width
+				dst_height: int, target image height
+			return:
+				image:  the processed image
+				image_raw: the original image
+				h: original height
+				w: original width
+		"""
+        image_raw = raw_bgr_image
+        h, w, c = image_raw.shape
+        # Crop the center square frame
+        m = min(h, w)
+        top = (h - m) // 2
+        left = (w - m) // 2
+        image = raw_bgr_image[top:top + m, left:left + m]
 
-	    """
-	        description: Convert BGR image to RGB,
-	                     crop the center square frame,
-	                     resize it to target size, normalize to [0,1],
-	                     transform to NCHW format.
-	        param:
-	            raw_bgr_image: numpy array, raw BGR image
-	            dst_width: int, target image width
-	            dst_height: int, target image height
-	        return:
-	            image:  the processed image
-	            image_raw: the original image
-	            h: original height
-	            w: original width
-	    """
-	    image_raw = raw_bgr_image
-	    h, w, c = image_raw.shape
-	    # Crop the center square frame
-	    m = min(h, w)
-	    top = (h - m) // 2
-	    left = (w - m) // 2
-	    image = raw_bgr_image[top:top + m, left:left + m]
-	    
-	    # Resize the image with target size while maintaining ratio
-	    image = cv2.resize(image, (dst_width, dst_height), interpolation=cv2.INTER_LINEAR)
-	    
-	    # Convert BGR to RGB
-	    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-	    
-	    # Normalize to [0,1]
-	    image = image.astype(np.float32) / 255.0
-	    
-	    # HWC to CHW format
-	    image = image.transpose(2, 0, 1)
-	    
-	    # CHW to NCHW format (add batch dimension)
-	    image = np.expand_dims(image, axis=0)
-	    
-	    # Convert the image to row-major order, also known as "C order"
-	    image = np.ascontiguousarray(image)
+        # Resize the image with target size while maintaining ratio
+        image = cv2.resize(image, (dst_width, dst_height), interpolation=cv2.INTER_LINEAR)
 
-	    batch_data = np.expand_dims(image, axis=0)
-	    
-	    return batch_data
+        # Convert BGR to RGB
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        # Normalize to [0,1]
+        image = image.astype(np.float32) / 255.0
+
+        # HWC to CHW format
+        image = image.transpose(2, 0, 1)
+
+        # CHW to NCHW format (add batch dimension)
+        image = np.expand_dims(image, axis=0)
+
+        # Convert the image to row-major order, also known as "C order"
+        image = np.ascontiguousarray(image)
+
+        batch_data = np.expand_dims(image, axis=0)
+
+        return batch_data
 
     def postprocess_cls(self, output_data):
         classes_ls = []
