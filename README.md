@@ -5,7 +5,7 @@ TensorRTx aims to implement popular deep learning networks with TensorRT network
 Why don't we use a parser (ONNX parser, UFF parser, caffe parser, etc), but use complex APIs to build a network from scratch? I have summarized the advantages in the following aspects.
 - **Flexible**, easy to modify the network, add/delete a layer or input/output tensor, replace a layer, merge layers, integrate preprocessing and postprocessing into network, etc.
 - **Debuggable**, construct the entire network in an incremental development manner, easy to get middle layer results.
-- **Chance to learn**, learn about the network structure during this development, rather than treating everything as a black box.
+- **Educational**, learn about the network structure during this development, rather than treating everything as a black box.
 
 The basic workflow of TensorRTx is:
 1. Get the trained models from pytorch, mxnet or tensorflow, etc. Some pytorch models can be found in my repo [pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from popular open-source repos.
