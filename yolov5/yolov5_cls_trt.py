@@ -28,7 +28,7 @@ def get_img_path_batches(batch_size, img_dir):
     return ret
 
 
-with open("imagenet_classes.txt") as f:
+with open("./build/imagenet_classes.txt") as f:
     classes = [line.strip() for line in f.readlines()]
 
 
@@ -157,7 +157,11 @@ class YoLov5TRT(object):
 
     def preprocess_cls_image(self, input_img):
         im = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB)
-        im = cv2.resize(im, (self.input_h, self.input_w))
+        imh, imw = im.shape[:2]
+        m = min(imw, imh)
+        top, left = (imh - m) // 2, (imw - m) // 2
+        crop_img = im[top:top + m, left:left + m]
+        im = cv2.resize(crop_img, (self.input_h, self.input_w))
         im = np.float32(im)
         im /= 255.0
         im -= self.mean
@@ -216,7 +220,7 @@ class warmUpThread(threading.Thread):
 
 if __name__ == "__main__":
     # load custom plugin and engine
-    engine_file_path = "build/yolov5s-cls.engine"
+    engine_file_path = "build/yolov5n-cls.fp16.trt"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
