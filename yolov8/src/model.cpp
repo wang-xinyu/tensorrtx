@@ -978,7 +978,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Cls(nvinfer1::IBuilder* builder, nvinfer
 
     // ********************************************* YOLOV8 HEAD *********************************************
 
-    auto conv_class = convBnSiLU(network, weightMap, *conv8->getOutput(0), 1280, 1, 1, 1, "model.9.conv");
+    auto conv_class = convBnSiLU(network, weightMap, *conv8->getOutput(0), 1280, 1, 1, 0, "model.9.conv");
     // Adjusted code
     nvinfer1::Dims dims =
             conv_class->getOutput(0)->getDimensions();  // Obtain the dimensions of the output of conv_class

@@ -4,6 +4,7 @@
 #include "model.h"
 #include "config.h"
 #include "calibrator.h"
+#include "PillowResize.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -16,32 +17,37 @@ using namespace nvinfer1;
 static Logger gLogger;
 const static int kOutputSize = kClsNumClass;
 
-void batch_preprocess(std::vector<cv::Mat>& imgs, float* output, int dst_width=224, int dst_height=224) {
+// Reference to resize https://github.com/zurutech/pillow-resize
+void batch_preprocess_pil(std::vector<cv::Mat> &imgs, float *output, int dst_width = 224, int dst_height = 224) {
     for (size_t b = 0; b < imgs.size(); b++) {
-    int h = imgs[b].rows;
-    int w = imgs[b].cols;
-    int m = std::min(h, w);
-    int top = (h - m) / 2;
-    int left = (w - m) / 2;
-    cv::Mat img = imgs[b](cv::Rect(left, top, m, m));
-    cv::resize(img, img, cv::Size(dst_width, dst_height), 0, 0, cv::INTER_LINEAR);
-    cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
-    img.convertTo(img, CV_32F, 1/255.0);
-
-    std::vector<cv::Mat> channels(3);
-    cv::split(img, channels);
-
-    // CHW format
-    for (int c = 0; c < 3; ++c) {
-      int i = 0;
-      for (int row = 0; row < dst_height; ++row) {
-        for (int col = 0; col < dst_width; ++col) {
-          output[b * 3 * dst_height * dst_width + c * dst_height * dst_width + i] =
-            channels[c].at<float>(row, col);
-          ++i;
+        int h = imgs[b].rows;
+        int w = imgs[b].cols;
+        cv::Mat img;
+        cv::cvtColor(imgs[b], img, cv::COLOR_BGR2RGB);
+        cv::Size dst_size;
+        if (h > w) {
+            dst_size = cv::Size(dst_width, h * dst_width / w);
+        } else {
+            dst_size = cv::Size(w * dst_height / h, dst_height);
         }
-      }
-    }
+        cv::Mat dest = PillowResize::resize(img, dst_size, PillowResize::INTERPOLATION_BILINEAR);
+        // center crop
+        int top = (dest.rows - dst_height) / 2;
+        int left = (dest.cols - dst_width) / 2;
+        cv::Rect roi(left, top, dst_width, dst_height);
+        dest = dest(roi);
+        dest.convertTo(dest, CV_32F);
+        dest /= 255.0f;
+
+        // copy to output
+        for (int c = 0; c < 3; ++c) {
+            for (int row = 0; row < dst_height; ++row) {
+                for (int col = 0; col < dst_width; ++col) {
+                    output[b * 3 * dst_height * dst_width + c * dst_height * dst_width + row * dst_width + col] =
+                            dest.at<cv::Vec3f>(row, col)[c];
+                }
+            }
+        }
     }
 }
 
@@ -251,7 +257,7 @@ int main(int argc, char** argv) {
         }
 
         // Preprocess
-        batch_preprocess(img_batch, cpu_input_buffer);
+        batch_preprocess_pil(img_batch, cpu_input_buffer);
 
         // Run inference
         auto start = std::chrono::system_clock::now();
