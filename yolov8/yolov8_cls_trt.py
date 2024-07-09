@@ -12,6 +12,8 @@ import torch
 import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
+from PIL import Image
+from torchvision.transforms import Resize, CenterCrop, ToTensor
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -28,7 +30,7 @@ def get_img_path_batches(batch_size, img_dir):
     return ret
 
 
-with open("imagenet_classes.txt") as f:
+with open("./build/imagenet_classes.txt") as f:
     classes = [line.strip() for line in f.readlines()]
 
 
@@ -157,50 +159,27 @@ class YoLov8TRT(object):
 
     def preprocess_cls_image(self, raw_bgr_image, dst_width=224, dst_height=224):
 
-	    """
-	        description: Convert BGR image to RGB,
-	                     crop the center square frame,
-	                     resize it to target size, normalize to [0,1],
-	                     transform to NCHW format.
-	        param:
-	            raw_bgr_image: numpy array, raw BGR image
-	            dst_width: int, target image width
-	            dst_height: int, target image height
-	        return:
-	            image:  the processed image
-	            image_raw: the original image
-	            h: original height
-	            w: original width
-	    """
-	    image_raw = raw_bgr_image
-	    h, w, c = image_raw.shape
-	    # Crop the center square frame
-	    m = min(h, w)
-	    top = (h - m) // 2
-	    left = (w - m) // 2
-	    image = raw_bgr_image[top:top + m, left:left + m]
-	    
-	    # Resize the image with target size while maintaining ratio
-	    image = cv2.resize(image, (dst_width, dst_height), interpolation=cv2.INTER_LINEAR)
-	    
-	    # Convert BGR to RGB
-	    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-	    
-	    # Normalize to [0,1]
-	    image = image.astype(np.float32) / 255.0
-	    
-	    # HWC to CHW format
-	    image = image.transpose(2, 0, 1)
-	    
-	    # CHW to NCHW format (add batch dimension)
-	    image = np.expand_dims(image, axis=0)
-	    
-	    # Convert the image to row-major order, also known as "C order"
-	    image = np.ascontiguousarray(image)
-
-	    batch_data = np.expand_dims(image, axis=0)
-	    
-	    return batch_data
+        """
+            description: Convert BGR image to RGB,
+                         crop the center square frame,
+                         resize it to target size, normalize to [0,1],
+                         transform to NCHW format.
+            param:
+                raw_bgr_image: numpy array, raw BGR image
+                dst_width: int, target image width
+                dst_height: int, target image height
+            return:
+                image:  the processed image
+                image_raw: the original image
+                h: original height
+                w: original width
+        """
+        rgb = cv2.cvtColor(raw_bgr_image, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(rgb)
+        image = Resize(dst_width)(image)
+        image = CenterCrop(dst_width)(image)
+        image = ToTensor()(image)
+        return image
 
     def postprocess_cls(self, output_data):
         classes_ls = []
@@ -251,7 +230,7 @@ class warmUpThread(threading.Thread):
 
 if __name__ == "__main__":
     # load custom plugin and engine
-    engine_file_path = "./yolov8x-cls-fp32.engine"
+    engine_file_path = "./build/yolov8n-cls.fp16.trt"
 
     if len(sys.argv) > 1:
         engine_file_path = sys.argv[1]
