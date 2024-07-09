@@ -5,6 +5,8 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 
+cv::Mat cls_preprocess_img(cv::Mat &src, int target_w, int target_h);
+
 cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h);
 
 //! \class Int8EntropyCalibrator2

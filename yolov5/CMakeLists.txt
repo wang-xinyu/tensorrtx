@@ -18,8 +18,10 @@ include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 # tensorrt
 # TODO(Call for PR): make TRT path configurable from command line
-include_directories(/home/nvidia/TensorRT-8.2.5.1/include/)
-link_directories(/home/nvidia/TensorRT-8.2.5.1/lib/)
+# include_directories(/home/nvidia/TensorRT-8.2.5.1/include/)
+# link_directories(/home/nvidia/TensorRT-8.2.5.1/lib/)
+include_directories(/workspace/shared/TensorRT-8.6.1.6/include/)
+link_directories(/workspace/shared/TensorRT-8.6.1.6/lib/)
 
 include_directories(${PROJECT_SOURCE_DIR}/src/)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/)

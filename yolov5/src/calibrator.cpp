@@ -8,6 +8,22 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn/dnn.hpp>
 
+cv::Mat cls_preprocess_img(cv::Mat &src, int target_w, int target_h) {
+  //imh, imw = im.shape[:2]
+  auto imh = src.rows;
+  auto imw = src.cols;
+  // m = min(imh, imw)  # min dimension
+  auto m = std::min(imh, imw);
+  // top, left = (imh - m) // 2, (imw - m) // 2
+  auto top = (imh - m) / 2;
+  auto left = (imw - m) / 2;
+  // return cv2.resize(im[top:top + m, left:left + m], (self.w, self.h), interpolation=cv2.INTER_LINEAR)
+  auto crop = src(cv::Rect(left, top, m, m));
+  cv::Mat dst;
+  cv::resize(crop, dst, cv::Size(target_w, target_h), 0, 0, cv::INTER_LINEAR);
+  return dst;
+}
+
 cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
   int w, h, x, y;
   float r_w = input_w / (img.cols * 1.0);
