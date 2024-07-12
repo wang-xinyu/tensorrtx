@@ -52,4 +52,3 @@ const static int kGpuId = 0;
 
 // If your image size is larger than 4096 * 3112, please increase this value
 const static int kMaxInputImageSize = 4096 * 3112;
-
