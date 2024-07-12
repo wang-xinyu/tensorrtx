@@ -63,6 +63,11 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 // Install python-tensorrt, pycuda, etc.
 // Ensure the yolov5n-cls.engine
 python yolov5_cls_trt.py
+# faq: in windows bug pycuda._driver.LogicError
+# faq: in linux bug Segmentation fault 
+# Add the following code to the py file:
+# import pycuda.autoinit
+# import pycuda.driver as cuda
 ```
 
 #### Detection
