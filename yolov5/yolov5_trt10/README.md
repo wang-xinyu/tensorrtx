@@ -11,6 +11,7 @@ TensorRT: TensorRT-10.2.0.19
 ## Support
 
 * [x] YOLOv5-cls support FP32/FP16/INT8 and Python/C++ API
+* [x] YOLOv5-det support FP32/FP16/INT8 and Python/C++ API
 
 ## Config
 
@@ -25,8 +26,10 @@ TensorRT: TensorRT-10.2.0.19
 git clone -b v7.0 https://github.com/ultralytics/yolov5.git
 git clone -b trt10 https://github.com/wang-xinyu/tensorrtx.git
 cd yolov5/
+wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n-cls.pt
 wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n.pt
 cp [PATH-TO-TENSORRTX]/yolov5/gen_wts.py .
+python gen_wts.py -w yolov5n-cls.pt -o yolov5n-cls.wts -t cls
 python gen_wts.py -w yolov5n.pt -o yolov5n.wts
 # A file 'yolov5n.wts' will be generated.
 ```
@@ -40,7 +43,7 @@ cd [PATH-TO-TENSORRTX]/yolov5/yolov5_trt10
 # Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp [PATH-TO-ultralytics-yolov5]/yolov5s.wts .
+cp [PATH-TO-ultralytics-yolov5]/yolov5sn-cls.wts .
 cmake ..
 make
 
@@ -60,6 +63,30 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 // Install python-tensorrt, pycuda, etc.
 // Ensure the yolov5n-cls.engine
 python yolov5_cls_trt.py
+# faq: in windows bug pycuda._driver.LogicError
+# faq: in linux bug Segmentation fault
+# Add the following code to the py file:
+# import pycuda.autoinit
+# import pycuda.driver as cuda
+```
+
+#### Detection
+
+```shell
+cd [PATH-TO-TENSORRTX]/yolov5/yolov5_trt10
+# Update kNumClass in src/config.h if your model is trained on custom dataset
+mkdir build
+cd build
+cp [PATH-TO-ultralytics-yolov5]/yolov5n.wts .
+cmake ..
+make
+
+# Build and serialize TensorRT engine
+./yolov5_det -s yolov5n.wts yolov5n.engine [n/s/m/l/x]
+
+# Run inference
+./yolov5_det -d yolov5n.engine ../../images
+# The results are displayed in the console
 ```
 
 ## INT8 Quantization

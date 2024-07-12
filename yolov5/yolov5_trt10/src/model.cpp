@@ -1,6 +1,7 @@
 #include "model.h"
 #include "calibrator.h"
 #include "config.h"
+#include "yololayer.h"
 
 #include <cassert>
 #include <cmath>
@@ -312,6 +313,286 @@ nvinfer1::IHostMemory* build_cls_engine(unsigned int maxBatchSize, IBuilder* bui
     config->setFlag(BuilderFlag::kINT8);
     Int8EntropyCalibrator2* calibrator =
             new Int8EntropyCalibrator2(1, kClsInputW, kClsInputW, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
+
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    nvinfer1::IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
+    std::cout << "Build engine successfully!" << std::endl;
+
+    // Don't need the network any more
+    delete network;
+
+    // Release host memory
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
+    }
+
+    return serialized_model;
+}
+
+static IPluginV2Layer* addYoLoLayer(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
+                                    std::string lname, std::vector<IConvolutionLayer*> dets,
+                                    bool is_segmentation = false) {
+    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
+    auto anchors = getAnchors(weightMap, lname);
+    PluginField plugin_fields[2];
+    int netinfo[5] = {kNumClass, kInputW, kInputH, kMaxNumOutputBbox, (int)is_segmentation};
+    plugin_fields[0].data = netinfo;
+    plugin_fields[0].length = 5;
+    plugin_fields[0].name = "netinfo";
+    plugin_fields[0].type = PluginFieldType::kFLOAT32;
+
+    //load strides from Detect layer
+    assert(weightMap.find(lname + ".strides") != weightMap.end() && "Not found `strides`, please check gen_wts.py!!!");
+    Weights strides = weightMap[lname + ".strides"];
+    auto* p = (const float*)(strides.values);
+    std::vector<int> scales(p, p + strides.count);
+
+    std::vector<YoloKernel> kernels;
+    for (size_t i = 0; i < anchors.size(); i++) {
+        YoloKernel kernel;
+        kernel.width = kInputW / scales[i];
+        kernel.height = kInputH / scales[i];
+        memcpy(kernel.anchors, &anchors[i][0], anchors[i].size() * sizeof(float));
+        kernels.push_back(kernel);
+    }
+    plugin_fields[1].data = &kernels[0];
+    plugin_fields[1].length = kernels.size();
+    plugin_fields[1].name = "kernels";
+    plugin_fields[1].type = PluginFieldType::kFLOAT32;
+    PluginFieldCollection plugin_data{};
+    plugin_data.nbFields = 2;
+    plugin_data.fields = plugin_fields;
+    IPluginV2* plugin_obj = creator->createPlugin("yololayer", &plugin_data);
+    std::vector<ITensor*> input_tensors;
+    for (auto det : dets) {
+        input_tensors.push_back(det->getOutput(0));
+    }
+    auto yolo = network->addPluginV2(&input_tensors[0], input_tensors.size(), *plugin_obj);
+    return yolo;
+}
+
+nvinfer1::IHostMemory* build_det_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config,
+                                        DataType dt, float& gd, float& gw, std::string& wts_name) {
+    //	INetworkDefinition *network = builder->createNetworkV2(0U);
+    INetworkDefinition* network =
+            builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+
+    // Create input tensor of shape {1, 3, kInputH, kInputW}
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW});
+    assert(data);
+    std::map<std::string, Weights> weightMap = loadWeights(wts_name);
+
+    // Backbone
+    auto conv0 = convBlock(network, weightMap, *data, get_width(64, gw), 6, 2, 1, "model.0");
+    assert(conv0);
+    auto conv1 = convBlock(network, weightMap, *conv0->getOutput(0), get_width(128, gw), 3, 2, 1, "model.1");
+    auto bottleneck_CSP2 = C3(network, weightMap, *conv1->getOutput(0), get_width(128, gw), get_width(128, gw),
+                              get_depth(3, gd), true, 1, 0.5, "model.2");
+    auto conv3 = convBlock(network, weightMap, *bottleneck_CSP2->getOutput(0), get_width(256, gw), 3, 2, 1, "model.3");
+    auto bottleneck_csp4 = C3(network, weightMap, *conv3->getOutput(0), get_width(256, gw), get_width(256, gw),
+                              get_depth(6, gd), true, 1, 0.5, "model.4");
+    auto conv5 = convBlock(network, weightMap, *bottleneck_csp4->getOutput(0), get_width(512, gw), 3, 2, 1, "model.5");
+    auto bottleneck_csp6 = C3(network, weightMap, *conv5->getOutput(0), get_width(512, gw), get_width(512, gw),
+                              get_depth(9, gd), true, 1, 0.5, "model.6");
+    auto conv7 = convBlock(network, weightMap, *bottleneck_csp6->getOutput(0), get_width(1024, gw), 3, 2, 1, "model.7");
+    auto bottleneck_csp8 = C3(network, weightMap, *conv7->getOutput(0), get_width(1024, gw), get_width(1024, gw),
+                              get_depth(3, gd), true, 1, 0.5, "model.8");
+    auto spp9 = SPPF(network, weightMap, *bottleneck_csp8->getOutput(0), get_width(1024, gw), get_width(1024, gw), 5,
+                     "model.9");
+
+    // Head
+    auto conv10 = convBlock(network, weightMap, *spp9->getOutput(0), get_width(512, gw), 1, 1, 1, "model.10");
+
+    auto upsample11 = network->addResize(*conv10->getOutput(0));
+    assert(upsample11);
+    upsample11->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample11->setOutputDimensions(bottleneck_csp6->getOutput(0)->getDimensions());
+
+    ITensor* inputTensors12[] = {upsample11->getOutput(0), bottleneck_csp6->getOutput(0)};
+    auto cat12 = network->addConcatenation(inputTensors12, 2);
+    auto bottleneck_csp13 = C3(network, weightMap, *cat12->getOutput(0), get_width(1024, gw), get_width(512, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.13");
+    auto conv14 =
+            convBlock(network, weightMap, *bottleneck_csp13->getOutput(0), get_width(256, gw), 1, 1, 1, "model.14");
+
+    auto upsample15 = network->addResize(*conv14->getOutput(0));
+    assert(upsample15);
+    upsample15->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample15->setOutputDimensions(bottleneck_csp4->getOutput(0)->getDimensions());
+
+    ITensor* inputTensors16[] = {upsample15->getOutput(0), bottleneck_csp4->getOutput(0)};
+    auto cat16 = network->addConcatenation(inputTensors16, 2);
+
+    auto bottleneck_csp17 = C3(network, weightMap, *cat16->getOutput(0), get_width(512, gw), get_width(256, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.17");
+
+    // Detect
+    IConvolutionLayer* det0 =
+            network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
+    auto conv18 =
+            convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), get_width(256, gw), 3, 2, 1, "model.18");
+    ITensor* inputTensors19[] = {conv18->getOutput(0), conv14->getOutput(0)};
+    auto cat19 = network->addConcatenation(inputTensors19, 2);
+    auto bottleneck_csp20 = C3(network, weightMap, *cat19->getOutput(0), get_width(512, gw), get_width(512, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.20");
+    IConvolutionLayer* det1 =
+            network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
+    auto conv21 =
+            convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), get_width(512, gw), 3, 2, 1, "model.21");
+    ITensor* inputTensors22[] = {conv21->getOutput(0), conv10->getOutput(0)};
+    auto cat22 = network->addConcatenation(inputTensors22, 2);
+    auto bottleneck_csp23 = C3(network, weightMap, *cat22->getOutput(0), get_width(1024, gw), get_width(1024, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.23");
+    IConvolutionLayer* det2 =
+            network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
+
+    auto yolo = addYoLoLayer(network, weightMap, "model.24", std::vector<IConvolutionLayer*>{det0, det1, det2});
+    yolo->getOutput(0)->setName(kOutputTensorName);
+    network->markOutput(*yolo->getOutput(0));
+
+    // Engine config
+    config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 16 * (1 << 20));
+
+#if defined(USE_FP16)
+    config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator =
+            new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
+
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    nvinfer1::IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
+    std::cout << "Build engine successfully!" << std::endl;
+
+    // Don't need the network any more
+    delete network;
+
+    // Release host memory
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
+    }
+
+    return serialized_model;
+}
+
+nvinfer1::IHostMemory* build_det_p6_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config,
+                                           DataType dt, float& gd, float& gw, std::string& wts_name) {
+    //	INetworkDefinition *network = builder->createNetworkV2(0U);
+    INetworkDefinition* network =
+            builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+
+    // Create input tensor of shape {3, kInputH, kInputW}
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW});
+    assert(data);
+
+    std::map<std::string, Weights> weightMap = loadWeights(wts_name);
+
+    // Backbone
+    auto conv0 = convBlock(network, weightMap, *data, get_width(64, gw), 6, 2, 1, "model.0");
+    auto conv1 = convBlock(network, weightMap, *conv0->getOutput(0), get_width(128, gw), 3, 2, 1, "model.1");
+    auto c3_2 = C3(network, weightMap, *conv1->getOutput(0), get_width(128, gw), get_width(128, gw), get_depth(3, gd),
+                   true, 1, 0.5, "model.2");
+    auto conv3 = convBlock(network, weightMap, *c3_2->getOutput(0), get_width(256, gw), 3, 2, 1, "model.3");
+    auto c3_4 = C3(network, weightMap, *conv3->getOutput(0), get_width(256, gw), get_width(256, gw), get_depth(6, gd),
+                   true, 1, 0.5, "model.4");
+    auto conv5 = convBlock(network, weightMap, *c3_4->getOutput(0), get_width(512, gw), 3, 2, 1, "model.5");
+    auto c3_6 = C3(network, weightMap, *conv5->getOutput(0), get_width(512, gw), get_width(512, gw), get_depth(9, gd),
+                   true, 1, 0.5, "model.6");
+    auto conv7 = convBlock(network, weightMap, *c3_6->getOutput(0), get_width(768, gw), 3, 2, 1, "model.7");
+    auto c3_8 = C3(network, weightMap, *conv7->getOutput(0), get_width(768, gw), get_width(768, gw), get_depth(3, gd),
+                   true, 1, 0.5, "model.8");
+    auto conv9 = convBlock(network, weightMap, *c3_8->getOutput(0), get_width(1024, gw), 3, 2, 1, "model.9");
+    auto c3_10 = C3(network, weightMap, *conv9->getOutput(0), get_width(1024, gw), get_width(1024, gw),
+                    get_depth(3, gd), true, 1, 0.5, "model.10");
+    auto sppf11 =
+            SPPF(network, weightMap, *c3_10->getOutput(0), get_width(1024, gw), get_width(1024, gw), 5, "model.11");
+
+    // Head
+    auto conv12 = convBlock(network, weightMap, *sppf11->getOutput(0), get_width(768, gw), 1, 1, 1, "model.12");
+    auto upsample13 = network->addResize(*conv12->getOutput(0));
+    assert(upsample13);
+    upsample13->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample13->setOutputDimensions(c3_8->getOutput(0)->getDimensions());
+    ITensor* inputTensors14[] = {upsample13->getOutput(0), c3_8->getOutput(0)};
+    auto cat14 = network->addConcatenation(inputTensors14, 2);
+    auto c3_15 = C3(network, weightMap, *cat14->getOutput(0), get_width(1536, gw), get_width(768, gw), get_depth(3, gd),
+                    false, 1, 0.5, "model.15");
+
+    auto conv16 = convBlock(network, weightMap, *c3_15->getOutput(0), get_width(512, gw), 1, 1, 1, "model.16");
+    auto upsample17 = network->addResize(*conv16->getOutput(0));
+    assert(upsample17);
+    upsample17->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample17->setOutputDimensions(c3_6->getOutput(0)->getDimensions());
+    ITensor* inputTensors18[] = {upsample17->getOutput(0), c3_6->getOutput(0)};
+    auto cat18 = network->addConcatenation(inputTensors18, 2);
+    auto c3_19 = C3(network, weightMap, *cat18->getOutput(0), get_width(1024, gw), get_width(512, gw), get_depth(3, gd),
+                    false, 1, 0.5, "model.19");
+
+    auto conv20 = convBlock(network, weightMap, *c3_19->getOutput(0), get_width(256, gw), 1, 1, 1, "model.20");
+    auto upsample21 = network->addResize(*conv20->getOutput(0));
+    assert(upsample21);
+    upsample21->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample21->setOutputDimensions(c3_4->getOutput(0)->getDimensions());
+    ITensor* inputTensors21[] = {upsample21->getOutput(0), c3_4->getOutput(0)};
+    auto cat22 = network->addConcatenation(inputTensors21, 2);
+    auto c3_23 = C3(network, weightMap, *cat22->getOutput(0), get_width(512, gw), get_width(256, gw), get_depth(3, gd),
+                    false, 1, 0.5, "model.23");
+
+    auto conv24 = convBlock(network, weightMap, *c3_23->getOutput(0), get_width(256, gw), 3, 2, 1, "model.24");
+    ITensor* inputTensors25[] = {conv24->getOutput(0), conv20->getOutput(0)};
+    auto cat25 = network->addConcatenation(inputTensors25, 2);
+    auto c3_26 = C3(network, weightMap, *cat25->getOutput(0), get_width(1024, gw), get_width(512, gw), get_depth(3, gd),
+                    false, 1, 0.5, "model.26");
+
+    auto conv27 = convBlock(network, weightMap, *c3_26->getOutput(0), get_width(512, gw), 3, 2, 1, "model.27");
+    ITensor* inputTensors28[] = {conv27->getOutput(0), conv16->getOutput(0)};
+    auto cat28 = network->addConcatenation(inputTensors28, 2);
+    auto c3_29 = C3(network, weightMap, *cat28->getOutput(0), get_width(1536, gw), get_width(768, gw), get_depth(3, gd),
+                    false, 1, 0.5, "model.29");
+
+    auto conv30 = convBlock(network, weightMap, *c3_29->getOutput(0), get_width(768, gw), 3, 2, 1, "model.30");
+    ITensor* inputTensors31[] = {conv30->getOutput(0), conv12->getOutput(0)};
+    auto cat31 = network->addConcatenation(inputTensors31, 2);
+    auto c3_32 = C3(network, weightMap, *cat31->getOutput(0), get_width(2048, gw), get_width(1024, gw),
+                    get_depth(3, gd), false, 1, 0.5, "model.32");
+
+    // Detect
+    IConvolutionLayer* det0 =
+            network->addConvolutionNd(*c3_23->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.33.m.0.weight"], weightMap["model.33.m.0.bias"]);
+    IConvolutionLayer* det1 =
+            network->addConvolutionNd(*c3_26->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.33.m.1.weight"], weightMap["model.33.m.1.bias"]);
+    IConvolutionLayer* det2 =
+            network->addConvolutionNd(*c3_29->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.33.m.2.weight"], weightMap["model.33.m.2.bias"]);
+    IConvolutionLayer* det3 =
+            network->addConvolutionNd(*c3_32->getOutput(0), 3 * (kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.33.m.3.weight"], weightMap["model.33.m.3.bias"]);
+
+    auto yolo = addYoLoLayer(network, weightMap, "model.33", std::vector<IConvolutionLayer*>{det0, det1, det2, det3});
+    yolo->getOutput(0)->setName(kOutputTensorName);
+    network->markOutput(*yolo->getOutput(0));
+
+    // Engine config
+    config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 16 * (1 << 20));
+#if defined(USE_FP16)
+    config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator =
+            new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 

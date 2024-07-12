@@ -11,7 +11,9 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
    public:
     YoloLayerPlugin(int classCount, int netWidth, int netHeight, int maxOut, bool is_segmentation,
                     const std::vector<YoloKernel>& vYoloKernel);
+
     YoloLayerPlugin(const void* data, size_t length);
+
     ~YoloLayerPlugin();
 
     int getNbOutputs() const TRT_NOEXCEPT override { return 1; }
@@ -66,6 +68,7 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
 
    private:
     void forwardGpu(const float* const* inputs, float* output, cudaStream_t stream, int batchSize = 1);
+
     int mThreadCount = 256;
     const char* mPluginNamespace;
     int mKernelCount;
@@ -104,5 +107,6 @@ class API YoloPluginCreator : public IPluginCreator {
     static PluginFieldCollection mFC;
     static std::vector<PluginField> mPluginAttributes;
 };
+
 REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
 };  // namespace nvinfer1
