@@ -29,7 +29,7 @@ file(GLOB_RECURSE PLUGIN_SRCS ${PROJECT_SOURCE_DIR}/plugin/*.cu)
 
 add_definitions(-DAPI_EXPORTS)
 add_library(myplugins SHARED ${PLUGIN_SRCS})
-target_link_libraries(myplugins nvinfer nvinfer_plugin cudart)
+target_link_libraries(myplugins nvinfer cudart)
 
 find_package(OpenCV)
 include_directories(${OpenCV_INCLUDE_DIRS})
@@ -41,7 +41,7 @@ target_link_libraries(yolov5_cls myplugins)
 target_link_libraries(yolov5_cls ${OpenCV_LIBS})
 
 add_executable(yolov5_det yolov5_det.cpp ${SRCS})
-target_link_libraries(yolov5_det nvinfer nvinfer_plugin)
+target_link_libraries(yolov5_det nvinfer)
 target_link_libraries(yolov5_det cudart)
 target_link_libraries(yolov5_det myplugins)
 target_link_libraries(yolov5_det ${OpenCV_LIBS})
