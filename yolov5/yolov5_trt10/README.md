@@ -11,7 +11,7 @@ TensorRT: TensorRT-10.2.0.19
 ## Support
 
 * [x] YOLOv5-cls support FP32/FP16/INT8 and Python/C++ API
-* [x] YOLOv5-cls support FP32/FP16/INT8 and C++ API
+* [x] YOLOv5-cls support FP32/FP16/INT8 and Python/C++ API
 
 ## Config
 
