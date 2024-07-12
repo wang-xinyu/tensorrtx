@@ -23,7 +23,7 @@ TensorRT: TensorRT-10.2.0.19
 
 ```shell
 git clone -b v7.0 https://github.com/ultralytics/yolov5.git
-git clone -b yolov5-v7.0 https://github.com/wang-xinyu/tensorrtx.git
+git clone -b trt10 https://github.com/wang-xinyu/tensorrtx.git
 cd yolov5/
 wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n.pt
 cp [PATH-TO-TENSORRTX]/yolov5/gen_wts.py .
@@ -40,7 +40,7 @@ cd [PATH-TO-TENSORRTX]/yolov5/yolov5_trt10
 # Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp [PATH-TO-ultralytics-yolov5]/yolov5s.wts . 
+cp [PATH-TO-ultralytics-yolov5]/yolov5s.wts .
 cmake ..
 make
 

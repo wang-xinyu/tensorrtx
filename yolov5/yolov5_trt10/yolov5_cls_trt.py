@@ -9,7 +9,6 @@ import time
 import cv2
 import numpy as np
 import torch
-import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
 
@@ -101,7 +100,6 @@ class YoLov5TRT(object):
         # Restore
         stream = self.stream
         context = self.context
-        engine = self.engine
         host_inputs = self.host_inputs
         cuda_inputs = self.cuda_inputs
         host_outputs = self.host_outputs
