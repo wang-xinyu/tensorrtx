@@ -43,7 +43,7 @@ cd [PATH-TO-TENSORRTX]/yolov5/yolov5_trt10
 # Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp [PATH-TO-ultralytics-yolov5]/yolov5sn-cls.wts . 
+cp [PATH-TO-ultralytics-yolov5]/yolov5sn-cls.wts .
 cmake ..
 make
 
@@ -64,7 +64,7 @@ wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/i
 // Ensure the yolov5n-cls.engine
 python yolov5_cls_trt.py
 # faq: in windows bug pycuda._driver.LogicError
-# faq: in linux bug Segmentation fault 
+# faq: in linux bug Segmentation fault
 # Add the following code to the py file:
 # import pycuda.autoinit
 # import pycuda.driver as cuda
@@ -77,7 +77,7 @@ cd [PATH-TO-TENSORRTX]/yolov5/yolov5_trt10
 # Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
-cp [PATH-TO-ultralytics-yolov5]/yolov5n.wts . 
+cp [PATH-TO-ultralytics-yolov5]/yolov5n.wts .
 cmake ..
 make
 
