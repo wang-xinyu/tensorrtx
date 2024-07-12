@@ -9,6 +9,7 @@ import time
 import cv2
 import numpy as np
 import torch
+import pycuda.autoinit  # noqa: F401
 import pycuda.driver as cuda
 import tensorrt as trt
 
