@@ -12,6 +12,7 @@ TensorRT: TensorRT-10.2.0.19
 
 * [x] YOLOv5-cls support FP32/FP16/INT8 and Python/C++ API
 * [x] YOLOv5-det support FP32/FP16/INT8 and Python/C++ API
+* [x] YOLOv5-seg support FP32/FP16/INT8 and Python/C++ API
 
 ## Config
 
@@ -28,9 +29,11 @@ git clone -b trt10 https://github.com/wang-xinyu/tensorrtx.git
 cd yolov5/
 wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n-cls.pt
 wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n.pt
+wget https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n-seg.pt
 cp [PATH-TO-TENSORRTX]/yolov5/gen_wts.py .
 python gen_wts.py -w yolov5n-cls.pt -o yolov5n-cls.wts -t cls
 python gen_wts.py -w yolov5n.pt -o yolov5n.wts
+python gen_wts.py -w yolov5n-seg.pt -o yolov5n.wts -t seg
 # A file 'yolov5n.wts' will be generated.
 ```
 
@@ -86,6 +89,28 @@ make
 
 # Run inference
 ./yolov5_det -d yolov5n.engine ../../images
+# The results are displayed in the console
+```
+
+#### Segmentation
+
+```shell
+cd [PATH-TO-TENSORRTX]/yolov5/yolov5_trt10
+# Update kNumClass in src/config.h if your model is trained on custom dataset
+mkdir build
+cd build
+cp [PATH-TO-ultralytics-yolov5]/yolov5n-seg.wts .
+cmake ..
+make
+
+# Build and serialize TensorRT engine
+./yolov5_seg -s yolov5n-seg.wts yolov5n-seg.engine [n/s/m/l/x]
+
+# Download the labels file
+wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-2014_2017.txt
+
+# Run inference
+./yolov5_seg -d yolov5n-seg.engine ../../images coco.txt
 # The results are displayed in the console
 ```
 
