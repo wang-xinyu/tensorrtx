@@ -32,9 +32,9 @@ static cv::Rect get_downscale_rect(float bbox[4], float scale) {
     return cv::Rect(int(left), int(top), int(right - left), int(bottom - top));
 }
 
-std::vector <cv::Mat> process_mask(const float *proto, int proto_size, std::vector <Detection> &dets) {
+std::vector<cv::Mat> process_mask(const float* proto, int proto_size, std::vector<Detection>& dets) {
 
-    std::vector <cv::Mat> masks;
+    std::vector<cv::Mat> masks;
     for (size_t i = 0; i < dets.size(); i++) {
 
         cv::Mat mask_mat = cv::Mat::zeros(kInputH / 4, kInputW / 4, CV_32FC1);
@@ -56,11 +56,11 @@ std::vector <cv::Mat> process_mask(const float *proto, int proto_size, std::vect
     return masks;
 }
 
-void serialize_engine(std::string &wts_name, std::string &engine_name, std::string &sub_type, float &gd, float &gw,
-                      int &max_channels) {
-    IBuilder *builder = createInferBuilder(gLogger);
-    IBuilderConfig *config = builder->createBuilderConfig();
-    IHostMemory *serialized_engine = nullptr;
+void serialize_engine(std::string& wts_name, std::string& engine_name, std::string& sub_type, float& gd, float& gw,
+                      int& max_channels) {
+    IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
+    IHostMemory* serialized_engine = nullptr;
 
     serialized_engine = buildEngineYolov8Seg(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
 
@@ -70,15 +70,15 @@ void serialize_engine(std::string &wts_name, std::string &engine_name, std::stri
         std::cout << "could not open plan output file" << std::endl;
         assert(false);
     }
-    p.write(reinterpret_cast<const char *>(serialized_engine->data()), serialized_engine->size());
+    p.write(reinterpret_cast<const char*>(serialized_engine->data()), serialized_engine->size());
 
     delete serialized_engine;
     delete config;
     delete builder;
 }
 
-void deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngine **engine,
-                        IExecutionContext **context) {
+void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngine** engine,
+                        IExecutionContext** context) {
     std::ifstream file(engine_name, std::ios::binary);
     if (!file.good()) {
         std::cerr << "read " << engine_name << " error!" << std::endl;
@@ -88,7 +88,7 @@ void deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngin
     file.seekg(0, file.end);
     size = file.tellg();
     file.seekg(0, file.beg);
-    char *serialized_engine = new char[size];
+    char* serialized_engine = new char[size];
     assert(serialized_engine);
     file.read(serialized_engine, size);
     file.close();
@@ -102,9 +102,9 @@ void deserialize_engine(std::string &engine_name, IRuntime **runtime, ICudaEngin
     delete[] serialized_engine;
 }
 
-void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **output_buffer_device,
-                    float **output_seg_buffer_device, float **output_buffer_host, float **output_seg_buffer_host,
-                    float **decode_ptr_host, float **decode_ptr_device, std::string cuda_post_process) {
+void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** output_buffer_device,
+                    float** output_seg_buffer_device, float** output_buffer_host, float** output_seg_buffer_host,
+                    float** decode_ptr_host, float** decode_ptr_device, std::string cuda_post_process) {
     assert(engine->getNbIOTensors() == 3);
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
@@ -124,9 +124,9 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
         assert(false);
     }
     // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc((void **) input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void **) output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
-    CUDA_CHECK(cudaMalloc((void **) output_seg_buffer_device, kBatchSize * kOutputSegSize * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)output_seg_buffer_device, kBatchSize * kOutputSegSize * sizeof(float)));
 
     if (cuda_post_process == "c") {
         *output_buffer_host = new float[kBatchSize * kOutputSize];
@@ -138,12 +138,12 @@ void prepare_buffer(ICudaEngine *engine, float **input_buffer_device, float **ou
         }
         // Allocate memory for decode_ptr_host and copy to device
         *decode_ptr_host = new float[1 + kMaxNumOutputBbox * bbox_element];
-        CUDA_CHECK(cudaMalloc((void **) decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element)));
+        CUDA_CHECK(cudaMalloc((void**)decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element)));
     }
 }
 
-void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, float *output, float *output_seg,
-           int batchsize, float *decode_ptr_host, float *decode_ptr_device, int model_bboxes,
+void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* output, float* output_seg,
+           int batchsize, float* decode_ptr_host, float* decode_ptr_device, int model_bboxes,
            std::string cuda_post_process) {
     // infer on the batch asynchronously, and DMA output back to host
     auto start = std::chrono::system_clock::now();
@@ -166,7 +166,7 @@ void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, flo
     } else if (cuda_post_process == "g") {
         CUDA_CHECK(
                 cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
-        cuda_decode((float *) buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
+        cuda_decode((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
         cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  //cuda nms
         CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device,
                                    sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost,
@@ -179,9 +179,9 @@ void infer(IExecutionContext &context, cudaStream_t &stream, void **buffers, flo
     CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
-bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, std::string &img_dir,
-                std::string &sub_type, std::string &cuda_post_process, std::string &labels_filename, float &gd,
-                float &gw, int &max_channels) {
+bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, std::string& img_dir,
+                std::string& sub_type, std::string& cuda_post_process, std::string& labels_filename, float& gd,
+                float& gw, int& max_channels) {
     if (argc < 4)
         return false;
     if (std::string(argv[1]) == "-s" && argc == 5) {
@@ -222,7 +222,7 @@ bool parse_args(int argc, char **argv, std::string &wts, std::string &engine, st
     return true;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     // -s ../models/yolov8n-seg.wts ../models/yolov8n-seg.fp32.trt n
     // -d ../models/yolov8n-seg.fp32.trt ../images c coco.txt
     cudaSetDevice(kGpuId);
@@ -252,9 +252,9 @@ int main(int argc, char **argv) {
     }
 
     // Deserialize the engine from file
-    IRuntime *runtime = nullptr;
-    ICudaEngine *engine = nullptr;
-    IExecutionContext *context = nullptr;
+    IRuntime* runtime = nullptr;
+    ICudaEngine* engine = nullptr;
+    IExecutionContext* context = nullptr;
     deserialize_engine(engine_name, &runtime, &engine, &context);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -262,14 +262,14 @@ int main(int argc, char **argv) {
     auto out_dims = engine->getTensorShape(kOutputTensorName);
     model_bboxes = out_dims.d[1];
     // Prepare cpu and gpu buffers
-    float *device_buffers[3];
-    float *output_buffer_host = nullptr;
-    float *output_seg_buffer_host = nullptr;
-    float *decode_ptr_host = nullptr;
-    float *decode_ptr_device = nullptr;
+    float* device_buffers[3];
+    float* output_buffer_host = nullptr;
+    float* output_seg_buffer_host = nullptr;
+    float* decode_ptr_host = nullptr;
+    float* decode_ptr_device = nullptr;
 
     // Read images from directory
-    std::vector <std::string> file_names;
+    std::vector<std::string> file_names;
     if (read_files_in_dir(img_dir.c_str(), file_names) < 0) {
         std::cerr << "read_files_in_dir failed." << std::endl;
         return -1;
@@ -285,8 +285,8 @@ int main(int argc, char **argv) {
     // // batch predict
     for (size_t i = 0; i < file_names.size(); i += kBatchSize) {
         // Get a batch of images
-        std::vector <cv::Mat> img_batch;
-        std::vector <std::string> img_name_batch;
+        std::vector<cv::Mat> img_batch;
+        std::vector<std::string> img_name_batch;
         for (size_t j = i; j < i + kBatchSize && j < file_names.size(); j++) {
             cv::Mat img = cv::imread(img_dir + "/" + file_names[j]);
             img_batch.push_back(img);
@@ -295,14 +295,14 @@ int main(int argc, char **argv) {
         // Preprocess
         cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
         // Run inference
-        infer(*context, stream, (void **) device_buffers, output_buffer_host, output_seg_buffer_host, kBatchSize,
+        infer(*context, stream, (void**)device_buffers, output_buffer_host, output_seg_buffer_host, kBatchSize,
               decode_ptr_host, decode_ptr_device, model_bboxes, cuda_post_process);
-        std::vector <std::vector<Detection>> res_batch;
+        std::vector<std::vector<Detection>> res_batch;
         if (cuda_post_process == "c") {
             // NMS
             batch_nms(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
             for (size_t b = 0; b < img_batch.size(); b++) {
-                auto &res = res_batch[b];
+                auto& res = res_batch[b];
                 cv::Mat img = img_batch[b];
                 auto masks = process_mask(&output_seg_buffer_host[b * kOutputSegSize], kOutputSegSize, res);
                 draw_mask_bbox(img, res, masks, labels_map);
@@ -320,8 +320,8 @@ int main(int argc, char **argv) {
             for (size_t k = 0; k < res_batch[j].size(); k++) {
                 std::cout << "image: " << img_name_batch[j] << ", bbox: " << res_batch[j][k].bbox[0] << ", "
                           << res_batch[j][k].bbox[1] << ", " << res_batch[j][k].bbox[2] << ", "
-                          << res_batch[j][k].bbox[3] << ", conf: " << res_batch[j][k].conf << ", class_id: "
-                          << res_batch[j][k].class_id << std::endl;
+                          << res_batch[j][k].bbox[3] << ", conf: " << res_batch[j][k].conf
+                          << ", class_id: " << res_batch[j][k].class_id << std::endl;
             }
         }
     }

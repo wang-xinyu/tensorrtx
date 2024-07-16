@@ -265,8 +265,8 @@ int main(int argc, char** argv) {
             for (size_t k = 0; k < res_batch[j].size(); k++) {
                 std::cout << "image: " << img_name_batch[j] << ", bbox: " << res_batch[j][k].bbox[0] << ", "
                           << res_batch[j][k].bbox[1] << ", " << res_batch[j][k].bbox[2] << ", "
-                          << res_batch[j][k].bbox[3] << ", conf: " << res_batch[j][k].conf << ", class_id: "
-                          << res_batch[j][k].class_id << std::endl;
+                          << res_batch[j][k].bbox[3] << ", conf: " << res_batch[j][k].conf
+                          << ", class_id: " << res_batch[j][k].class_id << std::endl;
             }
         }
     }
