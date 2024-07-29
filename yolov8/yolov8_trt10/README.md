@@ -46,6 +46,11 @@ python gen_wts.py -w yolov8n-pose.pt -o yolov8n-pose.wts -t pose
 
 ```shell
 cd [PATH-TO-TENSORRTX]/yolov8/yolov8_trt10
+
+# add test images
+mkdir images
+cp [PATH-TO-TENSORRTX]/yolov3-spp/samples/*.jpg ./images
+
 # Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
