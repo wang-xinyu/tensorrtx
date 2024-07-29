@@ -226,9 +226,50 @@ static ILayer* SPPF(INetworkDefinition* network, std::map<std::string, Weights>&
     return cv2;
 }
 
+static ILayer* convBlockProto(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                              int outch, int ksize, int s, int g, std::string lname) {
+    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    int p = ksize / 3;
+    IConvolutionLayer* conv1 =
+            network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap[lname + ".conv.weight"], emptywts);
+    assert(conv1);
+    conv1->setStrideNd(DimsHW{s, s});
+    conv1->setPaddingNd(DimsHW{p, p});
+    conv1->setNbGroups(g);
+    conv1->setName((lname + ".conv").c_str());
+    IScaleLayer* bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + ".bn", 1e-3);
+    assert(bn1);
+    bn1->setName((lname + ".bn").c_str());
+
+    // This concat operator is not used for calculation, in order to prevent the operator fusion unrealized error when int8 is quantized.
+    // Error Code 10: Internal Error (Could not find any implementation for node
+    // model.24.proto.cv3.conv + model.24.proto.cv3.bn + PWN(PWN(model.24.proto.cv3.sigmoid), PWN(model.24.proto.cv3.silu)).)
+#if defined(USE_INT8)
+    ITensor* inputTensors[] = {bn1->getOutput(0)};
+    auto concat = network->addConcatenation(inputTensors, 1);
+
+    // silu = x * sigmoid
+    auto sig = network->addActivation(*concat->getOutput(0), ActivationType::kSIGMOID);
+    assert(sig);
+    sig->setName((lname + ".sigmoid").c_str());
+    auto ew = network->addElementWise(*concat->getOutput(0), *sig->getOutput(0), ElementWiseOperation::kPROD);
+    assert(ew);
+    ew->setName((lname + ".silu").c_str());
+#else
+    // silu = x * sigmoid
+    auto sig = network->addActivation(*bn1->getOutput(0), ActivationType::kSIGMOID);
+    assert(sig);
+    sig->setName((lname + ".sigmoid").c_str());
+    auto ew = network->addElementWise(*bn1->getOutput(0), *sig->getOutput(0), ElementWiseOperation::kPROD);
+    assert(ew);
+    ew->setName((lname + ".silu").c_str());
+#endif
+    return ew;
+}
+
 static ILayer* Proto(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c_,
                      int c2, std::string lname) {
-    auto cv1 = convBlock(network, weightMap, input, c_, 3, 1, 1, lname + ".cv1");
+    auto cv1 = convBlockProto(network, weightMap, input, c_, 3, 1, 1, lname + ".cv1");
 
     auto upsample = network->addResize(*cv1->getOutput(0));
     assert(upsample);
@@ -236,8 +277,8 @@ static ILayer* Proto(INetworkDefinition* network, std::map<std::string, Weights>
     const float scales[] = {1, 1, 2, 2};
     upsample->setScales(scales, 4);
 
-    auto cv2 = convBlock(network, weightMap, *upsample->getOutput(0), c_, 3, 1, 1, lname + ".cv2");
-    auto cv3 = convBlock(network, weightMap, *cv2->getOutput(0), c2, 1, 1, 1, lname + ".cv3");
+    auto cv2 = convBlockProto(network, weightMap, *upsample->getOutput(0), c_, 3, 1, 1, lname + ".cv2");
+    auto cv3 = convBlockProto(network, weightMap, *cv2->getOutput(0), c2, 1, 1, 1, lname + ".cv3");
     assert(cv3);
     return cv3;
 }
@@ -582,6 +623,118 @@ nvinfer1::IHostMemory* build_det_p6_engine(unsigned int maxBatchSize, IBuilder* 
     auto yolo = addYoLoLayer(network, weightMap, "model.33", std::vector<IConvolutionLayer*>{det0, det1, det2, det3});
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
+
+    // Engine config
+    config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 16 * (1 << 20));
+#if defined(USE_FP16)
+    config->setFlag(BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator =
+            new Int8EntropyCalibrator2(1, kInputW, kInputH, "./coco_calib/", "int8calib.table", kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
+
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    nvinfer1::IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
+    std::cout << "Build engine successfully!" << std::endl;
+
+    // Don't need the network any more
+    delete network;
+
+    // Release host memory
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
+    }
+
+    return serialized_model;
+}
+
+IHostMemory* build_seg_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt,
+                              float& gd, float& gw, std::string& wts_name) {
+    //	INetworkDefinition *network = builder->createNetworkV2(0U);
+    INetworkDefinition* network =
+            builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW});
+    assert(data);
+    std::map<std::string, Weights> weightMap = loadWeights(wts_name);
+
+    // Backbone
+    auto conv0 = convBlock(network, weightMap, *data, get_width(64, gw), 6, 2, 1, "model.0");
+    assert(conv0);
+    auto conv1 = convBlock(network, weightMap, *conv0->getOutput(0), get_width(128, gw), 3, 2, 1, "model.1");
+    auto bottleneck_CSP2 = C3(network, weightMap, *conv1->getOutput(0), get_width(128, gw), get_width(128, gw),
+                              get_depth(3, gd), true, 1, 0.5, "model.2");
+    auto conv3 = convBlock(network, weightMap, *bottleneck_CSP2->getOutput(0), get_width(256, gw), 3, 2, 1, "model.3");
+    auto bottleneck_csp4 = C3(network, weightMap, *conv3->getOutput(0), get_width(256, gw), get_width(256, gw),
+                              get_depth(6, gd), true, 1, 0.5, "model.4");
+    auto conv5 = convBlock(network, weightMap, *bottleneck_csp4->getOutput(0), get_width(512, gw), 3, 2, 1, "model.5");
+    auto bottleneck_csp6 = C3(network, weightMap, *conv5->getOutput(0), get_width(512, gw), get_width(512, gw),
+                              get_depth(9, gd), true, 1, 0.5, "model.6");
+    auto conv7 = convBlock(network, weightMap, *bottleneck_csp6->getOutput(0), get_width(1024, gw), 3, 2, 1, "model.7");
+    auto bottleneck_csp8 = C3(network, weightMap, *conv7->getOutput(0), get_width(1024, gw), get_width(1024, gw),
+                              get_depth(3, gd), true, 1, 0.5, "model.8");
+    auto spp9 = SPPF(network, weightMap, *bottleneck_csp8->getOutput(0), get_width(1024, gw), get_width(1024, gw), 5,
+                     "model.9");
+
+    // Head
+    auto conv10 = convBlock(network, weightMap, *spp9->getOutput(0), get_width(512, gw), 1, 1, 1, "model.10");
+
+    auto upsample11 = network->addResize(*conv10->getOutput(0));
+    assert(upsample11);
+    upsample11->setResizeMode(InterpolationMode::kNEAREST);
+    upsample11->setOutputDimensions(bottleneck_csp6->getOutput(0)->getDimensions());
+
+    ITensor* inputTensors12[] = {upsample11->getOutput(0), bottleneck_csp6->getOutput(0)};
+    auto cat12 = network->addConcatenation(inputTensors12, 2);
+    auto bottleneck_csp13 = C3(network, weightMap, *cat12->getOutput(0), get_width(1024, gw), get_width(512, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.13");
+    auto conv14 =
+            convBlock(network, weightMap, *bottleneck_csp13->getOutput(0), get_width(256, gw), 1, 1, 1, "model.14");
+
+    auto upsample15 = network->addResize(*conv14->getOutput(0));
+    assert(upsample15);
+    upsample15->setResizeMode(InterpolationMode::kNEAREST);
+    upsample15->setOutputDimensions(bottleneck_csp4->getOutput(0)->getDimensions());
+
+    ITensor* inputTensors16[] = {upsample15->getOutput(0), bottleneck_csp4->getOutput(0)};
+    auto cat16 = network->addConcatenation(inputTensors16, 2);
+
+    auto bottleneck_csp17 = C3(network, weightMap, *cat16->getOutput(0), get_width(512, gw), get_width(256, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.17");
+
+    // Segmentation
+    IConvolutionLayer* det0 =
+            network->addConvolutionNd(*bottleneck_csp17->getOutput(0), 3 * (32 + kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.24.m.0.weight"], weightMap["model.24.m.0.bias"]);
+    auto conv18 =
+            convBlock(network, weightMap, *bottleneck_csp17->getOutput(0), get_width(256, gw), 3, 2, 1, "model.18");
+    ITensor* inputTensors19[] = {conv18->getOutput(0), conv14->getOutput(0)};
+    auto cat19 = network->addConcatenation(inputTensors19, 2);
+    auto bottleneck_csp20 = C3(network, weightMap, *cat19->getOutput(0), get_width(512, gw), get_width(512, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.20");
+    IConvolutionLayer* det1 =
+            network->addConvolutionNd(*bottleneck_csp20->getOutput(0), 3 * (32 + kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.24.m.1.weight"], weightMap["model.24.m.1.bias"]);
+    auto conv21 =
+            convBlock(network, weightMap, *bottleneck_csp20->getOutput(0), get_width(512, gw), 3, 2, 1, "model.21");
+    ITensor* inputTensors22[] = {conv21->getOutput(0), conv10->getOutput(0)};
+    auto cat22 = network->addConcatenation(inputTensors22, 2);
+    auto bottleneck_csp23 = C3(network, weightMap, *cat22->getOutput(0), get_width(1024, gw), get_width(1024, gw),
+                               get_depth(3, gd), false, 1, 0.5, "model.23");
+    IConvolutionLayer* det2 =
+            network->addConvolutionNd(*bottleneck_csp23->getOutput(0), 3 * (32 + kNumClass + 5), DimsHW{1, 1},
+                                      weightMap["model.24.m.2.weight"], weightMap["model.24.m.2.bias"]);
+
+    auto yolo = addYoLoLayer(network, weightMap, "model.24", std::vector<IConvolutionLayer*>{det0, det1, det2}, true);
+    yolo->getOutput(0)->setName(kOutputTensorName);
+    network->markOutput(*yolo->getOutput(0));
+
+    auto proto = Proto(network, weightMap, *bottleneck_csp17->getOutput(0), get_width(256, gw), 32, "model.24.proto");
+    proto->getOutput(0)->setName(kProtoTensorName);
+    network->markOutput(*proto->getOutput(0));
 
     // Engine config
     config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 16 * (1 << 20));
