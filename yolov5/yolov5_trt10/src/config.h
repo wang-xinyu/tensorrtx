@@ -13,6 +13,7 @@
 // you can set them to whatever you want.
 const static char* kInputTensorName = "data";
 const static char* kOutputTensorName = "prob";
+const static char* kProtoTensorName = "proto";
 
 // Detection model and Segmentation model' number of classes
 constexpr static int kNumClass = 80;

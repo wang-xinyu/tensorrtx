@@ -24,6 +24,11 @@ cv::Rect get_rect(cv::Mat& img, float bbox[4]) {
         t = t / r_h;
         b = b / r_h;
     }
+    // Prevent code from cross-border access
+    l = (std::max)(0.f, l);
+    r = (std::min)((float)img.cols, r);
+    t = (std::max)(0.f, t);
+    b = (std::min)((float)img.rows, b);
     return cv::Rect(round(l), round(t), round(r - l), round(b - t));
 }
 
@@ -54,6 +59,15 @@ void nms(std::vector<Detection>& res, float* output, float conf_thresh, float nm
             continue;
         Detection det;
         memcpy(&det, &output[1 + det_size * i], det_size * sizeof(float));
+        // Prevent code from cross-border access
+        auto left = (std::max)(det.bbox[0] - det.bbox[2] / 2.f, 0.f);
+        auto top = (std::max)(det.bbox[1] - det.bbox[3] / 2.f, 0.f);
+        auto right = (std::min)(det.bbox[0] + det.bbox[2] / 2.f, kInputW - 1.f);
+        auto bottom = (std::min)(det.bbox[1] + det.bbox[3] / 2.f, kInputH - 1.f);
+        det.bbox[2] = right - left;
+        det.bbox[3] = bottom - top;
+        det.bbox[0] = left + det.bbox[2] / 2.f;
+        det.bbox[1] = top + det.bbox[3] / 2.f;
         if (m.count(det.class_id) == 0)
             m.emplace(det.class_id, std::vector<Detection>());
         m[det.class_id].push_back(det);
