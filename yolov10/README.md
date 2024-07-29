@@ -50,6 +50,11 @@ python gen_wts.py -w yolov10n.pt -o yolov10n.wts
 
 ```shell
 cd [PATH-TO-TENSORRTX]/yolov10
+
+# add test images
+mkdir images
+cp [PATH-TO-TENSORRTX]/yolov3-spp/samples/*.jpg ./images
+
 # Update kNumClass in src/config.h if your model is trained on custom dataset
 mkdir build
 cd build
