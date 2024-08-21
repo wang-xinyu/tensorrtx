@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `21 Aug 2024`. [Lemonononon](https://github.com/Lemonononon): real-esrgan-general-x4v3
 - `29 Jul 2024`. [mpj1234](https://github.com/mpj1234): Check the YOLOv5, YOLOv8 & YOLOv10 in TensorRT 10.x API, branch → [trt10](https://github.com/wang-xinyu/tensorrtx/tree/trt10)
 - `29 Jul 2024`. [mpj1234](https://github.com/mpj1234): YOLOv10
 - `21 Jun 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9-T, YOLOv9-S, YOLOv9-M
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn) and [UNet](./unet) upgrade to support TensorRT 8.
 - `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
 - `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
-- `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
 
 ## Tutorials
 
