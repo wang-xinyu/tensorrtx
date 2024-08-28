@@ -19,17 +19,32 @@ void serialize_engine(unsigned int max_batchsize, std::string& wts_name, std::st
 
     // Create model to populate the network, then set the outputs and create an engine
     IHostMemory* serialized_engine = nullptr;
-    if (sub_type == "e") {
-        serialized_engine = build_engine_yolov9_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    if (sub_type == "t") {
+        serialized_engine = build_engine_yolov9_t(max_batchsize, builder, config, DataType::kFLOAT, wts_name, false);
+    } else if (sub_type == "s") {
+        serialized_engine = build_engine_yolov9_s(max_batchsize, builder, config, DataType::kFLOAT, wts_name, false);
+    } else if (sub_type == "m") {
+        serialized_engine = build_engine_yolov9_m(max_batchsize, builder, config, DataType::kFLOAT, wts_name, false);
     } else if (sub_type == "c") {
         serialized_engine = build_engine_yolov9_c(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
-    } else if (sub_type == "ge") {
-        serialized_engine = build_engine_gelan_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    } else if (sub_type == "e") {
+        serialized_engine = build_engine_yolov9_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    }
+
+    else if (sub_type == "gt") {
+        serialized_engine = build_engine_yolov9_t(max_batchsize, builder, config, DataType::kFLOAT, wts_name, true);
+    } else if (sub_type == "gs") {
+        serialized_engine = build_engine_yolov9_s(max_batchsize, builder, config, DataType::kFLOAT, wts_name, true);
+    } else if (sub_type == "gm") {
+        serialized_engine = build_engine_yolov9_m(max_batchsize, builder, config, DataType::kFLOAT, wts_name, true);
     } else if (sub_type == "gc") {
         serialized_engine = build_engine_gelan_c(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
+    } else if (sub_type == "ge") {
+        serialized_engine = build_engine_gelan_e(max_batchsize, builder, config, DataType::kFLOAT, wts_name);
     } else {
         return;
     }
+
     assert(serialized_engine != nullptr);
 
     std::ofstream p(engine_name, std::ios::binary);
@@ -114,19 +129,19 @@ int main(int argc, char** argv) {
     cudaSetDevice(kGpuId);
 
     std::string wts_name = "";
-    std::string engine_name = "";
-    std::string img_dir = "";
-    std::string sub_type = "";
+    std::string engine_name = "../yolov9-m-converted.engine";
+    std::string img_dir = "../images";
+    std::string sub_type = "m";
     // speed test or inference
-    // const int speed_test_iter = 1000;
-    const int speed_test_iter = 1;
+    const int speed_test_iter = 1000;
+    // const int speed_test_iter = 1;
 
-    if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type)) {
-        std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolov9 -s [.wts] [.engine] [c/e/gc/ge]  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov9 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
-        return -1;
-    }
+    // if (!parse_args(argc, argv, wts_name, engine_name, img_dir, sub_type)) {
+    //     std::cerr << "Arguments not right!" << std::endl;
+    //     std::cerr << "./yolov9 -s [.wts] [.engine] [s/m/c/e/gt/gs/gm/gc/ge]  // serialize model to plan file" << std::endl;
+    //     std::cerr << "./yolov9 -d [.engine] ../samples  // deserialize plan file and run inference" << std::endl;
+    //     return -1;
+    // }
 
     // Create a model using the API directly and serialize it to a file
     if (!wts_name.empty()) {

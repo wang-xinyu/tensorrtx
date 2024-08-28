@@ -7,22 +7,16 @@ The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/
 <a href="https://github.com/WuxinrongY"><img src="https://avatars.githubusercontent.com/u/53141838?v=4?s=48" width="40px;" alt=""/></a>
 
 ## Progress
-- [x] YOLOv9-c:
-  - [x] FP32
-  - [x] FP16
-  - [x] INT8
-- [x] YOLOv9-e:
-  - [x] FP32
-  - [x] FP16
-  - [x] INT8
-- [x] GELAN-c:
-  - [x] FP32
-  - [x] FP16
-  - [x] INT8
-- [x] GELAN-e:
-  - [x] FP32
-  - [x] FP16
-  - [x] INT8
+- [x] YOLOv9-t
+- [x] YOLOv9-t-convert(gelan)
+- [x] YOLOv9-s
+- [x] YOLOv9-s-convert(gelan)
+- [x] YOLOv9-m
+- [x] YOLOv9-m-convert(gelan)
+- [x] YOLOv9-c
+- [x] YOLOv9-c-convert(gelan)
+- [x] YOLOv9-e
+- [x] YOLOv9-e-convert(gelan)
 
 ## Requirements
 
@@ -35,8 +29,16 @@ The speed test is done on a desktop with R7-5700G CPU and RTX 4060Ti GPU. The in
 
 | frame  | Model | FP32 | FP16 | INT8 |
 | --- | --- | --- | --- | --- |
-| pytorch | YOLOv9-c | - | 15.5ms | - |
-| pytorch | YOLOv9-e | - | 19.7ms | - |
+| tensorrt | YOLOv5-n | -ms | 0.58ms | -ms |
+| tensorrt | YOLOv5-s | -ms | 0.90ms | -ms |
+| tensorrt | YOLOv5-m | -ms | 1.9ms | -ms |
+| tensorrt | YOLOv5-l | -ms | 2.8ms | -ms |
+| tensorrt | YOLOv5-x | -ms | 5.1ms | -ms |
+| tensorrt | YOLOv9-t-convert | -ms | 1.37ms | -ms |
+| tensorrt | YOLOv9-s | -ms | 1.78ms | -ms |
+| tensorrt | YOLOv9-s-convert | -ms | 1.78ms | -ms |
+| tensorrt | YOLOv9-m | -ms | 3.1ms | -ms |
+| tensorrt | YOLOv9-m-convert | -ms | 2.8ms | -ms |
 | tensorrt | YOLOv9-c | 13.5ms | 4.6ms | 3.0ms |
 | tensorrt | YOLOv9-e | 8.3ms | 3.2ms | 2.15ms |
 

@@ -23,8 +23,8 @@ static cv::Rect get_downscale_rect(float bbox[4], float scale) {
 
     left = left < 0 ? 0 : left;
     top = top < 0 ? 0 : top;
-    right = right > 640 ? 640 : right;
-    bottom = bottom > 640 ? 640 : bottom;
+    right = right > kInputW ? kInputW : right;
+    bottom = bottom > kInputH ? kInputH : bottom;
 
     left /= scale;
     top /= scale;

@@ -5,7 +5,7 @@ TensorRTx aims to implement popular deep learning networks with TensorRT network
 Why don't we use a parser (ONNX parser, UFF parser, caffe parser, etc), but use complex APIs to build a network from scratch? I have summarized the advantages in the following aspects.
 - **Flexible**, easy to modify the network, add/delete a layer or input/output tensor, replace a layer, merge layers, integrate preprocessing and postprocessing into network, etc.
 - **Debuggable**, construct the entire network in an incremental development manner, easy to get middle layer results.
-- **Chance to learn**, learn about the network structure during this development, rather than treating everything as a black box.
+- **Educational**, learn about the network structure during this development, rather than treating everything as a black box.
 
 The basic workflow of TensorRTx is:
 1. Get the trained models from pytorch, mxnet or tensorflow, etc. Some pytorch models can be found in my repo [pytorchx](https://github.com/wang-xinyu/pytorchx), the remaining are from popular open-source repos.
@@ -15,6 +15,10 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `21 Aug 2024`. [Lemonononon](https://github.com/Lemonononon): real-esrgan-general-x4v3
+- `29 Jul 2024`. [mpj1234](https://github.com/mpj1234): Check the YOLOv5, YOLOv8 & YOLOv10 in TensorRT 10.x API, branch → [trt10](https://github.com/wang-xinyu/tensorrtx/tree/trt10)
+- `29 Jul 2024`. [mpj1234](https://github.com/mpj1234): YOLOv10
+- `21 Jun 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9-T, YOLOv9-S, YOLOv9-M
 - `28 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-pose
 - `22 Apr 2024`. [B1SH0PP](https://github.com/B1SH0PP): EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies.
 - `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
@@ -26,10 +30,6 @@ The basic workflow of TensorRTx is:
 - `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn) and [UNet](./unet) upgrade to support TensorRT 8.
 - `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
 - `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
-- `26 Oct 2022`. [ausk](https://github.com/ausk): YoloP(You Only Look Once for Panopitic Driving Perception).
-- `19 Sep 2022`. [QIANXUNZDL123](https://github.com/QIANXUNZDL123) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv7.
-- `7 Sep 2022`. [xiang-wuu](https://github.com/xiang-wuu): YOLOv5 v6.2 classification models.
-- `19 Aug 2022`. [Dominic](https://github.com/Dominic-DallOsto) and [sbmalik](https://github.com/sbmalik): Yolov3-tiny and Arcface support TRT8.
 
 ## Tutorials
 

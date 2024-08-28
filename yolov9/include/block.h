@@ -22,9 +22,13 @@ std::vector<std::vector<float>> getAnchors(std::map<std::string, Weights>& weigh
 // ----------------------------------------------------------------
 nvinfer1::ILayer* convBnSiLU(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights>& weightMap,
                              nvinfer1::ITensor& input, int ch, int k, int s, int p, std::string lname, int g = 1);
+ILayer* ELAN1(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1, int c2,
+              int c3, int c4, std::string lname);
 ILayer* RepNCSPELAN4(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c1,
                      int c2, int c3, int c4, int c5, std::string lname);
 ILayer* ADown(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c2,
+              std::string lname);
+ILayer* AConv(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int c2,
               std::string lname);
 std::vector<ILayer*> CBLinear(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
                               std::vector<int> c2s, int k, int s, int p, int g, std::string lname);
