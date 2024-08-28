@@ -7,7 +7,7 @@ struct alignas(float) Detection {
     float conf;  // bbox_conf * cls_conf
     float class_id;
     float mask[32];
-    float keypoints[51];  // 17*3 keypoints
+    float keypoints[kNumberOfPoints * 3];  // keypoints array with dynamic size based on kNumberOfPoints
 };
 
 struct AffineMatrix {
