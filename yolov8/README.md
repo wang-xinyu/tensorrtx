@@ -146,6 +146,7 @@ python yolov8_det_trt.py  # Detection
 python yolov8_seg_trt.py  # Segmentation
 python yolov8_cls_trt.py  # Classification
 python yolov8_pose_trt.py  # Pose Estimation
+python yolov8_5u_det_trt.py  # yolov8_5u_det(YOLOv5u with the anchor-free, objectness-free split head structure based on YOLOv8 features) model
 ```
 
 # INT8 Quantization
