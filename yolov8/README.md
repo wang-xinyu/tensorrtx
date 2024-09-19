@@ -43,11 +43,13 @@ python gen_wts.py -w yolov8n.pt -o yolov8n.wts -t detect
 
 // For p2 model
 // download https://github.com/lindsayshuo/yolov8_p2_tensorrtx/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt (only for 10 cls p2 model)
+cd {ultralytics}/ultralytics
 python gen_wts.py -w VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt -o VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts -t detect (only for  10 cls p2 model)
 // a file 'VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts' will be generated.
 
 // For yolov8_5u_det model
 // download https://github.com/ultralytics/assets/releases/yolov5nu.pt
+cd {ultralytics}/ultralytics
 python gen_wts.py -w yolov5nu.pt -o yolov5nu.wts -t detect
 // a file 'yolov5nu.wts' will be generated.
 
