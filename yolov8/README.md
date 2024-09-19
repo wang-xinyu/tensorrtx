@@ -74,6 +74,11 @@ wget https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_y
 cp -r 0000008_01999_d_0000040.jpg ../images
 sudo ./yolov8_det -d VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine ../images c //cpu postprocess
 sudo ./yolov8_det -d VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine ../images g //gpu postprocess
+
+// For yolov8_5u_det(YOLOv5u with the anchor-free, objectness-free split head structure based on YOLOv8 features) model:
+sudo ./yolov8_5u_det -s [.wts] [.engine] [n/s/m/l/x//n6/s6/m6/l6/x6]
+sudo ./yolov8_5u_det -d yolov5xu.engine ../images c //cpu postprocess
+sudo ./yolov8_5u_det -d yolov5xu.engine ../images g //gpu postprocess
 ```
 
 ### Instance Segmentation

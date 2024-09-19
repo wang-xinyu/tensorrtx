@@ -6,6 +6,10 @@
 #include "config.h"
 #include "yololayer.h"
 
+int calculateP(int ksize) {
+    return ksize / 3;
+}
+
 std::map<std::string, nvinfer1::Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
     std::map<std::string, nvinfer1::Weights> WeightMap;
@@ -103,6 +107,17 @@ nvinfer1::ILayer* bottleneck(nvinfer1::INetworkDefinition* network, std::map<std
     return conv2;
 }
 
+
+static nvinfer1::ILayer* bottleneck_c3(nvinfer1::INetworkDefinition *network, std::map<std::string, nvinfer1::Weights>& weightMap, nvinfer1::ITensor& input, int c1, int c2, bool shortcut, float e, std::string lname) {
+    nvinfer1::IElementWiseLayer* cv1 = convBnSiLU(network, weightMap, input, (int)((float)c2 * e), 1, 1, calculateP(1), lname + ".cv1");
+    nvinfer1::IElementWiseLayer* cv2 = convBnSiLU(network, weightMap, *cv1->getOutput(0), c2, 3, 1, calculateP(3), lname + ".cv2");
+    if (shortcut && c1 == c2) {
+        auto ew = network->addElementWise(input, *cv2->getOutput(0), nvinfer1::ElementWiseOperation::kSUM);
+        return ew;
+    }
+    return cv2;
+}
+
 nvinfer1::IElementWiseLayer* C2F(nvinfer1::INetworkDefinition* network,
                                  std::map<std::string, nvinfer1::Weights> weightMap, nvinfer1::ITensor& input, int c1,
                                  int c2, int n, bool shortcut, float e, std::string lname) {
@@ -171,6 +186,25 @@ nvinfer1::IElementWiseLayer* C2(nvinfer1::INetworkDefinition* network,
             convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, 0, lname + ".cv2");
 
     return conv2;
+}
+
+
+nvinfer1::IElementWiseLayer* C3(nvinfer1::INetworkDefinition* network,
+                                std::map<std::string, nvinfer1::Weights> weightMap, nvinfer1::ITensor& input, int c1,
+                                int c2, int n, bool shortcut, float e, std::string lname) {
+    int c_ = (float)c2 * e;
+    nvinfer1::IElementWiseLayer* cv1 = convBnSiLU(network, weightMap, input, c_, 1, 1, calculateP(1), lname + ".cv1");
+    nvinfer1::IElementWiseLayer* cv2 = convBnSiLU(network, weightMap, input, c_, 1, 1, calculateP(1), lname + ".cv2");
+    nvinfer1::ITensor *y1 = cv1->getOutput(0);
+    for (int i = 0; i < n; i++) {
+        auto b = bottleneck_c3(network, weightMap, *y1, c_, c_, shortcut, 1.0, lname + ".m." + std::to_string(i));
+        y1 = b->getOutput(0);
+    }
+    nvinfer1::ITensor* inputTensors[] = {y1, cv2->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat = network->addConcatenation(inputTensors, 2);
+    nvinfer1::IElementWiseLayer* conv3 =
+            convBnSiLU(network, weightMap, *cat->getOutput(0), c2, 1, 1, calculateP(1), lname + ".cv3");
+    return conv3;
 }
 
 nvinfer1::IElementWiseLayer* SPPF(nvinfer1::INetworkDefinition* network,
