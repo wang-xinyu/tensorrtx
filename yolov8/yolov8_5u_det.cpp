@@ -20,7 +20,8 @@ void serialize_engine(std::string& wts_name, std::string& engine_name, int& is_p
     IHostMemory* serialized_engine = nullptr;
 
     if (is_p == 6) {
-        serialized_engine = buildEngineYolov8_5uDetP6(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
+        serialized_engine =
+                buildEngineYolov8_5uDetP6(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
     } else {
         serialized_engine = buildEngineYolov8_5uDet(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels);
     }
@@ -67,8 +68,9 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
                     float** output_buffer_host, float** decode_ptr_host, float** decode_ptr_device,
                     std::string cuda_post_process) {
     assert(engine->getNbBindings() == 2);
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
+    // In order to bind the buffers, we need to know the names of the input and
+    // output tensors. Note that indices are guaranteed to be less than
+    // IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(kInputTensorName);
     const int outputIndex = engine->getBindingIndex(kOutputTensorName);
     assert(inputIndex == 0);
@@ -104,7 +106,8 @@ void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, flo
         CUDA_CHECK(
                 cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
         cuda_decode((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
-        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  //cuda nms
+        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox,
+                 stream);  // cuda nms
         CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device,
                                    sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost,
                                    stream));
@@ -176,10 +179,13 @@ int main(int argc, char** argv) {
     if (!parse_args(argc, argv, wts_name, engine_name, is_p, img_dir, sub_type, cuda_post_process, gd, gw,
                     max_channels)) {
         std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolov8_5u_det -s [.wts] [.engine] [n/s/m/l/x//n6/s6/m6/l6/x6]  // serialize model to "
+        std::cerr << "./yolov8_5u_det -s [.wts] [.engine] "
+                     "[n/s/m/l/x//n6/s6/m6/l6/x6]  // serialize model to "
                      "plan file"
                   << std::endl;
-        std::cerr << "./yolov8_5u_det -d [.engine] ../samples  [c/g]// deserialize plan file and run inference" << std::endl;
+        std::cerr << "./yolov8_5u_det -d [.engine] ../samples  [c/g]// deserialize "
+                     "plan file and run inference"
+                  << std::endl;
         return -1;
     }
 
@@ -235,7 +241,7 @@ int main(int argc, char** argv) {
             // NMS
             batch_nms(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
         } else if (cuda_post_process == "g") {
-            //Process gpu decode and nms results
+            // Process gpu decode and nms results
             batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element, img_batch);
         }
         // Draw bounding boxes
@@ -260,13 +266,13 @@ int main(int argc, char** argv) {
     delete runtime;
 
     // Print histogram of the output distribution
-    //std::cout << "\nOutput:\n\n";
-    //for (unsigned int i = 0; i < kOutputSize; i++)
+    // std::cout << "\nOutput:\n\n";
+    // for (unsigned int i = 0; i < kOutputSize; i++)
     //{
     //    std::cout << prob[i] << ", ";
     //    if (i % 10 == 0) std::cout << std::endl;
     //}
-    //std::cout << std::endl;
+    // std::cout << std::endl;
 
     return 0;
 }
