@@ -43,8 +43,16 @@ python gen_wts.py -w yolov8n.pt -o yolov8n.wts -t detect
 
 // For p2 model
 // download https://github.com/lindsayshuo/yolov8_p2_tensorrtx/releases/download/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last/VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt (only for 10 cls p2 model)
+cd {ultralytics}/ultralytics
 python gen_wts.py -w VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.pt -o VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts -t detect (only for  10 cls p2 model)
 // a file 'VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.wts' will be generated.
+
+// For yolov8_5u_det model
+// download https://github.com/ultralytics/assets/releases/yolov5nu.pt
+cd {ultralytics}/ultralytics
+python gen_wts.py -w yolov5nu.pt -o yolov5nu.wts -t detect
+// a file 'yolov5nu.wts' will be generated.
+
 ```
 
 2. build tensorrtx/yolov8 and run
@@ -74,6 +82,11 @@ wget https://github.com/lindsayshuo/yolov8-p2/releases/download/VisDrone_train_y
 cp -r 0000008_01999_d_0000040.jpg ../images
 sudo ./yolov8_det -d VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine ../images c //cpu postprocess
 sudo ./yolov8_det -d VisDrone_train_yolov8x_p2_bs1_epochs_100_imgsz_1280_last.engine ../images g //gpu postprocess
+
+// For yolov8_5u_det(YOLOv5u with the anchor-free, objectness-free split head structure based on YOLOv8 features) model:
+sudo ./yolov8_5u_det -s [.wts] [.engine] [n/s/m/l/x//n6/s6/m6/l6/x6]
+sudo ./yolov8_5u_det -d yolov5xu.engine ../images c //cpu postprocess
+sudo ./yolov8_5u_det -d yolov5xu.engine ../images g //gpu postprocess
 ```
 
 ### Instance Segmentation
@@ -141,6 +154,7 @@ python yolov8_det_trt.py  # Detection
 python yolov8_seg_trt.py  # Segmentation
 python yolov8_cls_trt.py  # Classification
 python yolov8_pose_trt.py  # Pose Estimation
+python yolov8_5u_det_trt.py  # yolov8_5u_det(YOLOv5u with the anchor-free, objectness-free split head structure based on YOLOv8 features) model
 ```
 
 # INT8 Quantization
