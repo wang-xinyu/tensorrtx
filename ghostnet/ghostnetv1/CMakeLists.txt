@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
-project(ghostnet)
+project(ghostnetv1)
 
 add_definitions(-std=c++11)
 
@@ -17,9 +17,9 @@ link_directories(/usr/local/cuda/lib64)
 include_directories(/usr/include/x86_64-linux-gnu/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 
-add_executable(ghostnet ${PROJECT_SOURCE_DIR}/ghostnet.cpp)
-target_link_libraries(ghostnet nvinfer)
-target_link_libraries(ghostnet cudart)
+add_executable(ghostnetv1 ${PROJECT_SOURCE_DIR}/ghostnetv1.cpp)
+target_link_libraries(ghostnetv1 nvinfer)
+target_link_libraries(ghostnetv1 cudart)
 
 add_definitions(-O2 -pthread)
 
