@@ -245,8 +245,8 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 
     // Close everything down
     engine->destroy();
-    builder->destroy();
     config->destroy();
+    builder->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
