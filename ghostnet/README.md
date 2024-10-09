@@ -1,6 +1,6 @@
 # GhostNet
 
-GhostNetv1 architecture is from the paper "GhostNet: More Features from Cheap Operations" [(https://arxiv.org/abs/1911.11907)](https://arxiv.org/abs/1911.11907).  
+GhostNetv1 architecture is from the paper "GhostNet: More Features from Cheap Operations" [(https://arxiv.org/abs/1911.11907)](https://arxiv.org/abs/1911.11907).
 GhostNetv2 architecture is from the paper "GhostNetV2: Enhance Cheap Operation with Long-Range Attention" [(https://arxiv.org/abs/2211.12905)](https://arxiv.org/abs/2211.12905).
 
 For the PyTorch implementations, you can refer to [huawei-noah/ghostnet](https://github.com/huawei-noah/ghostnet).
@@ -59,10 +59,10 @@ Use the following commands to serialize the PyTorch models into TensorRT engine 
 
 ```bash
 # For ghostnetv1
-sudo ./ghostnetv1 -s   
+sudo ./ghostnetv1 -s
 
 # For ghostnetv2
-sudo ./ghostnetv2 -s   
+sudo ./ghostnetv2 -s
 ```
 
 ### 4. Run inference using the engine files
@@ -71,14 +71,12 @@ Once the engine files are generated, you can run inference with the following co
 
 ```bash
 # For ghostnetv1
-sudo ./ghostnetv1 -d   
+sudo ./ghostnetv1 -d
 
 # For ghostnetv2
-sudo ./ghostnetv2 -d   
+sudo ./ghostnetv2 -d
 ```
 
 ### 5. Verify output
 
 Compare the output with the PyTorch implementation from [huawei-noah/ghostnet](https://github.com/huawei-noah/ghostnet) to ensure that the TensorRT results are consistent with the PyTorch model.
-
-
