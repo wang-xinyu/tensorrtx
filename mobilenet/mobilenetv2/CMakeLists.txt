@@ -22,4 +22,3 @@ target_link_libraries(mobilenet nvinfer)
 target_link_libraries(mobilenet cudart)
 
 add_definitions(-O2 -pthread)
-

@@ -11,7 +11,6 @@
 
 using namespace std;
 
-
 #define CHECK(status)                                          \
     do {                                                       \
         auto ret = (status);                                   \
@@ -101,7 +100,8 @@ ILayer* hardSigmoid(INetworkDefinition* network, ITensor& input) {
     return scale_layer;
 }
 
-IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, float eps) {
+IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                            std::string lname, float eps) {
     float* gamma = (float*)weightMap[lname + ".weight"].values;
     float* beta = (float*)weightMap[lname + ".bias"].values;
     float* mean = (float*)weightMap[lname + ".running_mean"].values;
@@ -134,11 +134,13 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, W
     return scale_1;
 }
 
-IActivationLayer* convBnReluStem(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int outch, std::string lname) {
+IActivationLayer* convBnReluStem(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                                 int outch, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     // Step 1: Convolution layer
-    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{3, 3}, weightMap[lname + ".weight"], emptywts);
+    IConvolutionLayer* conv1 =
+            network->addConvolutionNd(input, outch, DimsHW{3, 3}, weightMap[lname + ".weight"], emptywts);
     assert(conv1);
     conv1->setStrideNd(DimsHW{2, 2});   // Stride of 2
     conv1->setPaddingNd(DimsHW{1, 1});  // Padding of 1
@@ -153,11 +155,13 @@ IActivationLayer* convBnReluStem(INetworkDefinition* network, std::map<std::stri
     return relu1;  // Return the result after activation
 }
 
-ILayer* convBnAct(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input, int out_channels, std::string lname, ActivationType actType = ActivationType::kRELU) {
+ILayer* convBnAct(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                  int out_channels, std::string lname, ActivationType actType = ActivationType::kRELU) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
     // Add convolution layer
-    IConvolutionLayer* conv = network->addConvolutionNd(input, out_channels, DimsHW{1, 1}, weightMap[lname + ".conv.weight"], emptywts);
+    IConvolutionLayer* conv =
+            network->addConvolutionNd(input, out_channels, DimsHW{1, 1}, weightMap[lname + ".conv.weight"], emptywts);
     assert(conv);
     conv->setStrideNd(DimsHW{1, 1});
 
@@ -171,14 +175,17 @@ ILayer* convBnAct(INetworkDefinition* network, std::map<std::string, Weights>& w
     return act;
 }
 
-ILayer* squeezeExcite(INetworkDefinition* network, ITensor& input, std::map<std::string, Weights>& weightMap, int in_chs, float se_ratio = 0.25, std::string lname = "", float eps = 1e-5) {
+ILayer* squeezeExcite(INetworkDefinition* network, ITensor& input, std::map<std::string, Weights>& weightMap,
+                      int in_chs, float se_ratio = 0.25, std::string lname = "", float eps = 1e-5) {
     // Step 1: Global average pooling
     IReduceLayer* avg_pool = network->addReduce(input, ReduceOperation::kAVG, 1 << 2 | 1 << 3, true);
     assert(avg_pool);
 
     // Step 2: 1x1 convolution for dimension reduction
     int reduced_chs = _make_divisible(static_cast<int>(in_chs * se_ratio), 4);
-    IConvolutionLayer* conv_reduce = network->addConvolutionNd(*avg_pool->getOutput(0), reduced_chs, DimsHW{1, 1}, weightMap[lname + ".conv_reduce.weight"], weightMap[lname + ".conv_reduce.bias"]);
+    IConvolutionLayer* conv_reduce =
+            network->addConvolutionNd(*avg_pool->getOutput(0), reduced_chs, DimsHW{1, 1},
+                                      weightMap[lname + ".conv_reduce.weight"], weightMap[lname + ".conv_reduce.bias"]);
     assert(conv_reduce);
 
     // Step 3: ReLU activation
@@ -186,7 +193,9 @@ ILayer* squeezeExcite(INetworkDefinition* network, ITensor& input, std::map<std:
     assert(relu1);
 
     // Step 4: 1x1 convolution for dimension expansion
-    IConvolutionLayer* conv_expand = network->addConvolutionNd(*relu1->getOutput(0), in_chs, DimsHW{1, 1}, weightMap[lname + ".conv_expand.weight"], weightMap[lname + ".conv_expand.bias"]);
+    IConvolutionLayer* conv_expand =
+            network->addConvolutionNd(*relu1->getOutput(0), in_chs, DimsHW{1, 1},
+                                      weightMap[lname + ".conv_expand.weight"], weightMap[lname + ".conv_expand.bias"]);
     assert(conv_expand);
 
     // Step 5: Hard Sigmoid activation
@@ -199,13 +208,15 @@ ILayer* squeezeExcite(INetworkDefinition* network, ITensor& input, std::map<std:
     return scale;
 }
 
-ILayer* ghostModuleV2(INetworkDefinition* network, ITensor& input, std::map<std::string, Weights>& weightMap, int inp, int oup, int kernel_size = 1, int ratio = 2, int dw_size = 3, int stride = 1, bool relu = true, std::string lname = "", std::string mode = "original") {
+ILayer* ghostModuleV2(INetworkDefinition* network, ITensor& input, std::map<std::string, Weights>& weightMap, int inp,
+                      int oup, int kernel_size = 1, int ratio = 2, int dw_size = 3, int stride = 1, bool relu = true,
+                      std::string lname = "", std::string mode = "original") {
     int init_channels = std::ceil(oup / ratio);
     int new_channels = init_channels * (ratio - 1);
 
     // Primary convolution
-    IConvolutionLayer* primary_conv = network->addConvolutionNd(input, init_channels,
-                                                                DimsHW{kernel_size, kernel_size}, weightMap[lname + ".primary_conv.0.weight"], Weights{});
+    IConvolutionLayer* primary_conv = network->addConvolutionNd(input, init_channels, DimsHW{kernel_size, kernel_size},
+                                                                weightMap[lname + ".primary_conv.0.weight"], Weights{});
     primary_conv->setStrideNd(DimsHW{stride, stride});
     primary_conv->setPaddingNd(DimsHW{kernel_size / 2, kernel_size / 2});
 
@@ -218,13 +229,15 @@ ILayer* ghostModuleV2(INetworkDefinition* network, ITensor& input, std::map<std:
     }
 
     // Cheap operation
-    IConvolutionLayer* cheap_conv = network->addConvolutionNd(*act1_output, new_channels, DimsHW{dw_size, dw_size},
-                                                              weightMap[lname + ".cheap_operation.0.weight"], Weights{});
+    IConvolutionLayer* cheap_conv =
+            network->addConvolutionNd(*act1_output, new_channels, DimsHW{dw_size, dw_size},
+                                      weightMap[lname + ".cheap_operation.0.weight"], Weights{});
     cheap_conv->setStrideNd(DimsHW{1, 1});
     cheap_conv->setPaddingNd(DimsHW{dw_size / 2, dw_size / 2});
     cheap_conv->setNbGroups(init_channels);
 
-    IScaleLayer* bn2 = addBatchNorm2d(network, weightMap, *cheap_conv->getOutput(0), lname + ".cheap_operation.1", 1e-5);
+    IScaleLayer* bn2 =
+            addBatchNorm2d(network, weightMap, *cheap_conv->getOutput(0), lname + ".cheap_operation.1", 1e-5);
 
     ITensor* act2_output = bn2->getOutput(0);
     if (relu) {
@@ -257,27 +270,31 @@ ILayer* ghostModuleV2(INetworkDefinition* network, ITensor& input, std::map<std:
         ITensor* avg_pooled = avg_pool->getOutput(0);
 
         // Short convolution branch
-        IConvolutionLayer* short_conv1 = network->addConvolutionNd(*avg_pooled, oup, DimsHW{kernel_size, kernel_size},
-                                                                   weightMap[lname + ".short_conv.0.weight"], Weights{});
+        IConvolutionLayer* short_conv1 =
+                network->addConvolutionNd(*avg_pooled, oup, DimsHW{kernel_size, kernel_size},
+                                          weightMap[lname + ".short_conv.0.weight"], Weights{});
         short_conv1->setStrideNd(DimsHW{1, 1});
         short_conv1->setPaddingNd(DimsHW{kernel_size / 2, kernel_size / 2});
-        IScaleLayer* short_bn1 = addBatchNorm2d(network, weightMap, *short_conv1->getOutput(0), lname + ".short_conv.1", 1e-5);
+        IScaleLayer* short_bn1 =
+                addBatchNorm2d(network, weightMap, *short_conv1->getOutput(0), lname + ".short_conv.1", 1e-5);
 
         // Conv with kernel size (1,5)
-        IConvolutionLayer* short_conv2 = network->addConvolutionNd(*short_bn1->getOutput(0), oup, DimsHW{1, 5},
-                                                                   weightMap[lname + ".short_conv.2.weight"], Weights{});
+        IConvolutionLayer* short_conv2 = network->addConvolutionNd(
+                *short_bn1->getOutput(0), oup, DimsHW{1, 5}, weightMap[lname + ".short_conv.2.weight"], Weights{});
         short_conv2->setStrideNd(DimsHW{1, 1});
         short_conv2->setPaddingNd(DimsHW{0, 2});
         short_conv2->setNbGroups(oup);
-        IScaleLayer* short_bn2 = addBatchNorm2d(network, weightMap, *short_conv2->getOutput(0), lname + ".short_conv.3", 1e-5);
+        IScaleLayer* short_bn2 =
+                addBatchNorm2d(network, weightMap, *short_conv2->getOutput(0), lname + ".short_conv.3", 1e-5);
 
         // Conv with kernel size (5,1)
-        IConvolutionLayer* short_conv3 = network->addConvolutionNd(*short_bn2->getOutput(0), oup, DimsHW{5, 1},
-                                                                   weightMap[lname + ".short_conv.4.weight"], Weights{});
+        IConvolutionLayer* short_conv3 = network->addConvolutionNd(
+                *short_bn2->getOutput(0), oup, DimsHW{5, 1}, weightMap[lname + ".short_conv.4.weight"], Weights{});
         short_conv3->setStrideNd(DimsHW{1, 1});
         short_conv3->setPaddingNd(DimsHW{2, 0});
         short_conv3->setNbGroups(oup);
-        IScaleLayer* short_bn3 = addBatchNorm2d(network, weightMap, *short_conv3->getOutput(0), lname + ".short_conv.5", 1e-5);
+        IScaleLayer* short_bn3 =
+                addBatchNorm2d(network, weightMap, *short_conv3->getOutput(0), lname + ".short_conv.5", 1e-5);
 
         ITensor* res = short_bn3->getOutput(0);
 
@@ -291,7 +308,8 @@ ILayer* ghostModuleV2(INetworkDefinition* network, ITensor& input, std::map<std:
         gate_upsampled->setOutputDimensions(out_dims);
 
         // Element-wise multiplication
-        IElementWiseLayer* scaled_out = network->addElementWise(*out, *gate_upsampled->getOutput(0), ElementWiseOperation::kPROD);
+        IElementWiseLayer* scaled_out =
+                network->addElementWise(*out, *gate_upsampled->getOutput(0), ElementWiseOperation::kPROD);
 
         return scaled_out;
     } else {
@@ -300,17 +318,21 @@ ILayer* ghostModuleV2(INetworkDefinition* network, ITensor& input, std::map<std:
     }
 }
 
-ILayer* ghostBottleneck(INetworkDefinition* network, ITensor& input, std::map<std::string, Weights>& weightMap, int in_chs, int mid_chs, int out_chs, int dw_kernel_size = 3, int stride = 1, float se_ratio = 0.0f, std::string lname = "", int layer_id = 0) {
+ILayer* ghostBottleneck(INetworkDefinition* network, ITensor& input, std::map<std::string, Weights>& weightMap,
+                        int in_chs, int mid_chs, int out_chs, int dw_kernel_size = 3, int stride = 1,
+                        float se_ratio = 0.0f, std::string lname = "", int layer_id = 0) {
     // Determine mode based on layer_id
     std::string mode = (layer_id <= 1) ? "original" : "attn";
 
     // ghost1
-    ILayer* ghost1 = ghostModuleV2(network, input, weightMap, in_chs, mid_chs, 1, 2, 3, 1, true, lname + ".ghost1", mode);
+    ILayer* ghost1 =
+            ghostModuleV2(network, input, weightMap, in_chs, mid_chs, 1, 2, 3, 1, true, lname + ".ghost1", mode);
 
     ILayer* depthwise_conv = ghost1;
     if (stride > 1) {
-        IConvolutionLayer* conv_dw = network->addConvolutionNd(*ghost1->getOutput(0), mid_chs, DimsHW{dw_kernel_size, dw_kernel_size},
-                                                               weightMap[lname + ".conv_dw.weight"], Weights{});
+        IConvolutionLayer* conv_dw =
+                network->addConvolutionNd(*ghost1->getOutput(0), mid_chs, DimsHW{dw_kernel_size, dw_kernel_size},
+                                          weightMap[lname + ".conv_dw.weight"], Weights{});
         conv_dw->setStrideNd(DimsHW{stride, stride});
         conv_dw->setPaddingNd(DimsHW{(dw_kernel_size - 1) / 2, (dw_kernel_size - 1) / 2});
         conv_dw->setNbGroups(mid_chs);
@@ -324,33 +346,40 @@ ILayer* ghostBottleneck(INetworkDefinition* network, ITensor& input, std::map<st
     }
 
     // ghost2 uses original mode
-    ILayer* ghost2 = ghostModuleV2(network, *se_layer->getOutput(0), weightMap, mid_chs, out_chs, 1, 2, 3, 1, false, lname + ".ghost2", "original");
+    ILayer* ghost2 = ghostModuleV2(network, *se_layer->getOutput(0), weightMap, mid_chs, out_chs, 1, 2, 3, 1, false,
+                                   lname + ".ghost2", "original");
 
     ILayer* shortcut_layer = nullptr;
     if (in_chs == out_chs && stride == 1) {
         shortcut_layer = network->addIdentity(input);
     } else {
-        IConvolutionLayer* conv_shortcut_dw = network->addConvolutionNd(input, in_chs, DimsHW{dw_kernel_size, dw_kernel_size},
-                                                                        weightMap[lname + ".shortcut.0.weight"], Weights{});
+        IConvolutionLayer* conv_shortcut_dw =
+                network->addConvolutionNd(input, in_chs, DimsHW{dw_kernel_size, dw_kernel_size},
+                                          weightMap[lname + ".shortcut.0.weight"], Weights{});
         conv_shortcut_dw->setStrideNd(DimsHW{stride, stride});
         conv_shortcut_dw->setPaddingNd(DimsHW{(dw_kernel_size - 1) / 2, (dw_kernel_size - 1) / 2});
         conv_shortcut_dw->setNbGroups(in_chs);
-        IScaleLayer* bn_shortcut_dw = addBatchNorm2d(network, weightMap, *conv_shortcut_dw->getOutput(0), lname + ".shortcut.1", 1e-5);
+        IScaleLayer* bn_shortcut_dw =
+                addBatchNorm2d(network, weightMap, *conv_shortcut_dw->getOutput(0), lname + ".shortcut.1", 1e-5);
 
-        IConvolutionLayer* conv_shortcut_pw = network->addConvolutionNd(*bn_shortcut_dw->getOutput(0), out_chs, DimsHW{1, 1},
-                                                                        weightMap[lname + ".shortcut.2.weight"], Weights{});
-        IScaleLayer* bn_shortcut_pw = addBatchNorm2d(network, weightMap, *conv_shortcut_pw->getOutput(0), lname + ".shortcut.3", 1e-5);
+        IConvolutionLayer* conv_shortcut_pw =
+                network->addConvolutionNd(*bn_shortcut_dw->getOutput(0), out_chs, DimsHW{1, 1},
+                                          weightMap[lname + ".shortcut.2.weight"], Weights{});
+        IScaleLayer* bn_shortcut_pw =
+                addBatchNorm2d(network, weightMap, *conv_shortcut_pw->getOutput(0), lname + ".shortcut.3", 1e-5);
         shortcut_layer = bn_shortcut_pw;
     }
 
-    IElementWiseLayer* ew_sum = network->addElementWise(*ghost2->getOutput(0), *shortcut_layer->getOutput(0), ElementWiseOperation::kSUM);
+    IElementWiseLayer* ew_sum =
+            network->addElementWise(*ghost2->getOutput(0), *shortcut_layer->getOutput(0), ElementWiseOperation::kSUM);
 
     return ew_sum;
 }
 
 ICudaEngine* createEngine(IBuilder* builder, IBuilderConfig* config, DataType dt) {
     // Use explicit batch mode
-    INetworkDefinition* network = builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    INetworkDefinition* network =
+            builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
 
     // Create input tensor
     ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{batchSize, 3, INPUT_H, INPUT_W});
@@ -365,36 +394,55 @@ ICudaEngine* createEngine(IBuilder* builder, IBuilderConfig* config, DataType dt
 
     ILayer* current_layer = conv_stem;
 
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 16, 16, 16, 3, 1, 0.0f, "blocks.0.0", 0);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 16, 48, 24, 3, 2, 0.0f, "blocks.1.0", 1);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 24, 72, 24, 3, 1, 0.0f, "blocks.2.0", 2);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 24, 72, 40, 5, 2, 0.25f, "blocks.3.0", 3);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 40, 120, 40, 5, 1, 0.25f, "blocks.4.0", 4);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 40, 240, 80, 3, 2, 0.0f, "blocks.5.0", 5);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 200, 80, 3, 1, 0.0f, "blocks.6.0", 6);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 184, 80, 3, 1, 0.0f, "blocks.6.1", 7);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 184, 80, 3, 1, 0.0f, "blocks.6.2", 8);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 480, 112, 3, 1, 0.25f, "blocks.6.3", 9);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 112, 672, 112, 3, 1, 0.25f, "blocks.6.4", 10);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 112, 672, 160, 5, 2, 0.25f, "blocks.7.0", 11);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.0f, "blocks.8.0", 12);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.25f, "blocks.8.1", 13);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.0f, "blocks.8.2", 14);
-    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.25f, "blocks.8.3", 15);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 16, 16, 16, 3, 1, 0.0f, "blocks.0.0", 0);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 16, 48, 24, 3, 2, 0.0f, "blocks.1.0", 1);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 24, 72, 24, 3, 1, 0.0f, "blocks.2.0", 2);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 24, 72, 40, 5, 2, 0.25f, "blocks.3.0", 3);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 40, 120, 40, 5, 1, 0.25f,
+                                    "blocks.4.0", 4);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 40, 240, 80, 3, 2, 0.0f, "blocks.5.0", 5);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 200, 80, 3, 1, 0.0f, "blocks.6.0", 6);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 184, 80, 3, 1, 0.0f, "blocks.6.1", 7);
+    current_layer =
+            ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 184, 80, 3, 1, 0.0f, "blocks.6.2", 8);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 80, 480, 112, 3, 1, 0.25f,
+                                    "blocks.6.3", 9);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 112, 672, 112, 3, 1, 0.25f,
+                                    "blocks.6.4", 10);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 112, 672, 160, 5, 2, 0.25f,
+                                    "blocks.7.0", 11);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.0f,
+                                    "blocks.8.0", 12);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.25f,
+                                    "blocks.8.1", 13);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.0f,
+                                    "blocks.8.2", 14);
+    current_layer = ghostBottleneck(network, *current_layer->getOutput(0), weightMap, 160, 960, 160, 5, 1, 0.25f,
+                                    "blocks.8.3", 15);
 
     // Apply ConvBnAct
     current_layer = convBnAct(network, weightMap, *current_layer->getOutput(0), 960, "blocks.9.0");
 
     // Global average pooling
-    IReduceLayer* global_pool = network->addReduce(*current_layer->getOutput(0), ReduceOperation::kAVG, 1 << 2 | 1 << 3, true);
+    IReduceLayer* global_pool =
+            network->addReduce(*current_layer->getOutput(0), ReduceOperation::kAVG, 1 << 2 | 1 << 3, true);
     assert(global_pool);
 
     // Conv Head
-    IConvolutionLayer* conv_head = network->addConvolutionNd(*global_pool->getOutput(0), 1280, DimsHW{1, 1}, weightMap["conv_head.weight"], weightMap["conv_head.bias"]);
+    IConvolutionLayer* conv_head = network->addConvolutionNd(
+            *global_pool->getOutput(0), 1280, DimsHW{1, 1}, weightMap["conv_head.weight"], weightMap["conv_head.bias"]);
     IActivationLayer* act2 = network->addActivation(*conv_head->getOutput(0), ActivationType::kRELU);
 
     // Fully connected layer (classifier)
-    IFullyConnectedLayer* classifier = network->addFullyConnected(*act2->getOutput(0), 1000, weightMap["classifier.weight"], weightMap["classifier.bias"]);
+    IFullyConnectedLayer* classifier = network->addFullyConnected(
+            *act2->getOutput(0), 1000, weightMap["classifier.weight"], weightMap["classifier.bias"]);
     classifier->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*classifier->getOutput(0));
 
@@ -449,9 +497,11 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaStreamCreate(&stream));
 
     // Copy input data to device, execute inference, and copy output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float),
+                          cudaMemcpyHostToDevice, stream));
     context.enqueueV2(buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost,
+                          stream));
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers

@@ -22,4 +22,3 @@ target_link_libraries(ghostnetv1 nvinfer)
 target_link_libraries(ghostnetv1 cudart)
 
 add_definitions(-O2 -pthread)
-

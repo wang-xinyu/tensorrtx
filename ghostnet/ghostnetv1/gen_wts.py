@@ -7,19 +7,10 @@ Modified from https://github.com/d-li14/mobilenetv3.pytorch and https://github.c
 import torch
 import torch.nn as nn
 import torch.onnx
-import onnxsim
-import onnx
 import struct
-import os
-
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import math
-
-
-__all__ = ['ghost_net']
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -62,9 +53,9 @@ class SqueezeExcite(nn.Module):
         x_se = self.act1(x_se)
         x_se = self.conv_expand(x_se)
         x = x * self.gate_fn(x_se)
-        return x    
+        return x
 
-    
+
 class ConvBnAct(nn.Module):
     def __init__(self, in_chs, out_chs, kernel_size,
                  stride=1, act_layer=nn.ReLU):
@@ -102,8 +93,8 @@ class GhostModule(nn.Module):
     def forward(self, x):
         x1 = self.primary_conv(x)
         x2 = self.cheap_operation(x1)
-        out = torch.cat([x1,x2], dim=1)
-        return out[:,:self.oup,:,:]
+        out = torch.cat([x1, x2], dim=1)
+        return out[:, :self.oup, :, :]
 
 
 class GhostBottleneck(nn.Module):
@@ -121,8 +112,7 @@ class GhostBottleneck(nn.Module):
         # Depth-wise convolution
         if self.stride > 1:
             self.conv_dw = nn.Conv2d(mid_chs, mid_chs, dw_kernel_size, stride=stride,
-                             padding=(dw_kernel_size-1)//2,
-                             groups=mid_chs, bias=False)
+                                     padding=(dw_kernel_size-1)//2, groups=mid_chs, bias=False)
             self.bn_dw = nn.BatchNorm2d(mid_chs)
 
         # Squeeze-and-excitation
@@ -133,19 +123,18 @@ class GhostBottleneck(nn.Module):
 
         # Point-wise linear projection
         self.ghost2 = GhostModule(mid_chs, out_chs, relu=False)
-        
+
         # shortcut
         if (in_chs == out_chs and self.stride == 1):
             self.shortcut = nn.Sequential()
         else:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(in_chs, in_chs, dw_kernel_size, stride=stride,
-                       padding=(dw_kernel_size-1)//2, groups=in_chs, bias=False),
+                          padding=(dw_kernel_size-1)//2, groups=in_chs, bias=False),
                 nn.BatchNorm2d(in_chs),
                 nn.Conv2d(in_chs, out_chs, 1, stride=1, padding=0, bias=False),
                 nn.BatchNorm2d(out_chs),
             )
-
 
     def forward(self, x):
         residual = x
@@ -164,7 +153,7 @@ class GhostBottleneck(nn.Module):
 
         # 2nd ghost bottleneck
         x = self.ghost2(x)
-        
+
         x += self.shortcut(residual)
         return x
 
@@ -199,8 +188,8 @@ class GhostNet(nn.Module):
         output_channel = _make_divisible(exp_size * width, 4)
         stages.append(nn.Sequential(ConvBnAct(input_channel, output_channel, 1)))
         input_channel = output_channel
-        
-        self.blocks = nn.Sequential(*stages)        
+
+        self.blocks = nn.Sequential(*stages)
 
         # building last several layers
         output_channel = 1280
@@ -229,7 +218,7 @@ def ghostnet(**kwargs):
     Constructs a GhostNet model
     """
     cfgs = [
-        # k, t, c, SE, s 
+        # k, t, c, SE, s
         # stage1
         [[3,  16,  16, 0, 1]],
         # stage2
@@ -244,23 +233,22 @@ def ghostnet(**kwargs):
          [3, 184,  80, 0, 1],
          [3, 184,  80, 0, 1],
          [3, 480, 112, 0.25, 1],
-         [3, 672, 112, 0.25, 1]
-        ],
+         [3, 672, 112, 0.25, 1]],
         # stage5
         [[5, 672, 160, 0.25, 2]],
         [[5, 960, 160, 0, 1],
          [5, 960, 160, 0.25, 1],
          [5, 960, 160, 0, 1],
-         [5, 960, 160, 0.25, 1]
-        ]
+         [5, 960, 160, 0.25, 1]]
     ]
     return GhostNet(cfgs, **kwargs)
 
-    
+
 def setup_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
+
 
 # Function to export weights in the specified format
 def export_weight(model):
@@ -292,14 +280,13 @@ def eval_model(input, model):
 
 if __name__ == "__main__":
     setup_seed(1)
-    
+
     model = ghostnet(num_classes=1000, width=1.0, dropout=0.2)
-    
-    
+
     model.eval()
-    
-    input = torch.full((32, 3, 320, 256), 10.0)  
-    
+
+    input = torch.full((32, 3, 320, 256), 10.0)
+
     export_weight(model)
-    
+
     eval_model(input, model)
