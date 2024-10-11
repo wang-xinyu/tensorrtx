@@ -22,7 +22,7 @@ Training code [ultralytics v8.3.0](https://github.com/ultralytics/ultralytics/tr
 ## Config
 
 * Choose the YOLO11 sub-model n/s/m/l/x from command line arguments.
-* Other configs please check [src/config.h](src/config.h)
+* Other configs please check [include/config.h](include/config.h)
 
 ## Build and Run
 
