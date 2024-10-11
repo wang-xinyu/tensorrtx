@@ -2,7 +2,7 @@
 
 Yolo11 model supports TensorRT-8.
 
-Training code [link](https://github.com/ultralytics/ultralytics/archive/refs/tags/v8.3.0.zip)
+Training code [ultralytics v8.3.0](https://github.com/ultralytics/ultralytics/tree/v8.3.0)
 
 ## Environment
 
