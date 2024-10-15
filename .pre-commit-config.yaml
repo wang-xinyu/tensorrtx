@@ -17,3 +17,11 @@ repos:
     hooks:
     -   id: flake8
         args: [--max-line-length=120]
+- repo: https://github.com/cheshirekow/cmake-format-precommit
+  rev: v0.6.13
+  hooks:
+  - id: cmake-format
+    additional_dependencies: [pyyaml]
+    args: [--in-place, -c, .cmake-format.yaml]
+    types: [file]
+    files: (\.cmake|CMakeLists.txt)(.in)?$
