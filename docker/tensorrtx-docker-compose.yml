@@ -1,0 +1,46 @@
+services:
+  tensorrt:
+    image: tensortx:1.0.0
+    container_name: tensortx
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    build:
+      dockerfile: x86_64.dockerfile
+    cap_add:
+      - CAP_SYS_ADMIN
+    security_opt:
+      - seccomp:unconfined
+    privileged: true
+    stdin_open: true
+    tty: true
+    shm_size: '8gb'
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    devices:
+      - /dev:/dev:rw
+    volumes:
+      #### user ####
+      - ${HOME}:/workspace/localhome:rw
+      #### custom ####
+      - mount:/mnt:rw
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 1
+        delay: 5s
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              count: all
+
+volumes:
+  mount:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR}
