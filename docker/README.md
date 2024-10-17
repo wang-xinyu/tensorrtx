@@ -17,7 +17,7 @@ This folder contains the docker and docker-compose file to build the development
 
 2. Build image:
 ```bash
-docker compomse -f docker-compose.yml build
+docker compose -f docker-compose.yml build
 ```
 
 3. Run a container at background:
@@ -51,7 +51,7 @@ For more detail of the support matrix, please check [HERE](https://docs.nvidia.c
 
 ### How to customize opencv?
 
-You can reconfigure and rebuild opencv sources in the container you created if any module is not included, without rebuilding the whole image, the source code is in `/workspace`
+If prebuilt package from apt cannot meet your requirements, please refer to the demo code in `.dockerfile` to build opencv from source.
 
 ### How to solve image build fail issues?
 
