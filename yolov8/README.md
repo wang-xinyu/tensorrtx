@@ -23,6 +23,12 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 Currently, we support yolov8
 
 - For yolov8 , download .pt from [https://github.com/ultralytics/assets/releases](https://github.com/ultralytics/assets/releases), then follow how-to-run in current page.
+
+## Custom models
+
+- Use ultralytics<=8.2.103 for training.
+- Update kNumClass in [include/config.h](./include/config.h) to the number of classes in the custom model
+
 ## Config
 
 - Choose the model n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6 from command line arguments.
@@ -60,7 +66,6 @@ python gen_wts.py -w yolov5nu.pt -o yolov5nu.wts -t detect
 ### Detection
 ```
 cd {tensorrtx}/yolov8/
-// update kNumClass in config.h if your model is trained on custom dataset
 mkdir build
 cd build
 cp {ultralytics}/ultralytics/yolov8.wts {tensorrtx}/yolov8/build
