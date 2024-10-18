@@ -4,8 +4,8 @@ import struct
 import argparse
 
 import numpy as np
-import pycuda.autoinit
 import pycuda.driver as cuda
+import pycuda.autoinit  # noqa: F401
 import tensorrt as trt
 
 BATCH_SIZE = 1

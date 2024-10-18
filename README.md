@@ -15,6 +15,9 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `18 Oct 2024`. [zgjja](https://github.com/zgjja): Rafactor docker image.
+- `11 Oct 2024`. [mpj1234](https://github.com/mpj1234): YOLO11
+- `9 Oct 2024`. [Phoenix8215](https://github.com/Phoenix8215): GhostNet V1 and V2.
 - `21 Aug 2024`. [Lemonononon](https://github.com/Lemonononon): real-esrgan-general-x4v3
 - `29 Jul 2024`. [mpj1234](https://github.com/mpj1234): Check the YOLOv5, YOLOv8 & YOLOv10 in TensorRT 10.x API, branch → [trt10](https://github.com/wang-xinyu/tensorrtx/tree/trt10)
 - `29 Jul 2024`. [mpj1234](https://github.com/mpj1234): YOLOv10
@@ -27,9 +30,6 @@ The basic workflow of TensorRTx is:
 - `7 Mar 2024`. [AadeIT](https://github.com/AadeIT): CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes
 - `17 Oct 2023`. [Rex-LK](https://github.com/Rex-LK): YOLOv8-Seg
 - `30 Jun 2023`. [xiaocao-tian](https://github.com/xiaocao-tian) and [lindsayshuo](https://github.com/lindsayshuo): YOLOv8
-- `1 Mar 2023`. [Nengwp](https://github.com/nengwp): [RCNN](./rcnn) and [UNet](./unet) upgrade to support TensorRT 8.
-- `18 Dec 2022`. [YOLOv5](./yolov5) upgrade to support v7.0, including instance segmentation.
-- `12 Dec 2022`. [East-Face](https://github.com/East-Face): [UNet](./unet) upgrade to support v3.0 of [Pytorch-UNet](https://github.com/milesial/Pytorch-UNet).
 
 ## Tutorials
 
@@ -78,8 +78,10 @@ Following models are implemented.
 |[yolov4](./yolov4)| CSPDarknet53, weights from [AlexeyAB/darknet](https://github.com/AlexeyAB/darknet#pre-trained-models), pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 |[yolov5](./yolov5)| yolov5 v1.0-v7.0 of [ultralytics/yolov5](https://github.com/ultralytics/yolov5), detection, classification and instance segmentation |
 |[yolov7](./yolov7)| yolov7 v0.1, pytorch implementation from [WongKinYiu/yolov7](https://github.com/WongKinYiu/yolov7) |
-|[yolov8](./yolov8)| yolov8, pytorch implementation from [ultralytics/ultralytics](https://github.com/ultralytics/ultralytics) |
+|[yolov8](./yolov8)| yolov8, pytorch implementation from [ultralytics](https://github.com/ultralytics/ultralytics) |
 |[yolov9](./yolov9)| The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/yolov9). |
+|[yolov10](./yolov10)| The Pytorch implementation is [THU-MIG/yolov10](https://github.com/THU-MIG/yolov10). |
+|[yolo11](./yolo11)| The Pytorch implementation is [ultralytics](https://github.com/ultralytics/ultralytics). |
 |[yolop](./yolop)| yolop, pytorch implementation from [hustvl/YOLOP](https://github.com/hustvl/YOLOP) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, LResNet100E-IR and MobileFaceNet, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
