@@ -17,17 +17,13 @@ The tensorrt code is derived from [xiaocao-tian/yolov8_tensorrt](https://github.
 
 - TensorRT 8.0+
 - OpenCV 3.4.0+
+- ultralytics<=8.2.103
 
 ## Different versions of yolov8
 
 Currently, we support yolov8
 
 - For yolov8 , download .pt from [https://github.com/ultralytics/assets/releases](https://github.com/ultralytics/assets/releases), then follow how-to-run in current page.
-
-## Custom models
-
-- Use ultralytics<=8.2.103 for training.
-- Update kNumClass in [include/config.h](./include/config.h) to the number of classes in the custom model
 
 ## Config
 
