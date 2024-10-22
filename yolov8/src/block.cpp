@@ -258,14 +258,15 @@ nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std
 
 nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
                                        std::vector<nvinfer1::IConcatenationLayer*> dets, const int* px_arry,
-                                       int px_arry_num, int NumClass, bool is_segmentation, bool is_pose, bool is_obb) {
+                                       int px_arry_num, int num_class, bool is_segmentation, bool is_pose,
+                                       bool is_obb) {
     auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
     const int netinfo_count = 9;  // Assuming the first 5 elements are for netinfo as per existing code.
     const int total_count = netinfo_count + px_arry_num;  // Total number of elements for netinfo and px_arry combined.
 
     std::vector<int> combinedInfo(total_count);
     // Fill in the first 5 elements as per existing netinfo.
-    combinedInfo[0] = NumClass;
+    combinedInfo[0] = num_class;
     combinedInfo[1] = kNumberOfPoints;
     combinedInfo[2] = kConfThreshKeypoints;
     combinedInfo[3] = kInputW;

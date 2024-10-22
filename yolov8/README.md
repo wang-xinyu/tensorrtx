@@ -130,7 +130,7 @@ sudo ./yolov8_cls -d yolov8n-cls.engine ../samples
 ### Pose Estimation
 ```
 cd {tensorrtx}/yolov8/
-// update "kPOseNumClass = 1" in config.h
+// update "kPoseNumClass = 1" in config.h
 mkdir build
 cd build
 cp {ultralytics}/ultralytics/yolov8-pose.wts {tensorrtx}/yolov8/build

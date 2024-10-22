@@ -253,7 +253,7 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
     }
 
     if (is_obb) {
-        double pi = 3.141592653589793f;
+        double pi = M_PI;
         auto angle_inx = curInput[elemIdx + (4 + classes + (is_segmentation ? 32 : 0) + (is_pose ? N_kpts * 3 : 0) +
                                              0) * total_grid];
         auto angle = (sigmoid(angle_inx) - 0.25f) * pi;

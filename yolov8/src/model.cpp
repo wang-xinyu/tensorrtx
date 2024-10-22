@@ -1392,7 +1392,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
   *******************************************
   *******************************************************************************************************/
     int base_in_channel = (gw == 1.25) ? 80 : 64;
-    int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kPOseNumClass, 100)) : get_width(256, gw, max_channels);
+    int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kPoseNumClass, 100)) : get_width(256, gw, max_channels);
 
     // output0
     nvinfer1::IElementWiseLayer* conv22_cv2_0_0 =
@@ -1409,7 +1409,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
     nvinfer1::IElementWiseLayer* conv22_cv3_0_1 = convBnSiLU(network, weightMap, *conv22_cv3_0_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.22.cv3.0.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_0_2 =
-            network->addConvolutionNd(*conv22_cv3_0_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolutionNd(*conv22_cv3_0_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                       weightMap["model.22.cv3.0.2.weight"], weightMap["model.22.cv3.0.2.bias"]);
     conv22_cv3_0_2->setStride(nvinfer1::DimsHW{1, 1});
     conv22_cv3_0_2->setPadding(nvinfer1::DimsHW{0, 0});
@@ -1431,7 +1431,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
     nvinfer1::IElementWiseLayer* conv22_cv3_1_1 = convBnSiLU(network, weightMap, *conv22_cv3_1_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.22.cv3.1.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_1_2 =
-            network->addConvolutionNd(*conv22_cv3_1_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolutionNd(*conv22_cv3_1_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                       weightMap["model.22.cv3.1.2.weight"], weightMap["model.22.cv3.1.2.bias"]);
     conv22_cv3_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv22_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
@@ -1451,7 +1451,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
     nvinfer1::IElementWiseLayer* conv22_cv3_2_1 = convBnSiLU(network, weightMap, *conv22_cv3_2_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.22.cv3.2.1");
     nvinfer1::IConvolutionLayer* conv22_cv3_2_2 =
-            network->addConvolution(*conv22_cv3_2_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolution(*conv22_cv3_2_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                     weightMap["model.22.cv3.2.2.weight"], weightMap["model.22.cv3.2.2.bias"]);
     nvinfer1::ITensor* inputTensor22_2[] = {conv22_cv2_2_2->getOutput(0), conv22_cv3_2_2->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat22_2 = network->addConcatenation(inputTensor22_2, 2);
@@ -1468,13 +1468,13 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
     /**************************************************************************************P3****************************************************************************************************************************************/
     nvinfer1::IShuffleLayer* shuffle22_0 = network->addShuffle(*cat22_0->getOutput(0));
     shuffle22_0->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])});
     nvinfer1::ISliceLayer* split22_0_0 = network->addSlice(
             *shuffle22_0->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[0]) * (kInputW / strides[0])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split22_0_1 = network->addSlice(
             *shuffle22_0->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl22_0 =
             DFL(network, weightMap, *split22_0_0->getOutput(0), 4, (kInputH / strides[0]) * (kInputW / strides[0]), 1,
                 1, 0, "model.22.dfl.conv.weight");
@@ -1490,13 +1490,13 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
     /********************************************************************************************P4**********************************************************************************************************************************/
     nvinfer1::IShuffleLayer* shuffle22_1 = network->addShuffle(*cat22_1->getOutput(0));
     shuffle22_1->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])});
     nvinfer1::ISliceLayer* split22_1_0 = network->addSlice(
             *shuffle22_1->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[1]) * (kInputW / strides[1])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split22_1_1 = network->addSlice(
             *shuffle22_1->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl22_1 =
             DFL(network, weightMap, *split22_1_0->getOutput(0), 4, (kInputH / strides[1]) * (kInputW / strides[1]), 1,
                 1, 0, "model.22.dfl.conv.weight");
@@ -1512,13 +1512,13 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
     /********************************************************************************************P5**********************************************************************************************************************************/
     nvinfer1::IShuffleLayer* shuffle22_2 = network->addShuffle(*cat22_2->getOutput(0));
     shuffle22_2->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])});
     nvinfer1::ISliceLayer* split22_2_0 = network->addSlice(
             *shuffle22_2->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[2]) * (kInputW / strides[2])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split22_2_1 = network->addSlice(
             *shuffle22_2->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl22_2 =
             DFL(network, weightMap, *split22_2_0->getOutput(0), 4, (kInputH / strides[2]) * (kInputW / strides[2]), 1,
                 1, 0, "model.22.dfl.conv.weight");
@@ -1532,7 +1532,7 @@ nvinfer1::IHostMemory* buildEngineYolov8Pose(nvinfer1::IBuilder* builder, nvinfe
 
     nvinfer1::IPluginV2Layer* yolo =
             addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2},
-                         strides, stridesLength, kPOseNumClass, false, true, false);
+                         strides, stridesLength, kPoseNumClass, false, true, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
@@ -1680,7 +1680,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
   *******************************************
   *******************************************************************************************************/
     int base_in_channel = (gw == 1.25) ? 80 : 64;
-    int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kPOseNumClass, 100)) : get_width(256, gw, max_channels);
+    int base_out_channel = (gw == 0.25) ? std::max(64, std::min(kPoseNumClass, 100)) : get_width(256, gw, max_channels);
 
     // output0
     nvinfer1::IElementWiseLayer* conv30_cv2_0_0 =
@@ -1700,7 +1700,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IElementWiseLayer* conv30_cv3_0_1 = convBnSiLU(network, weightMap, *conv30_cv3_0_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.30.cv3.0.1");
     nvinfer1::IConvolutionLayer* conv30_cv3_0_2 =
-            network->addConvolutionNd(*conv30_cv3_0_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolutionNd(*conv30_cv3_0_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                       weightMap["model.30.cv3.0.2.weight"], weightMap["model.30.cv3.0.2.bias"]);
     conv30_cv3_0_2->setStride(nvinfer1::DimsHW{1, 1});
     conv30_cv3_0_2->setPadding(nvinfer1::DimsHW{0, 0});
@@ -1722,7 +1722,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IElementWiseLayer* conv30_cv3_1_1 = convBnSiLU(network, weightMap, *conv30_cv3_1_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.30.cv3.1.1");
     nvinfer1::IConvolutionLayer* conv30_cv3_1_2 =
-            network->addConvolutionNd(*conv30_cv3_1_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolutionNd(*conv30_cv3_1_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                       weightMap["model.30.cv3.1.2.weight"], weightMap["model.30.cv3.1.2.bias"]);
     conv30_cv3_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv30_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
@@ -1744,7 +1744,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IElementWiseLayer* conv30_cv3_2_1 = convBnSiLU(network, weightMap, *conv30_cv3_2_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.30.cv3.2.1");
     nvinfer1::IConvolutionLayer* conv30_cv3_2_2 =
-            network->addConvolution(*conv30_cv3_2_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolution(*conv30_cv3_2_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                     weightMap["model.30.cv3.2.2.weight"], weightMap["model.30.cv3.2.2.bias"]);
     conv30_cv3_2_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv30_cv3_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
@@ -1766,7 +1766,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IElementWiseLayer* conv30_cv3_3_1 = convBnSiLU(network, weightMap, *conv30_cv3_3_0->getOutput(0),
                                                              base_out_channel, 3, 1, 1, "model.30.cv3.3.1");
     nvinfer1::IConvolutionLayer* conv30_cv3_3_2 =
-            network->addConvolution(*conv30_cv3_3_1->getOutput(0), kPOseNumClass, nvinfer1::DimsHW{1, 1},
+            network->addConvolution(*conv30_cv3_3_1->getOutput(0), kPoseNumClass, nvinfer1::DimsHW{1, 1},
                                     weightMap["model.30.cv3.3.2.weight"], weightMap["model.30.cv3.3.2.bias"]);
     conv30_cv3_3_2->setStrideNd(nvinfer1::DimsHW{1, 1});
     conv30_cv3_3_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
@@ -1786,13 +1786,13 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IShuffleLayer* shuffle30_0 =
             network->addShuffle(*cat30_0->getOutput(0));  // Reusing the previous cat30_0 as P3 concatenation layer
     shuffle30_0->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])});
     nvinfer1::ISliceLayer* split30_0_0 = network->addSlice(
             *shuffle30_0->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[0]) * (kInputW / strides[0])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split30_0_1 = network->addSlice(
             *shuffle30_0->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[0]) * (kInputW / strides[0])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl30_0 =
             DFL(network, weightMap, *split30_0_0->getOutput(0), 4, (kInputH / strides[0]) * (kInputW / strides[0]), 1,
                 1, 0, "model.30.dfl.conv.weight");
@@ -1808,13 +1808,13 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IShuffleLayer* shuffle30_1 =
             network->addShuffle(*cat30_1->getOutput(0));  // Reusing the previous cat30_1 as P4 concatenation layer
     shuffle30_1->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])});
     nvinfer1::ISliceLayer* split30_1_0 = network->addSlice(
             *shuffle30_1->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[1]) * (kInputW / strides[1])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split30_1_1 = network->addSlice(
             *shuffle30_1->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[1]) * (kInputW / strides[1])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl30_1 =
             DFL(network, weightMap, *split30_1_0->getOutput(0), 4, (kInputH / strides[1]) * (kInputW / strides[1]), 1,
                 1, 0, "model.30.dfl.conv.weight");
@@ -1830,13 +1830,13 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     nvinfer1::IShuffleLayer* shuffle30_2 =
             network->addShuffle(*cat30_2->getOutput(0));  // Reusing the previous cat30_2 as P5 concatenation layer
     shuffle30_2->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])});
     nvinfer1::ISliceLayer* split30_2_0 = network->addSlice(
             *shuffle30_2->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[2]) * (kInputW / strides[2])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split30_2_1 = network->addSlice(
             *shuffle30_2->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[2]) * (kInputW / strides[2])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl30_2 =
             DFL(network, weightMap, *split30_2_0->getOutput(0), 4, (kInputH / strides[2]) * (kInputW / strides[2]), 1,
                 1, 0, "model.30.dfl.conv.weight");
@@ -1851,13 +1851,13 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
     // P6 processing steps
     nvinfer1::IShuffleLayer* shuffle30_3 = network->addShuffle(*cat30_3->getOutput(0));
     shuffle30_3->setReshapeDimensions(
-            nvinfer1::Dims2{64 + kPOseNumClass, (kInputH / strides[3]) * (kInputW / strides[3])});
+            nvinfer1::Dims2{64 + kPoseNumClass, (kInputH / strides[3]) * (kInputW / strides[3])});
     nvinfer1::ISliceLayer* split30_3_0 = network->addSlice(
             *shuffle30_3->getOutput(0), nvinfer1::Dims2{0, 0},
             nvinfer1::Dims2{64, (kInputH / strides[3]) * (kInputW / strides[3])}, nvinfer1::Dims2{1, 1});
     nvinfer1::ISliceLayer* split30_3_1 = network->addSlice(
             *shuffle30_3->getOutput(0), nvinfer1::Dims2{64, 0},
-            nvinfer1::Dims2{kPOseNumClass, (kInputH / strides[3]) * (kInputW / strides[3])}, nvinfer1::Dims2{1, 1});
+            nvinfer1::Dims2{kPoseNumClass, (kInputH / strides[3]) * (kInputW / strides[3])}, nvinfer1::Dims2{1, 1});
     nvinfer1::IShuffleLayer* dfl30_3 =
             DFL(network, weightMap, *split30_3_0->getOutput(0), 4, (kInputH / strides[3]) * (kInputW / strides[3]), 1,
                 1, 0, "model.30.dfl.conv.weight");
@@ -1871,7 +1871,7 @@ nvinfer1::IHostMemory* buildEngineYolov8PoseP6(nvinfer1::IBuilder* builder, nvin
 
     nvinfer1::IPluginV2Layer* yolo = addYoLoLayer(
             network, std::vector<nvinfer1::IConcatenationLayer*>{cat30_dfl_0, cat30_dfl_1, cat30_dfl_2, cat30_dfl_3},
-            strides, stridesLength, kPOseNumClass, false, true, false);
+            strides, stridesLength, kPoseNumClass, false, true, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 

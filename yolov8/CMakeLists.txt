@@ -26,7 +26,7 @@ else()
 
   # tensorrt
   include_directories(/home/lindsay/TensorRT-8.6.1.6/include)
-  link_directories(/home/lindsay/TensorRT-6.1.6/lib)
+  link_directories(/home/lindsay/TensorRT-8.6.1.6/lib)
   #  include_directories(/home/lindsay/TensorRT-7.2.3.4/include)
   #  link_directories(/home/lindsay/TensorRT-7.2.3.4/lib)
 

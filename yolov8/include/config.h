@@ -24,7 +24,7 @@ constexpr static int kClsInputH = 224;
 constexpr static int kClsInputW = 224;
 
 // pose model's number of classes
-constexpr static int kPOseNumClass = 1;
+constexpr static int kPoseNumClass = 1;
 const static int kNumberOfPoints = 17;  // number of keypoints total
 
 // obb model's number of classes
