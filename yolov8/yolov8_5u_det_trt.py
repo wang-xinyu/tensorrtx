@@ -19,6 +19,7 @@ IOU_THRESHOLD = 0.4
 POSE_NUM = 17 * 3
 DET_NUM = 6
 SEG_NUM = 32
+OBB_NUM = 1
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -69,7 +70,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
             [225, 255, 255],
             thickness=tf,
             lineType=cv2.LINE_AA,
-        )
+            )
 
 
 class YoLov8TRT(object):
@@ -291,7 +292,7 @@ class YoLov8TRT(object):
             result_scores: finally scores, a numpy, each element is the score correspoing to box
             result_classid: finally classid, a numpy, each element is the classid correspoing to box
         """
-        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM
+        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM + OBB_NUM
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
@@ -408,7 +409,7 @@ class warmUpThread(threading.Thread):
 
 if __name__ == "__main__":
     # load custom plugin and engine
-    PLUGIN_LIBRARY = "build/libmyplugins.so"
+    PLUGIN_LIBRARY = "./build/libmyplugins.so"
     engine_file_path = "yolov5xu.engine"
 
     if len(sys.argv) > 1:
@@ -443,7 +444,7 @@ if __name__ == "__main__":
     try:
         print('batch size is', yolov8_wrapper.batch_size)
 
-        image_dir = "samples/"
+        image_dir = "images/"
         image_path_batches = get_img_path_batches(yolov8_wrapper.batch_size, image_dir)
 
         for i in range(10):

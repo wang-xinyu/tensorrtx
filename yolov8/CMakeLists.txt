@@ -25,8 +25,8 @@ else()
   link_directories(/usr/local/cuda/lib64)
 
   # tensorrt
-  include_directories(/home/lindsay/TensorRT-8.4.1.5/include)
-  link_directories(/home/lindsay/TensorRT-8.4.1.5/lib)
+  include_directories(/home/lindsay/TensorRT-8.6.1.6/include)
+  link_directories(/home/lindsay/TensorRT-8.6.1.6/lib)
   #  include_directories(/home/lindsay/TensorRT-7.2.3.4/include)
   #  link_directories(/home/lindsay/TensorRT-7.2.3.4/lib)
 
@@ -60,3 +60,6 @@ target_link_libraries(yolov8_cls nvinfer cudart myplugins ${OpenCV_LIBS})
 
 add_executable(yolov8_5u_det ${PROJECT_SOURCE_DIR}/yolov8_5u_det.cpp ${SRCS})
 target_link_libraries(yolov8_5u_det nvinfer cudart myplugins ${OpenCV_LIBS})
+
+add_executable(yolov8_obb ${PROJECT_SOURCE_DIR}/yolov8_obb.cpp ${SRCS})
+target_link_libraries(yolov8_obb nvinfer cudart myplugins ${OpenCV_LIBS})

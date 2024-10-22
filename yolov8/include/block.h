@@ -33,4 +33,4 @@ nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std
 
 nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
                                        std::vector<nvinfer1::IConcatenationLayer*> dets, const int* px_arry,
-                                       int px_arry_num, bool is_segmentation, bool is_pose);
+                                       int px_arry_num, int num_class, bool is_segmentation, bool is_pose, bool is_obb);

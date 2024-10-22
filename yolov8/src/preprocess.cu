@@ -1,15 +1,14 @@
-#include "preprocess.h"
 #include "cuda_utils.h"
+#include "preprocess.h"
 
-static uint8_t *img_buffer_host = nullptr;
-static uint8_t *img_buffer_device = nullptr;
+static uint8_t* img_buffer_host = nullptr;
+static uint8_t* img_buffer_device = nullptr;
 
-
-__global__ void
-warpaffine_kernel(uint8_t *src, int src_line_size, int src_width, int src_height, float *dst, int dst_width,
-                  int dst_height, uint8_t const_value_st, AffineMatrix d2s, int edge) {
+__global__ void warpaffine_kernel(uint8_t* src, int src_line_size, int src_width, int src_height, float* dst,
+                                  int dst_width, int dst_height, uint8_t const_value_st, AffineMatrix d2s, int edge) {
     int position = blockDim.x * blockIdx.x + threadIdx.x;
-    if (position >= edge) return;
+    if (position >= edge)
+        return;
 
     float m_x1 = d2s.value[0];
     float m_y1 = d2s.value[1];
@@ -41,10 +40,10 @@ warpaffine_kernel(uint8_t *src, int src_line_size, int src_width, int src_height
         float hy = 1 - ly;
         float hx = 1 - lx;
         float w1 = hy * hx, w2 = hy * lx, w3 = ly * hx, w4 = ly * lx;
-        uint8_t *v1 = const_value;
-        uint8_t *v2 = const_value;
-        uint8_t *v3 = const_value;
-        uint8_t *v4 = const_value;
+        uint8_t* v1 = const_value;
+        uint8_t* v2 = const_value;
+        uint8_t* v3 = const_value;
+        uint8_t* v4 = const_value;
 
         if (y_low >= 0) {
             if (x_low >= 0)
@@ -79,18 +78,15 @@ warpaffine_kernel(uint8_t *src, int src_line_size, int src_width, int src_height
 
     // rgbrgbrgb to rrrgggbbb
     int area = dst_width * dst_height;
-    float *pdst_c0 = dst + dy * dst_width + dx;
-    float *pdst_c1 = pdst_c0 + area;
-    float *pdst_c2 = pdst_c1 + area;
+    float* pdst_c0 = dst + dy * dst_width + dx;
+    float* pdst_c1 = pdst_c0 + area;
+    float* pdst_c2 = pdst_c1 + area;
     *pdst_c0 = c0;
     *pdst_c1 = c1;
     *pdst_c2 = c2;
 }
 
-
-
-
-void cuda_preprocess(uint8_t *src, int src_width, int src_height, float *dst, int dst_width, int dst_height,
+void cuda_preprocess(uint8_t* src, int src_width, int src_height, float* dst, int dst_width, int dst_height,
                      cudaStream_t stream) {
     int img_size = src_width * src_height * 3;
     // copy data to pinned memory
@@ -99,7 +95,7 @@ void cuda_preprocess(uint8_t *src, int src_width, int src_height, float *dst, in
     CUDA_CHECK(cudaMemcpyAsync(img_buffer_device, img_buffer_host, img_size, cudaMemcpyHostToDevice, stream));
 
     AffineMatrix s2d, d2s;
-    float scale = std::min(dst_height / (float) src_height, dst_width / (float) src_width);
+    float scale = std::min(dst_height / (float)src_height, dst_width / (float)src_width);
 
     s2d.value[0] = scale;
     s2d.value[1] = 0;
@@ -115,16 +111,12 @@ void cuda_preprocess(uint8_t *src, int src_width, int src_height, float *dst, in
 
     int jobs = dst_height * dst_width;
     int threads = 256;
-    int blocks = ceil(jobs / (float) threads);
-    warpaffine_kernel<<<blocks, threads, 0, stream>>>(
-            img_buffer_device, src_width * 3, src_width,
-            src_height, dst, dst_width,
-            dst_height, 128, d2s, jobs);
+    int blocks = ceil(jobs / (float)threads);
+    warpaffine_kernel<<<blocks, threads, 0, stream>>>(img_buffer_device, src_width * 3, src_width, src_height, dst,
+                                                      dst_width, dst_height, 128, d2s, jobs);
 }
 
-
-void cuda_batch_preprocess(std::vector<cv::Mat> &img_batch,
-                           float *dst, int dst_width, int dst_height,
+void cuda_batch_preprocess(std::vector<cv::Mat>& img_batch, float* dst, int dst_width, int dst_height,
                            cudaStream_t stream) {
     int dst_size = dst_width * dst_height * 3;
     for (size_t i = 0; i < img_batch.size(); i++) {
@@ -134,22 +126,14 @@ void cuda_batch_preprocess(std::vector<cv::Mat> &img_batch,
     }
 }
 
-
-
-
-
 void cuda_preprocess_init(int max_image_size) {
     // prepare input data in pinned memory
-    CUDA_CHECK(cudaMallocHost((void **) &img_buffer_host, max_image_size * 3));
+    CUDA_CHECK(cudaMallocHost((void**)&img_buffer_host, max_image_size * 3));
     // prepare input data in device memory
-    CUDA_CHECK(cudaMalloc((void **) &img_buffer_device, max_image_size * 3));
+    CUDA_CHECK(cudaMalloc((void**)&img_buffer_device, max_image_size * 3));
 }
 
 void cuda_preprocess_destroy() {
     CUDA_CHECK(cudaFree(img_buffer_device));
     CUDA_CHECK(cudaFreeHost(img_buffer_host));
 }
-
-
-
-
