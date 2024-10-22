@@ -15,7 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
-- `28 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
+- `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
 - `18 Oct 2024`. [zgjja](https://github.com/zgjja): Rafactor docker image.
 - `11 Oct 2024`. [mpj1234](https://github.com/mpj1234): YOLO11
 - `9 Oct 2024`. [Phoenix8215](https://github.com/Phoenix8215): GhostNet V1 and V2.
