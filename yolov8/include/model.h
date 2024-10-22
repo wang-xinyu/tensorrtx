@@ -37,3 +37,7 @@ nvinfer1::IHostMemory* buildEngineYolov8_5uDet(nvinfer1::IBuilder* builder, nvin
 nvinfer1::IHostMemory* buildEngineYolov8_5uDetP6(nvinfer1::IBuilder* builder, nvinfer1::IBuilderConfig* config,
                                                  nvinfer1::DataType dt, const std::string& wts_path, float& gd,
                                                  float& gw, int& max_channels);
+
+nvinfer1::IHostMemory* buildEngineYolov8Obb(nvinfer1::IBuilder* builder, nvinfer1::IBuilderConfig* config,
+                                            nvinfer1::DataType dt, const std::string& wts_path, float& gd, float& gw,
+                                            int& max_channels);

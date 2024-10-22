@@ -106,7 +106,7 @@ wget -O coco.txt https://raw.githubusercontent.com/amikelive/coco-labels/master/
 ```
 cd {tensorrtx}/yolov8/
 // Download inference images
-wget  https://github.com/lindsayshuo/infer_pic/blob/main/1709970363.6990473rescls.jpg
+wget  https://github.com/lindsayshuo/infer_pic/releases/download/pics/1709970363.6990473rescls.jpg
 mkdir samples
 cp -r  1709970363.6990473rescls.jpg samples
 // Download ImageNet labels
@@ -130,7 +130,7 @@ sudo ./yolov8_cls -d yolov8n-cls.engine ../samples
 ### Pose Estimation
 ```
 cd {tensorrtx}/yolov8/
-// update "kNumClass = 1" in config.h
+// update "kPOseNumClass = 1" in config.h
 mkdir build
 cd build
 cp {ultralytics}/ultralytics/yolov8-pose.wts {tensorrtx}/yolov8/build
@@ -146,6 +146,28 @@ sudo ./yolov8_pose -d yolov8n-pose.engine ../images g //gpu postprocess
 ```
 
 
+### Oriented Bounding Boxes (OBB) Estimation
+```
+cd {tensorrtx}/yolov8/
+// update "kObbNumClass = 15" "kInputH = 1024" "kInputW = 1024" in config.h
+wget https://github.com/lindsayshuo/infer_pic/releases/download/pics/obb.png
+mkdir images
+mv obb.png ./images
+mkdir build
+cd build
+cp {ultralytics}/ultralytics/yolov8-obb.wts {tensorrtx}/yolov8/build
+cmake ..
+make
+sudo ./yolov8_obb -s [.wts] [.engine] [n/s/m/l/x/n2/s2/m2/l2/x2/n6/s6/m6/l6/x6]  // serialize model to plan file
+sudo ./yolov8_obb -d [.engine] [image folder]  [c/g] // deserialize and run inference, the images in [image folder] will be processed.
+
+// For example yolov8-obb
+sudo ./yolov8_obb -s yolov8n-obb.wts yolov8n-obb.engine n
+sudo ./yolov8_obb -d yolov8n-obb.engine ../images c //cpu postprocess
+sudo ./yolov8_obb -d yolov8n-obb.engine ../images g //gpu postprocess
+```
+
+
 4. optional, load and run the tensorrt model in python
 
 ```
@@ -156,6 +178,7 @@ python yolov8_seg_trt.py  # Segmentation
 python yolov8_cls_trt.py  # Classification
 python yolov8_pose_trt.py  # Pose Estimation
 python yolov8_5u_det_trt.py  # yolov8_5u_det(YOLOv5u with the anchor-free, objectness-free split head structure based on YOLOv8 features) model
+python yolov8_obb_trt.py  # Oriented Bounding Boxes (OBB) Estimation
 ```
 
 # INT8 Quantization

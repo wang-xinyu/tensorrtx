@@ -11,7 +11,7 @@
 
 Logger gLogger;
 using namespace nvinfer1;
-const int kOutputSize = kMaxNumOutputBbox * (sizeof(Detection) - sizeof(float) * 51) / sizeof(float) + 1;
+const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 const static int kOutputSegSize = 32 * (kInputH / 4) * (kInputW / 4);
 
 static cv::Rect get_downscale_rect(float bbox[4], float scale) {
