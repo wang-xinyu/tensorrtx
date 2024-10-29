@@ -108,7 +108,7 @@ ResBlock层
 
 ```c++
 Dims dim = id_1083->getOutput(0)->getDimensions();
-std::cout << dim[0] << " " << dim[1] << " " << dim[2] << " " << dim[3] << std::endl; 
+std::cout << dim[0] << " " << dim[1] << " " << dim[2] << " " << dim[3] << std::endl;
 ```
 
 **一般如果出现生成engine就失败的情况，就从createEngine的第一句开始调试，并且随时关注窗口输出，如果在某一层出现大量提示信息，那么该层就会有问题，就将该层的输入tensor维度和输出tensor维度信息都打印出来，看输出的维度是否正常。**

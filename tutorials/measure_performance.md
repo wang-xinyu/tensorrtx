@@ -110,4 +110,3 @@ context->setProfiler(&sp);
 context->enqueue(...);
 gLogInfo << sp << std::endl;
 ```
-
