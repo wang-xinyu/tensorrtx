@@ -5,7 +5,7 @@ project(
   VERSION 0.1
   LANGUAGES C CXX CUDA)
 
-set(TensorRT_7_8_10_TARGETS mlp lenet)
+set(TensorRT_7_8_10_TARGETS mlp lenet alexnet vgg)
 
 set(TensorRT_8_TARGETS)
 
