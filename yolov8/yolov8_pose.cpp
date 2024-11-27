@@ -11,7 +11,7 @@
 
 Logger gLogger;
 using namespace nvinfer1;
-const int kOutputSize = kMaxNumOutputBbox * (sizeof(Detection) - sizeof(float) * 32) / sizeof(float) + 1;
+const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 
 void serialize_engine(std::string& wts_name, std::string& engine_name, int& is_p, std::string& sub_type, float& gd,
                       float& gw, int& max_channels) {

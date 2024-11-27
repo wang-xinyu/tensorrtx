@@ -1,23 +1,21 @@
-#include "NvInfer.h"
-#include "cuda_runtime_api.h"
-#include "logging.h"
+#include <chrono>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
-#include <chrono>
-#include <cmath>
+#include "NvInfer.h"
+#include "cuda_runtime_api.h"
+#include "logging.h"
 
-#define CHECK(status) \
-    do\
-    {\
-        auto ret = (status);\
-        if (ret != 0)\
-        {\
-            std::cerr << "Cuda failure: " << ret << std::endl;\
-            abort();\
-        }\
+#define CHECK(status)                                          \
+    do {                                                       \
+        auto ret = (status);                                   \
+        if (ret != 0) {                                        \
+            std::cerr << "Cuda failure: " << ret << std::endl; \
+            abort();                                           \
+        }                                                      \
     } while (0)
 
 // stuff we know about the network and the input/output blobs
@@ -35,8 +33,7 @@ static Logger gLogger;
 // Load weights from files shared with TensorRT samples.
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file)
-{
+std::map<std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
     std::map<std::string, Weights> weightMap;
 
@@ -49,8 +46,7 @@ std::map<std::string, Weights> loadWeights(const std::string file)
     input >> count;
     assert(count > 0 && "Invalid weight map file.");
 
-    while (count--)
-    {
+    while (count--) {
         Weights wt{DataType::kFLOAT, nullptr, 0};
         uint32_t size;
 
@@ -61,12 +57,11 @@ std::map<std::string, Weights> loadWeights(const std::string file)
 
         // Load blob
         uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
+        for (uint32_t x = 0, y = size; x < y; ++x) {
             input >> std::hex >> val[x];
         }
         wt.values = val;
-        
+
         wt.count = size;
         weightMap[name] = wt;
     }
@@ -74,27 +69,28 @@ std::map<std::string, Weights> loadWeights(const std::string file)
     return weightMap;
 }
 
-IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname, float eps) {
-    float *gamma = (float*)weightMap[lname + ".weight"].values;
-    float *beta = (float*)weightMap[lname + ".bias"].values;
-    float *mean = (float*)weightMap[lname + ".running_mean"].values;
-    float *var = (float*)weightMap[lname + ".running_var"].values;
+IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                            std::string lname, float eps) {
+    float* gamma = (float*)weightMap[lname + ".weight"].values;
+    float* beta = (float*)weightMap[lname + ".bias"].values;
+    float* mean = (float*)weightMap[lname + ".running_mean"].values;
+    float* var = (float*)weightMap[lname + ".running_var"].values;
     int len = weightMap[lname + ".running_var"].count;
     std::cout << "len " << len << std::endl;
 
-    float *scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+    float* scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         scval[i] = gamma[i] / sqrt(var[i] + eps);
     }
     Weights scale{DataType::kFLOAT, scval, len};
-    
-    float *shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+
+    float* shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
     }
     Weights shift{DataType::kFLOAT, shval, len};
 
-    float *pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+    float* pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         pval[i] = 1.0;
     }
@@ -108,10 +104,12 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition *network, std::map<std::string, W
     return scale_1;
 }
 
-IElementWiseLayer* convBnRelu(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input,  int outch, int ksize, int s, int g, std::string lname) {
+IElementWiseLayer* convBnRelu(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                              int outch, int ksize, int s, int g, std::string lname) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int p = (ksize - 1) / 2;
-    IConvolutionLayer* conv1 = network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap[lname + "0.weight"], emptywts);
+    IConvolutionLayer* conv1 =
+            network->addConvolutionNd(input, outch, DimsHW{ksize, ksize}, weightMap[lname + "0.weight"], emptywts);
     assert(conv1);
     conv1->setStrideNd(DimsHW{s, s});
     conv1->setPaddingNd(DimsHW{p, p});
@@ -122,9 +120,9 @@ IElementWiseLayer* convBnRelu(INetworkDefinition *network, std::map<std::string,
     IActivationLayer* relu1 = network->addActivation(*bn1->getOutput(0), ActivationType::kRELU);
     assert(relu1);
 
-    float *shval = reinterpret_cast<float*>(malloc(sizeof(float) * 1));
-    float *scval = reinterpret_cast<float*>(malloc(sizeof(float) * 1));
-    float *pval = reinterpret_cast<float*>(malloc(sizeof(float) * 1));
+    float* shval = reinterpret_cast<float*>(malloc(sizeof(float) * 1));
+    float* scval = reinterpret_cast<float*>(malloc(sizeof(float) * 1));
+    float* pval = reinterpret_cast<float*>(malloc(sizeof(float) * 1));
     shval[0] = -6.0;
     scval[0] = 1.0;
     pval[0] = 1.0;
@@ -140,39 +138,43 @@ IElementWiseLayer* convBnRelu(INetworkDefinition *network, std::map<std::string,
     IActivationLayer* relu2 = network->addActivation(*scale1->getOutput(0), ActivationType::kRELU);
     assert(relu2);
 
-    IElementWiseLayer* ew1 = network->addElementWise(*relu1->getOutput(0), *relu2->getOutput(0), ElementWiseOperation::kSUB);
+    IElementWiseLayer* ew1 =
+            network->addElementWise(*relu1->getOutput(0), *relu2->getOutput(0), ElementWiseOperation::kSUB);
     assert(ew1);
     return ew1;
 }
 
-ILayer* invertedRes(INetworkDefinition *network, std::map<std::string, Weights>& weightMap, ITensor& input, std::string lname,
-    int inch, int outch, int s, int exp) {
+ILayer* invertedRes(INetworkDefinition* network, std::map<std::string, Weights>& weightMap, ITensor& input,
+                    std::string lname, int inch, int outch, int s, int exp) {
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
     int hidden = inch * exp;
     bool use_res_connect = (s == 1 && inch == outch);
 
-    IScaleLayer *bn1 = nullptr;
+    IScaleLayer* bn1 = nullptr;
     if (exp != 1) {
         IElementWiseLayer* ew1 = convBnRelu(network, weightMap, input, hidden, 1, 1, 1, lname + "conv.0.");
-        IElementWiseLayer* ew2 = convBnRelu(network, weightMap, *ew1->getOutput(0), hidden, 3, s, hidden, lname + "conv.1.");
-        IConvolutionLayer* conv1 = network->addConvolutionNd(*ew2->getOutput(0), outch, DimsHW{1, 1}, weightMap[lname + "conv.2.weight"], emptywts);
+        IElementWiseLayer* ew2 =
+                convBnRelu(network, weightMap, *ew1->getOutput(0), hidden, 3, s, hidden, lname + "conv.1.");
+        IConvolutionLayer* conv1 = network->addConvolutionNd(*ew2->getOutput(0), outch, DimsHW{1, 1},
+                                                             weightMap[lname + "conv.2.weight"], emptywts);
         assert(conv1);
         bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "conv.3", 1e-5);
     } else {
         IElementWiseLayer* ew1 = convBnRelu(network, weightMap, input, hidden, 3, s, hidden, lname + "conv.0.");
-        IConvolutionLayer* conv1 = network->addConvolutionNd(*ew1->getOutput(0), outch, DimsHW{1, 1}, weightMap[lname + "conv.1.weight"], emptywts);
+        IConvolutionLayer* conv1 = network->addConvolutionNd(*ew1->getOutput(0), outch, DimsHW{1, 1},
+                                                             weightMap[lname + "conv.1.weight"], emptywts);
         assert(conv1);
         bn1 = addBatchNorm2d(network, weightMap, *conv1->getOutput(0), lname + "conv.2", 1e-5);
     }
-    if (!use_res_connect) return bn1;
+    if (!use_res_connect)
+        return bn1;
     IElementWiseLayer* ew3 = network->addElementWise(input, *bn1->getOutput(0), ElementWiseOperation::kSUM);
     assert(ew3);
     return ew3;
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
-{
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
@@ -205,7 +207,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IPoolingLayer* pool1 = network->addPoolingNd(*ew2->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
     assert(pool1);
 
-    IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool1->getOutput(0), 1000, weightMap["classifier.1.weight"], weightMap["classifier.1.bias"]);
+    IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool1->getOutput(0), 1000, weightMap["classifier.1.weight"],
+                                                           weightMap["classifier.1.bias"]);
     assert(fc1);
 
     fc1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -222,16 +225,14 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
-        free((void*) (mem.second.values));
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
     }
 
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
-{
+void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
@@ -245,12 +246,11 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 
     // Close everything down
     engine->destroy();
-    builder->destroy();
     config->destroy();
+    builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
-{
+void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
@@ -272,9 +272,11 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaStreamCreate(&stream));
 
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float),
+                          cudaMemcpyHostToDevice, stream));
     context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost,
+                          stream));
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers
@@ -283,8 +285,7 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./mobilenet -s   // serialize model to plan file" << std::endl;
@@ -293,7 +294,7 @@ int main(int argc, char** argv)
     }
 
     // create a model using the API directly and serialize it to a stream
-    char *trtModelStream{nullptr};
+    char* trtModelStream{nullptr};
     size_t size{0};
 
     if (std::string(argv[1]) == "-s") {
@@ -302,8 +303,7 @@ int main(int argc, char** argv)
         assert(modelStream != nullptr);
 
         std::ofstream p("mobilenet.engine", std::ios::binary);
-        if (!p)
-        {
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
@@ -324,7 +324,6 @@ int main(int argc, char** argv)
     } else {
         return -1;
     }
-
 
     // Subtract mean from image
     static float data[3 * INPUT_H * INPUT_W];
@@ -355,10 +354,10 @@ int main(int argc, char** argv)
 
     // Print histogram of the output distribution
     std::cout << "\nOutput:\n\n";
-    for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    {
+    for (unsigned int i = 0; i < OUTPUT_SIZE; i++) {
         std::cout << prob[i] << ", ";
-        if (i % 10 == 0) std::cout << i / 10 << std::endl;
+        if (i % 10 == 0)
+            std::cout << i / 10 << std::endl;
     }
     std::cout << std::endl;
 

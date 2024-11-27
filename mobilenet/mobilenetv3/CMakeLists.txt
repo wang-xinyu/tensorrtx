@@ -24,4 +24,3 @@ target_link_libraries(mobilenetv3 nvinfer)
 target_link_libraries(mobilenetv3 cudart)
 
 add_definitions(-O2 -pthread)
-
