@@ -251,6 +251,11 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
 void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cudaStream_t stream, int mYoloV8netHeight,
                                  int mYoloV8NetWidth, int batchSize) {
     int outputElem = 1 + mMaxOutObject * sizeof(Detection) / sizeof(float);
+    if (is_segmentation_) {
+        outputElem = mMaxOutObject * (sizeof(Detection) - sizeof(float) * 51) / sizeof(float) + 1;
+    } else if (is_pose_) {
+        outputElem = mMaxOutObject * (sizeof(Detection) - sizeof(float) * 32) / sizeof(float) + 1;
+    }
     cudaMemsetAsync(output, 0, sizeof(float), stream);
     for (int idx = 0; idx < batchSize; ++idx) {
         CUDA_CHECK(cudaMemsetAsync(output + idx * outputElem, 0, sizeof(float), stream));
