@@ -16,7 +16,7 @@ The basic workflow of TensorRTx is:
 ## News
 
 - `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
-- `18 Oct 2024`. [zgjja](https://github.com/zgjja): Rafactor docker image.
+- `18 Oct 2024`. [zgjja](https://github.com/zgjja): Refactor docker image.
 - `11 Oct 2024`. [mpj1234](https://github.com/mpj1234): YOLO11
 - `9 Oct 2024`. [Phoenix8215](https://github.com/Phoenix8215): GhostNet V1 and V2.
 - `21 Aug 2024`. [Lemonononon](https://github.com/Lemonononon): real-esrgan-general-x4v3
@@ -38,7 +38,7 @@ The basic workflow of TensorRTx is:
 - [A guide for quickly getting started, taking lenet5 as a demo.](./tutorials/getting_started.md)
 - [The .wts file content format](./tutorials/getting_started.md#the-wts-content-format)
 - [Frequently Asked Questions (FAQ)](./tutorials/faq.md)
-- [Migrating from TensorRT 4 to 7](./tutorials/migrating_from_tensorrt_4_to_7.md)
+- [Migration Guide](./tutorials/migration_guide.md)
 - [How to implement multi-GPU processing, taking YOLOv4 as example](./tutorials/multi_GPU_processing.md)
 - [Check if Your GPU support FP16/INT8](./tutorials/check_fp16_int8_support.md)
 - [How to Compile and Run on Windows](./tutorials/run_on_windows.md)
@@ -47,21 +47,80 @@ The basic workflow of TensorRTx is:
 
 ## Test Environment
 
-1. TensorRT 7.x
-2. TensorRT 8.x(Some of the models support 8.x)
+1. (**NOT recommended**) TensorRT 7.x
+2. (**Recommended**)TensorRT 8.x
+3. (**NOT recommended**) TensorRT 10.x
+
+### Note
+
+1. For history reason, some of the models are limited to specific TensorRT version, please check the README.md or code for the model you want to use.
+2. Currently, TensorRT 8.x has better compatibility and the most of the features  supported.
 
 ## How to run
 
-Each folder has a readme inside, which explains how to run the models inside.
+**Note**: this project support to build each network by the `CMakeLists.txt` in its subfolder, or you can build them together by the `CMakeLists.txt` on top of this project.
+
+* General procedures before building and running:
+
+```bash
+# 1. generate xxx.wts from https://github.com/wang-xinyu/pytorchx/tree/master/lenet
+# ...
+
+# 2. put xxx.wts on top of this folder
+# ...
+```
+
+* (*Option 1*) To build a single subproject in this project, do:
+
+```bash
+## enter the subfolder
+cd tensorrtx/xxx
+
+## configure & build
+cmake -S . -B build
+make -C build
+```
+
+* (*Option 2*) To build many subprojects, firstly, in the top `CMakeLists.txt`, **uncomment** the project you don't want to build or not suppoted by your TensorRT version, e.g., you cannot build subprojects in `${TensorRT_8_Targets}` if your TensorRT is `7.x`. Then:
+
+```bash
+## enter the top of this project
+cd tensorrtx
+
+## configure & build
+# you may use "Ninja" rather than "make" to significantly boost the build speed
+cmake -G Ninja -S . -B build
+ninja -C build
+```
+
+**WARNING**: This part is still under development, most subprojects are not adapted yet.
+
+* run the generated executable, e.g.:
+
+```bash
+# serialize model to plan file i.e. 'xxx.engine'
+build/xxx -s
+
+# deserialize plan file and run inference
+build/xxx -d
+
+# (Optional) check if the output is same as pytorchx/lenet
+# ...
+
+# (Optional) customize the project
+# ...
+```
+
+For more details, each subfolder may contain a `README.md` inside, which explains more.
 
 ## Models
 
 Following models are implemented.
 
-|Name | Description |
-|-|-|
-|[mlp](./mlp) | the very basic model for starters, properly documented |
-|[lenet](./lenet) | the simplest, as a "hello world" of this project |
+| Name | Description | Supported TensorRT Version |
+|---------------|---------------|---------------|
+|[mlp](./mlp) | the very basic model for starters, properly documented | 7.x/8.x/10.x |
+|[lenet](./lenet) | the simplest, as a "hello world" of this project | 7.x/8.x/10.x |
 |[alexnet](./alexnet)| easy to implement, all layers are supported in tensorrt |
 |[googlenet](./googlenet)| GoogLeNet (Inception v1) |
 |[inception](./inception)| Inception v3, v4 |

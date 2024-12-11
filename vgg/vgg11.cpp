@@ -1,207 +1,219 @@
-#include "NvInfer.h"
-#include "cuda_runtime_api.h"
+#include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <sstream>
 #include <vector>
-#include <chrono>
 #include "logging.h"
+#include "utils.h"
 
-#define CHECK(status) \
-    do\
-    {\
-        auto ret = (status);\
-        if (ret != 0)\
-        {\
-            std::cerr << "Cuda failure: " << ret << std::endl;\
-            abort();\
-        }\
-    } while (0)
+// stuff we know about vgg
+#define INPUT_H 224
+#define INPUT_W 224
+#define INPUT_SIZE (3 * INPUT_H * INPUT_W)
+#define OUTPUT_SIZE 1000
+#define INPUT_NAME "data"
+#define OUTPUT_NAME "prob"
 
-// stuff we know about the network and the input/output blobs
-static const int INPUT_H = 224;
-static const int INPUT_W = 224;
-static const int OUTPUT_SIZE = 1000;
-
-const char* INPUT_BLOB_NAME = "data";
-const char* OUTPUT_BLOB_NAME = "prob";
+#define WTS_PATH "../models/vgg.wts"
+#define ENGINE_PATH "../models/vgg.engine"
 
 using namespace nvinfer1;
+using WeightMap = std::map<std::string, Weights>;
 
 static Logger gLogger;
 
-// Load weights from files shared with TensorRT samples.
-// TensorRT weight files have a simple space delimited format:
-// [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file)
-{
-    std::cout << "Loading weights: " << file << std::endl;
-    std::map<std::string, Weights> weightMap;
-
-    // Open weights file
-    std::ifstream input(file);
-    assert(input.is_open() && "Unable to load weight file.");
-
-    // Read number of weight blobs
-    int32_t count;
-    input >> count;
-    assert(count > 0 && "Invalid weight map file.");
-
-    while (count--)
-    {
-        Weights wt{DataType::kFLOAT, nullptr, 0};
-        uint32_t size;
-
-        // Read name and type of blob
-        std::string name;
-        input >> name >> std::dec >> size;
-        wt.type = DataType::kFLOAT;
-
-        // Load blob
-        uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
-            input >> std::hex >> val[x];
-        }
-        wt.values = val;
-        
-        wt.count = size;
-        weightMap[name] = wt;
-    }
-
-    return weightMap;
+/**
+ * @brief create a Conv-Relu layer
+ *
+ * @param net network definition from TensorRT API
+ * @param map weight map read from `.wts` file
+ * @param input input tensor
+ * @param out output channels for convolution
+ * @param w_name convolution weight key name
+ * @param b_name convolution bias key name
+ * @param k convolution kernel size
+ * @param act_type activation type, default is ActivationType::kRELU
+ * @return IActivationLayer*
+ */
+IActivationLayer* CR(INetworkDefinition* network, WeightMap& map, ITensor& input, int32_t out, std::string key_name,
+                     DimsHW k, DimsHW p, ActivationType act_type = ActivationType::kRELU) {
+    auto* conv = network->addConvolutionNd(input, out, k, map[key_name + ".weight"], map[key_name + ".bias"]);
+    auto* relu = network->addActivation(*conv->getOutput(0), act_type);
+    assert(conv && relu);
+    conv->setPaddingNd(p);
+    conv->setName(key_name.c_str());
+    return relu;
 }
 
-// Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
-{
-    INetworkDefinition* network = builder->createNetworkV2(0U);
+/**
+ * @brief create a Conv-Relu-Pool layer
+ *
+ * @param net network definition from TensorRT API
+ * @param s stride for pooling layer
+ * @param p_type pooling layer type, default is PoolingType::kMAX
+ * @return IPoolingLayer*
+ */
+IPoolingLayer* CRP(INetworkDefinition* network, WeightMap& map, ITensor& input, int32_t out, std::string key_name,
+                   DimsHW k, DimsHW p, DimsHW s, PoolingType p_type = PoolingType::kMAX,
+                   ActivationType act_type = ActivationType::kRELU) {
+    auto* cr = CR(network, map, input, out, key_name, k, p, act_type);
+    auto* pool = network->addPoolingNd(*cr->getOutput(0), p_type, DimsHW{2, 2});
+    assert(cr && pool);
+    pool->setStrideNd(s);
+    pool->setName((key_name + ".pool").c_str());
+    return pool;
+}
 
-    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+/**
+ * @brief Create a Engine object using only the API and not any parser.
+ *
+ * @param N max batch size
+ * @param runtime
+ * @param builder
+ * @param config
+ * @param dt data type
+ * @return ICudaEngine*
+ */
+ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt) {
+    INetworkDefinition* network = builder->createNetworkV2(1u);
+    WeightMap m = loadWeights(WTS_PATH);
+
+    // Create input tensor of shape { N, 3, INPUT_H, INPUT_W } with name INPUT_NAME
+    ITensor* data = network->addInput(INPUT_NAME, dt, Dims4{N, 3, INPUT_H, INPUT_W});
     assert(data);
 
-    std::map<std::string, Weights> weightMap = loadWeights("../vgg.wts");
-    Weights emptywts{DataType::kFLOAT, nullptr, 0};
+    auto* crp1 = CRP(network, m, *data, 64, "features.0", {3, 3}, {1, 1}, {2, 2});
+    auto* crp2 = CRP(network, m, *crp1->getOutput(0), 128, "features.3", {3, 3}, {1, 1}, {2, 2});
+    auto cr1 = CR(network, m, *crp2->getOutput(0), 256, "features.6", {3, 3}, {1, 1});
+    auto* crp3 = CRP(network, m, *cr1->getOutput(0), 256, "features.8", {3, 3}, {1, 1}, {2, 2});
+    auto* cr2 = CR(network, m, *crp3->getOutput(0), 512, "features.11", {3, 3}, {1, 1});
+    auto* crp4 = CRP(network, m, *cr2->getOutput(0), 512, "features.13", {3, 3}, {1, 1}, {2, 2});
+    auto* cr3 = CR(network, m, *crp4->getOutput(0), 512, "features.16", {3, 3}, {1, 1});
+    auto* crp5 = CRP(network, m, *cr3->getOutput(0), 512, "features.18", {3, 3}, {1, 1}, {2, 2});
 
-    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{3, 3}, weightMap["features.0.weight"], weightMap["features.0.bias"]);
-    assert(conv1);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    IActivationLayer* relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    assert(relu1);
-    IPoolingLayer* pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
-    assert(pool1);
-    pool1->setStrideNd(DimsHW{2, 2});
+    auto* avg_pool = network->addPoolingNd(*crp5->getOutput(0), PoolingType::kAVERAGE, Dims2{1, 1});
+    auto* flatten = network->addShuffle(*avg_pool->getOutput(0));
+    assert(avg_pool && flatten);
+    flatten->setReshapeDimensions(Dims2{N, -1});  // "-1" means "512 * 7 * 7"
 
-    conv1 = network->addConvolutionNd(*pool1->getOutput(0), 128, DimsHW{3, 3}, weightMap["features.3.weight"], weightMap["features.3.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
-    pool1->setStrideNd(DimsHW{2, 2});
+    // tensors for 3 FC layers
+    auto* fc1w = network->addConstant(Dims2{4096, 512 * 7 * 7}, m["classifier.0.weight"])->getOutput(0);
+    auto* fc1b = network->addConstant(Dims2{1, 4096}, m["classifier.0.bias"])->getOutput(0);
+    auto* fc2w = network->addConstant(Dims2{4096, 4096}, m["classifier.3.weight"])->getOutput(0);
+    auto* fc2b = network->addConstant(Dims2{1, 4096}, m["classifier.3.bias"])->getOutput(0);
+    auto* fc3w = network->addConstant(Dims2{1000, 4096}, m["classifier.6.weight"])->getOutput(0);
+    auto* fc3b = network->addConstant(Dims2{1, 1000}, m["classifier.6.bias"])->getOutput(0);
+    assert(fc1w && fc1b && fc2w && fc2b && fc3w && fc3b);
+    // clang-format off
 
-    conv1 = network->addConvolutionNd(*pool1->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.6.weight"], weightMap["features.6.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    conv1 = network->addConvolutionNd(*relu1->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.8.weight"], weightMap["features.8.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
-    pool1->setStrideNd(DimsHW{2, 2});
+    // FC1
+    auto* fc1_0 = network->addMatrixMultiply(*flatten->getOutput(0), MatrixOperation::kNONE, *fc1w, MatrixOperation::kTRANSPOSE);
+    auto* fc1_1 = network->addElementWise(*fc1_0->getOutput(0), *fc1b, ElementWiseOperation::kSUM);
+    auto* relu1 = network->addActivation(*fc1_1->getOutput(0), ActivationType::kRELU);
+    // FC2
+    auto* fc2_0 = network->addMatrixMultiply(*relu1->getOutput(0), MatrixOperation::kNONE, *fc2w, MatrixOperation::kTRANSPOSE);
+    auto* fc2_1 = network->addElementWise(*fc2_0->getOutput(0), *fc2b, ElementWiseOperation::kSUM);
+    auto* relu2 = network->addActivation(*fc2_1->getOutput(0), ActivationType::kRELU);
+    // FC3
+    auto* fc3_0 = network->addMatrixMultiply(*relu2->getOutput(0), MatrixOperation::kNONE, *fc3w, MatrixOperation::kTRANSPOSE);
+    auto* fc3_1 = network->addElementWise(*fc3_0->getOutput(0), *fc3b, ElementWiseOperation::kSUM);
+    // clang-format on
 
-    conv1 = network->addConvolutionNd(*pool1->getOutput(0), 512, DimsHW{3, 3}, weightMap["features.11.weight"], weightMap["features.11.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    conv1 = network->addConvolutionNd(*relu1->getOutput(0), 512, DimsHW{3, 3}, weightMap["features.13.weight"], weightMap["features.13.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
-    pool1->setStrideNd(DimsHW{2, 2});
+    fc3_1->getOutput(0)->setName(OUTPUT_NAME);
+    network->markOutput(*fc3_1->getOutput(0));
 
-    conv1 = network->addConvolutionNd(*pool1->getOutput(0), 512, DimsHW{3, 3}, weightMap["features.16.weight"], weightMap["features.16.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    conv1 = network->addConvolutionNd(*relu1->getOutput(0), 512, DimsHW{3, 3}, weightMap["features.18.weight"], weightMap["features.18.bias"]);
-    conv1->setPaddingNd(DimsHW{1, 1});
-    relu1 = network->addActivation(*conv1->getOutput(0), ActivationType::kRELU);
-    pool1 = network->addPoolingNd(*relu1->getOutput(0), PoolingType::kMAX, DimsHW{2, 2});
-    pool1->setStrideNd(DimsHW{2, 2});
-
-    IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool1->getOutput(0), 4096, weightMap["classifier.0.weight"], weightMap["classifier.0.bias"]);
-    assert(fc1);
-    relu1 = network->addActivation(*fc1->getOutput(0), ActivationType::kRELU);
-    fc1 = network->addFullyConnected(*relu1->getOutput(0), 4096, weightMap["classifier.3.weight"], weightMap["classifier.3.bias"]);
-    relu1 = network->addActivation(*fc1->getOutput(0), ActivationType::kRELU);
-    fc1 = network->addFullyConnected(*relu1->getOutput(0), 1000, weightMap["classifier.6.weight"], weightMap["classifier.6.bias"]);
-
-    fc1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
-    std::cout << "set name out" << std::endl;
-    network->markOutput(*fc1->getOutput(0));
-
-    // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(1 << 20);
+#if TRT_VERSION >= 8000
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, WORKSPACE_SIZE);
+    IHostMemory* mem = builder->buildSerializedNetwork(*network, *config);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(mem->data(), mem->size());
+#else
+    builder->setMaxBatchSize(N);
+    config->setMaxWorkspaceSize(WORKSPACE_SIZE);
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+#endif
+
     std::cout << "build out" << std::endl;
 
-    // Don't need the network any more
+#if TRT_VERSION >= 8000
+    delete network;
+#else
     network->destroy();
+#endif
 
     // Release host memory
-    for (auto& mem : weightMap)
-    {
-        free((void*) (mem.second.values));
+    for (auto& mem : m) {
+        free((void*)(mem.second.values));
     }
 
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
-{
+void APIToModel(int32_t N, IRuntime* runtime, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
+    ICudaEngine* engine = createEngine(N, runtime, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
     (*modelStream) = engine->serialize();
 
-    // Close everything down
+#if TRT_VERSION >= 8000
+    delete engine;
+    delete config;
+    delete builder;
+#else
     engine->destroy();
-    builder->destroy();
     config->destroy();
+    builder->destroy();
+#endif
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
-{
+void doInference(IExecutionContext& context, float* input, float* output, int N) {
     const ICudaEngine& engine = context.getEngine();
 
-    // Pointers to input and output device buffers to pass to engine.
-    // Engine requires exactly IEngine::getNbBindings() number of buffers.
-    assert(engine.getNbBindings() == 2);
-    void* buffers[2];
+#if TRT_VERSION >= 8000
+    const int32_t nIO = engine.getNbIOTensors();
+    const int32_t inputIndex = 0;
+    const int32_t outputIndex = nIO - 1;
+#else
+    const int32_t nIO = engine.getNbBindings();
+    const int32_t inputIndex = engine.getBindingIndex(INPUT_NAME);
+    const int32_t outputIndex = engine.getBindingIndex(OUTPUT_NAME);
+#endif
+    assert(nIO == 2);
+    std::vector<void*> buffers(nIO, nullptr);
 
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine.getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
+    const size_t inputSize = N * INPUT_SIZE * sizeof(float);
+    const size_t outputSize = N * OUTPUT_SIZE * sizeof(float);
 
     // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
+    CHECK(cudaMalloc(&buffers[inputIndex], inputSize));
+    CHECK(cudaMalloc(&buffers[outputIndex], outputSize));
 
     // Create stream
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
 
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
-    context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
-    cudaStreamSynchronize(stream);
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, inputSize, cudaMemcpyHostToDevice, stream));
+
+#if TRT_VERSION >= 8000
+    for (int32_t i = 0; i < nIO; ++i) {
+        auto* tensor_name = engine.getIOTensorName(i);
+        context.setTensorAddress(tensor_name, buffers[i]);
+    }
+    context.enqueueV3(stream);
+#else
+    context.enqueueV2(N, buffers, stream, nullptr);
+#endif
+
+    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], outputSize, cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaStreamSynchronize(stream));
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
@@ -209,8 +221,7 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./vgg -s   // serialize model to plan file" << std::endl;
@@ -219,24 +230,30 @@ int main(int argc, char** argv)
     }
 
     // create a model using the API directly and serialize it to a stream
-    char *trtModelStream{nullptr};
+    IRuntime* runtime = createInferRuntime(gLogger);
+    assert(runtime != nullptr);
+    char* trtModelStream{nullptr};
     size_t size{0};
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
-        APIToModel(1, &modelStream);
+        APIToModel(1, runtime, &modelStream);
         assert(modelStream != nullptr);
 
-        std::ofstream p("vgg.engine", std::ios::binary);
+        std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+#if TRT_VERSION >= 8000
+        delete modelStream;
+#else
         modelStream->destroy();
-        return 1;
+#endif
+        return 0;
     } else if (std::string(argv[1]) == "-d") {
-        std::ifstream file("vgg.engine", std::ios::binary);
+        std::ifstream file(ENGINE_PATH, std::ios::binary);
         if (file.good()) {
             file.seekg(0, file.end);
             size = file.tellg();
@@ -247,43 +264,48 @@ int main(int argc, char** argv)
             file.close();
         }
     } else {
-        return -1;
+        return 1;
     }
 
-    static float data[3 * INPUT_H * INPUT_W];
-    for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-        data[i] = 1;
+    std::vector<float> data(INPUT_SIZE, 1.f);
+    std::vector<float> prob(OUTPUT_SIZE, std::nanf(""));
 
-    IRuntime* runtime = createInferRuntime(gLogger);
-    assert(runtime != nullptr);
+#if TRT_VERSION >= 8000
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
+#else
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
+#endif
     assert(engine != nullptr);
+
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
-    delete[] trtModelStream;
 
     // Run inference
-    static float prob[OUTPUT_SIZE];
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1000; i++) {
         auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, 1);
+        doInference(*context, data.data(), prob.data(), 1);
         auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        std::cout << "Execution time: " << time << "ms" << std::endl;
     }
 
-    // Destroy the engine
+    delete[] trtModelStream;
+#if TRT_VERSION >= 8000
+    delete context;
+    delete engine;
+    delete runtime;
+#else
     context->destroy();
     engine->destroy();
     runtime->destroy();
+#endif
 
-    // Print histogram of the output distribution
     std::cout << "\nOutput:\n\n";
-    for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    {
-        std::cout << prob[i] << ", ";
-        if (i % 10 == 0) std::cout << i / 10 << std::endl;
+    for (int32_t i = 0; i < OUTPUT_SIZE; i++) {
+        std::cout << prob[i] << ", " << std::flush;
     }
-    std::cout << std::endl;
+    int32_t classId = std::max_element(prob.begin(), prob.end()) - prob.begin();
+    std::cout << std::endl << "dummy classification result: " << classId << std::endl;
 
     return 0;
 }

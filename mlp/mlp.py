@@ -7,7 +7,6 @@ import struct
 import tensorrt as trt
 
 # required for the inference using TRT engine
-import pycuda.autoinit
 import pycuda.driver as cuda
 
 # Sizes of input and output for TensorRT model
@@ -245,4 +244,3 @@ if __name__ == "__main__":
         print("\n\tRun inference using `python mlp.py -d`\n")
     else:
         perform_inference(input_val=4.0)
-

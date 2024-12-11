@@ -2,12 +2,12 @@
 
 ## 1. fatal error: NvInfer.h: No such file or directory
 
-`NvInfer.h` is one of the headers of TensorRT. If you install the tensorrt DEB package, the headers should in `/usr/include/x86_64-linux-gnu/`. If you install tensorrt TAR or ZIP file, the `include_directories` and `link_directories` of tensorrt should be added in `CMakeLists.txt`.
+`NvInfer.h` is one of the headers of TensorRT. If you install the tensorrt DEB package, the headers should in `/usr/include/x86_64-linux-gnu/`. If you install tensorrt TAR or ZIP file, it is recommended to manage TensorRT with modern CMake syntax, e.g. [FindTensorRT.cmake](../lenet/FindTensorRT.cmake).
 
 `dpkg -L` can print out the contents of a DEB package.
 
 ```
-$ dpkg -L libnvinfer-dev 
+$ dpkg -L libnvinfer-dev
 /.
 /usr
 /usr/lib
@@ -38,7 +38,7 @@ $ dpkg -L libnvinfer-dev
 `cuda_runtime_api.h` is from cuda-cudart. If you met this error, you need find where it is and adapt the `include_directories` and `link_directories` of cuda in `CMakeLists.txt`.
 
 ```
-$ dpkg -L cuda-cudart-dev-10-0 
+$ dpkg -L cuda-cudart-dev-10-0
 /.
 /usr
 /usr/local
@@ -88,4 +88,3 @@ If you train your own yolo model, you need set the `CLASS_NUM` in `yololayer.h`.
 void APIToModel(unsigned int, nvinfer1::IHostMemory**): Assertion `engine != nullptr' failed.
 Aborted (core dumped)
 ```
-
