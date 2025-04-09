@@ -2,9 +2,9 @@
 // #define USE_FP32
 // #define USE_INT8
 
-const static char *kInputTensorName = "images";
-const static char *kOutputTensorName = "output";
-const static char *kProtoTensorName = "proto";
+const static char* kInputTensorName = "images";
+const static char* kOutputTensorName = "output";
+const static char* kProtoTensorName = "proto";
 const static int kNumClass = 80;
 const static int kPoseNumClass = 1;
 const static int kNumberOfPoints = 17;  // number of keypoints total
@@ -23,7 +23,7 @@ const static float kConfThreshKeypoints = 0.5f;  // keypoints confidence
 const static int kMaxInputImageSize = 3000 * 3000;
 const static int kMaxNumOutputBbox = 1000;
 //Quantization input image folder path
-const static char *kInputQuantizationFolder = "./coco_calib";
+const static char* kInputQuantizationFolder = "./coco_calib";
 
 // Classfication model's number of classes
 constexpr static int kClsNumClass = 1000;
