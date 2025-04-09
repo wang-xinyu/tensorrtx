@@ -2,7 +2,7 @@
 
 Yolo11 model supports TensorRT-8.
 
-Training code [ultralytics v8.3.0](https://github.com/ultralytics/ultralytics/tree/v8.3.0)
+Training code [link](https://github.com/ultralytics/ultralytics/archive/refs/tags/v8.3.38.zip)
 
 ## Environment
 
@@ -18,11 +18,12 @@ Training code [ultralytics v8.3.0](https://github.com/ultralytics/ultralytics/tr
 * [x] YOLO11-cls support FP32/FP16/INT8 and Python/C++ API
 * [x] YOLO11-seg support FP32/FP16/INT8 and Python/C++ API
 * [x] YOLO11-pose support FP32/FP16/INT8 and Python/C++ API
+* [x] YOLO11-obb support FP32/FP16/INT8 and Python/C++ API
 
 ## Config
 
 * Choose the YOLO11 sub-model n/s/m/l/x from command line arguments.
-* Other configs please check [include/config.h](include/config.h)
+* Other configs please check [src/config.h](src/config.h)
 
 ## Build and Run
 
@@ -39,12 +40,14 @@ wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n.pt -
 wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-cls.pt -O yolo11n-cls.pt
 wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-seg.pt -O yolo11n-seg.pt
 wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-pose.pt -O yolo11n-pose.pt
+wget https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-obb.pt -O yolo11n-obb.pt
 # Generate .wts
 cp [PATH-TO-TENSORRTX]/yolo11/gen_wts.py .
 python gen_wts.py -w yolo11n.pt -o yolo11n.wts -t detect
 python gen_wts.py -w yolo11n-cls.pt -o yolo11n-cls.wts -t cls
 python gen_wts.py -w yolo11n-seg.pt -o yolo11n-seg.wts -t seg
 python gen_wts.py -w yolo11n-pose.pt -o yolo11n-pose.wts -t pose
+python gen_wts.py -w yolo11n-obb.pt -o yolo11n-obb.wts -t obb
 # A file 'yolo11n.wts' will be generated.
 ```
 
@@ -96,6 +99,18 @@ cp [PATH-TO-ultralytics]/yolo11n-pose.wts .
 ./yolo11_pose -s yolo11n-pose.wts yolo11n-pose.engine [n/s/m/l/x]
 # Run inference
 ./yolo11_pose -d yolo11n-pose.engine ../images
+```
+
+### Obb
+```shell
+cp [PATH-TO-ultralytics]/yolo11n-obb.wts .
+# Build and serialize TensorRT engine
+./yolo11_obb -s yolo11n-obb.wts yolo11n-obb.engine [n/s/m/l/x]
+# Download the image
+wget -O P0015.png https://github.com/mpj1234/YOLO11-series-TensorRT8/releases/download/images/P0015.png
+mv P0015.png ../images
+# Run inference
+./yolo11_obb -d yolo11n-obb.engine ../images
 ```
 
 3. Optional, load and run the tensorrt model in Python

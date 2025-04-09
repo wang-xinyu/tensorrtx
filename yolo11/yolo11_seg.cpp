@@ -11,7 +11,7 @@
 
 Logger gLogger;
 using namespace nvinfer1;
-const int kOutputSize = kMaxNumOutputBbox * (sizeof(Detection) - sizeof(float) * 51) / sizeof(float) + 1;
+const int kOutputSize = kMaxNumOutputBbox * sizeof(Detection) / sizeof(float) + 1;
 const static int kOutputSegSize = 32 * (kInputH / 4) * (kInputW / 4);
 
 static cv::Rect get_downscale_rect(float bbox[4], float scale) {
@@ -111,7 +111,7 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(kInputTensorName);
     const int outputIndex = engine->getBindingIndex(kOutputTensorName);
-    const int outputIndex_seg = engine->getBindingIndex("proto");
+    const int outputIndex_seg = engine->getBindingIndex(kProtoTensorName);
 
     assert(inputIndex == 0);
     assert(outputIndex == 1);

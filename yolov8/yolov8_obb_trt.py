@@ -21,6 +21,17 @@ DET_NUM = 6
 SEG_NUM = 32
 OBB_NUM = 1
 
+INPUT_W = 640
+INPUT_H = 640
+
+
+class Detection:
+    def __init__(self, bbox, score, class_id, angle):
+        self.bbox = bbox
+        self.score = score
+        self.class_id = class_id
+        self.angle = angle
+
 
 def get_img_path_batches(batch_size, img_dir):
     ret = []
@@ -36,79 +47,146 @@ def get_img_path_batches(batch_size, img_dir):
     return ret
 
 
-def regularize_rboxes(rboxes):
+def get_corner(img, box: Detection):
     """
-    Regularize rotated boxes in range [0, pi/2].
-
-    Args:
-        rboxes (numpy.ndarray): Input boxes of shape(N, 5) in xywhr format.
-
-    Returns:
-        (numpy.ndarray): The regularized boxes.
+    description: Get the four corner points of the rotated bounding box
+    param:
+        img:    an opencv image object (numpy array)
+        box:    a Detection object containing bbox [cx,cy,w,h] and angle (radians)
+    return:
+        corners: four corner points of the rotated bounding box as numpy array [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
     """
-    x, y, w, h, t = np.split(rboxes, 5, axis=-1)
-    w_ = np.where(w > h, w, h)
-    h_ = np.where(w > h, h, w)
-    t = np.where(w > h, t, t + math.pi / 2) % math.pi
-    return np.concatenate([x, y, w_, h_, t], axis=-1)  # regularized boxes
+    # Extract box parameters
+    cx, cy, w, h = box.bbox
+    angle = box.angle * 180.0 / math.pi  # Convert radians to degrees
+
+    # Swap width and height if height >= width
+    if h >= w:
+        w, h = h, w
+        angle = (angle + 90.0) % 180.0  # Adjust angle
+
+    # Ensure angle is between 0 and 180 degrees
+    if angle < 0:
+        angle += 360.0
+    if angle > 180.0:
+        angle -= 180.0
+
+    # Convert to normalized angle (0-180)
+    normal_angle = angle % 180.0
+    if normal_angle < 0:
+        normal_angle += 180.0
+
+    # Convert back to radians for calculation
+    angle_rad = angle * math.pi / 180.0
+    cos_val = math.cos(angle_rad)
+    sin_val = math.sin(angle_rad)
+
+    # Calculate boundaries
+    l_x = cx - w / 2
+    r_x = cx + w / 2
+    t_y = cy - h / 2
+    b_y = cy + h / 2
+
+    # Scale coordinates using get_rect_obb (matching C++ version)
+    bbox = [l_x, t_y, r_x, b_y]
+    rect = get_rect_obb(img, bbox)
+
+    # Calculate center and dimensions of scaled box
+    x_ = (rect[0] + rect[0] + rect[2]) / 2  # rect.x + rect.width/2
+    y_ = (rect[1] + rect[1] + rect[3]) / 2  # rect.y + rect.height/2
+    width = rect[2]
+    height = rect[3]
+
+    # Calculate vectors
+    vec1x = width / 2 * cos_val
+    vec1y = width / 2 * sin_val
+    vec2x = -height / 2 * sin_val
+    vec2y = height / 2 * cos_val
+
+    # Calculate four corners
+    corners = np.array([
+        [int(round(x_ + vec1x + vec2x)), int(round(y_ + vec1y + vec2y))],  # Top-left
+        [int(round(x_ + vec1x - vec2x)), int(round(y_ + vec1y - vec2y))],  # Top-right
+        [int(round(x_ - vec1x - vec2x)), int(round(y_ - vec1y - vec2y))],  # Bottom-right
+        [int(round(x_ - vec1x + vec2x)), int(round(y_ - vec1y + vec2y))]  # Bottom-left
+    ], dtype=np.int32)
+
+    # Clip to image boundaries
+    h, w = img.shape[:2]
+    corners[:, 0] = np.clip(corners[:, 0], 0, w - 1)
+    corners[:, 1] = np.clip(corners[:, 1], 0, h - 1)
+
+    return corners
 
 
-def xywhr2xyxyxyxy(x):
+def get_rect_obb(img, bbox):
     """
-    Convert batched Oriented Bounding Boxes (OBB) from [xywh, rotation] to [xy1, xy2, xy3, xy4].
-
-    Args:
-        x (numpy.ndarray): Boxes in [cx, cy, w, h, rotation] format of shape (n, 5) or (b, n, 5).
-
-    Returns:
-        (numpy.ndarray): Converted corner points of shape (n, 4, 2) or (b, n, 4, 2).
+    Scale coordinates according to image resize ratio (matching C++ version)
+    param:
+        img: OpenCV image (numpy array)
+        bbox: [left, top, right, bottom]
+    return:
+        [x, y, width, height]
     """
-    # Regularize the input boxes first
-    rboxes = regularize_rboxes(x)
+    l_x, t_y, r_x, b_y = bbox
+    r_w = INPUT_W / img.shape[1]  # INPUT_W should be your model input width
+    r_h = INPUT_H / img.shape[0]  # INPUT_H should be your model input height
 
-    ctr = rboxes[..., :2]
-    w, h, angle = (rboxes[..., i: i + 1] for i in range(2, 5))
+    if r_h > r_w:
+        l_x = l_x
+        r_x = r_x
+        t_y = t_y - (INPUT_H - r_w * img.shape[0]) / 2
+        b_y = b_y - (INPUT_H - r_w * img.shape[0]) / 2
+        l_x = l_x / r_w
+        r_x = r_x / r_w
+        t_y = t_y / r_w
+        b_y = b_y / r_w
+    else:
+        l_x = l_x - (INPUT_W - r_h * img.shape[1]) / 2
+        r_x = r_x - (INPUT_W - r_h * img.shape[1]) / 2
+        t_y = t_y
+        b_y = b_y
+        l_x = l_x / r_h
+        r_x = r_x / r_h
+        t_y = t_y / r_h
+        b_y = b_y / r_h
 
-    cos_value = np.cos(angle)
-    sin_value = np.sin(angle)
+    l_x = max(0.0, l_x)
+    t_y = max(0.0, t_y)
+    width = max(0, min(int(round(r_x - l_x)), img.shape[1] - int(round(l_x))))
+    height = max(0, min(int(round(b_y - t_y)), img.shape[0] - int(round(t_y))))
 
-    vec1 = np.concatenate([w / 2 * cos_value, w / 2 * sin_value], axis=-1)
-    vec2 = np.concatenate([-h / 2 * sin_value, h / 2 * cos_value], axis=-1)
-
-    pt1 = ctr + vec1 + vec2
-    pt2 = ctr + vec1 - vec2
-    pt3 = ctr - vec1 - vec2
-    pt4 = ctr - vec1 + vec2
-
-    return np.stack([pt1, pt2, pt3, pt4], axis=-2)
+    return [int(round(l_x)), int(round(t_y)), width, height]
 
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
-    description: Plots one bounding box on image img,
-                 this function comes from YoLov8 project.
+    description: Plots one rotated bounding box on image img
     param:
-        x:      a box likes [x1,y1,x2,y2,angle]
-        img:    a opencv image object
-        color:  color to draw rectangle, such as (0,255,0)
+        x:      a box in [cx, cy, w, h, angle] format
+        img:    an opencv image object
+        color:  color to draw rectangle
         label:  str
         line_thickness: int
-    return:
-        no return
-
     """
-    tl = (
-            line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1
-    )  # line/font thickness
-    box = xywhr2xyxyxyxy(x).reshape(-1, 4, 2).squeeze()
-    p1 = [int(b) for b in box[0]]
-    # NOTE: cv2-version polylines needs np.asarray type.
-    cv2.polylines(img, [np.asarray(box, dtype=int)], True, color, thickness=tl, lineType=cv2.LINE_AA)
+    tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1
+
+    # Get four corner points
+    corners = get_corner(img, x)
+    corners = corners.astype(int)
+
+    # Draw the rotated rectangle
+    cv2.polylines(img, [corners], isClosed=True, color=color, thickness=tl, lineType=cv2.LINE_AA)
+
     if label:
         tf = max(tl - 1, 1)  # font thickness
-        w, h = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]  # text width, height
+        # Use first corner point for label placement
+        p1 = tuple(corners[0])
+        w, h = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+
         outside = p1[1] - h >= 3
-        p2 = p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3
+        p2 = (p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3)
+
         cv2.rectangle(img, p1, p2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(
             img,
@@ -118,7 +196,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
             tl / 3,
             [225, 255, 255],
             thickness=tf,
-            lineType=cv2.LINE_AA,
+            lineType=cv2.LINE_AA
         )
 
 
@@ -219,20 +297,20 @@ class YoLov8TRT(object):
         output = host_outputs[0]
         # Do postprocess
         for i in range(self.batch_size):
-            result_boxes, result_scores, result_classid = self.post_process(
+            keep = self.post_process(
                 output[i * self.det_output_length: (i + 1) * self.det_output_length], batch_origin_h[i],
                 batch_origin_w[i]
             )
             # Draw rectangles and labels on the original image
-            for j in range(len(result_boxes)):
-                box = result_boxes[j]
-                np.random.seed(int(result_classid[j]))
+            for j in range(len(keep)):
+                box = keep[j]  # type: Detection
+                np.random.seed(int(keep[j].class_id))
                 color = [np.random.randint(0, 255) for _ in range(3)]
                 plot_one_box(
                     box,
                     batch_image_raw[i],
                     label="{}:{:.2f}".format(
-                        categories[int(result_classid[j])], result_scores[j]
+                        categories[int(keep[j].class_id)], keep[j].score
                     ),
                     color=color,
                     line_thickness=1
@@ -333,6 +411,69 @@ class YoLov8TRT(object):
 
         return y
 
+    def covariance_matrix(self, res: Detection):
+        """
+        description: Generating covariance matrix from obbs.
+        param:
+            box (np.ndarray): A numpy array representing rotated bounding box, with xywhr format.
+
+        return:
+            tuple: (a, b, c) values of covariance matrix
+        """
+        w = res.bbox[2]
+        h = res.bbox[3]
+        angle = res.angle
+
+        a = w * w / 12.0
+        b = h * h / 12.0
+        c = angle
+
+        cos_r = math.cos(c)
+        sin_r = math.sin(c)
+
+        cos_r2 = cos_r * cos_r
+        sin_r2 = sin_r * sin_r
+
+        a_val = a * cos_r2 + b * sin_r2
+        b_val = a * sin_r2 + b * cos_r2
+        c_val = (a - b) * cos_r * sin_r
+
+        return a_val, b_val, c_val
+
+    def probiou(self, box1: Detection, box2: Detection, eps=1e-7):
+        """
+        description: Calculate the prob IoU between oriented bounding boxes.
+        param:
+            box1 (np.ndarray): First box in xywhr format
+            box2 (np.ndarray): Second box in xywhr format
+            eps (float): Small value to avoid division by zero
+        return:
+            float: 1 - hd where hd is the Bhattacharyya distance
+        """
+        a1, b1, c1 = self.covariance_matrix(box1)
+        a2, b2, c2 = self.covariance_matrix(box2)
+
+        x1, y1 = box1.bbox[0], box1.bbox[1]
+        x2, y2 = box2.bbox[0], box2.bbox[1]
+
+        t1 = ((a1 + a2) * (y1 - y2) ** 2 + (b1 + b2) * (x1 - x2) ** 2) / \
+             ((a1 + a2) * (b1 + b2) - (c1 + c2) ** 2 + eps)
+        t1 *= 0.25
+
+        t2 = ((c1 + c2) * (x2 - x1) * (y1 - y2)) / \
+             ((a1 + a2) * (b1 + b2) - (c1 + c2) ** 2 + eps)
+        t2 *= 0.5
+
+        t3 = ((a1 + a2) * (b1 + b2) - (c1 + c2) ** 2) / \
+             (4 * math.sqrt(max(a1 * b1 - c1 * c1, 0.0)) *
+              math.sqrt(max(a2 * b2 - c2 * c2, 0.0)) + eps)
+        t3 = math.log(t3 + eps) * 0.5
+
+        bd = max(min(t1 + t2 + t3, 100.0), eps)
+        hd = math.sqrt(1.0 - math.exp(-bd) + eps)
+
+        return 1 - hd
+
     def post_process(self, output, origin_h, origin_w):
         """
         description: postprocess the prediction
@@ -349,155 +490,43 @@ class YoLov8TRT(object):
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray
-        # pred = np.reshape(output[1:], (-1, 38))[:num, :]
         pred = np.reshape(output[1:], (-1, num_values_per_detection))[:num, :]
-        # Do nms
-        boxes = self.non_max_suppression(pred, origin_h, origin_w,
-                                         conf_thres=CONF_THRESH, nms_thres=IOU_THRESHOLD)
 
-        columns_to_keep = [0, 1, 2, 3, 89]
-        result_boxes = boxes[:, columns_to_keep] if len(boxes) else np.array([])
-        result_scores = boxes[:, 4] if len(boxes) else np.array([])
-        result_classid = boxes[:, 5] if len(boxes) else np.array([])
-        return result_boxes, result_scores, result_classid
+        # Filter by confidence threshold
+        mask = pred[:, 4] >= CONF_THRESH
+        pred = pred[mask]
 
-    def covariance_matrix(self, boxes):
-        """
-        description: Generating covariance matrix from obbs.
-        param:
-            boxes (np.ndarray): A numpy of shape (N, 5) representing rotated bounding boxes, with xywhr format.
+        if len(pred) == 0:
+            return []
 
-        return:
-            (np.ndarray): Covariance metrixs corresponding to original rotated bounding boxes.
-        """
-        # Gaussian bounding boxes, ignore the center points (the first two columns) because they are not needed here.
-        widths = boxes[:, 2:3].reshape(-1)
-        heights = boxes[:, 3:4].reshape(-1)
-        angles = boxes[:, 4].reshape(-1)
+        m_map = {}
+        for i in range(len(pred)):
+            class_id = int(pred[i][5])
+            if class_id not in m_map:
+                m_map[class_id] = []
+            m_map[class_id].append(Detection(pred[i][:4], pred[i][4], class_id, pred[i][89]))
 
-        a, b, c = (widths ** 2) / 12, (heights ** 2) / 12, angles
+        res = []
+        for it in m_map:
+            dets = m_map[it]
+            dets = sorted(dets, key=lambda x: x.score, reverse=True)
+            for m in range(len(dets)):
+                if dets[m].score == 0.0:
+                    continue
+                item = dets[m]
+                res.append(item)
+                for n in range(m + 1, len(dets)):
+                    if dets[n].score == 0.0:
+                        continue
+                    if self.probiou(item, dets[n]) > IOU_THRESHOLD:
+                        dets[n].score = 0.0
 
-        cos_angles = np.cos(c)
-        sin_angles = np.sin(c)
+        keep = []
+        for i in range(len(res)):
+            if res[i].score > CONF_THRESH:
+                keep.append(res[i])
 
-        cos2 = cos_angles ** 2
-        sin2 = sin_angles ** 2
-
-        return a * cos2 + b * sin2, a * sin2 + b * cos2, (a - b) * cos_angles * sin_angles
-
-    def bbox_iou(self, box1, box2, x1y1x2y2=True):
-        """
-        description: compute the IoU of two bounding boxes
-        param:
-            box1: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-            x1y1x2y2: select the coordinate format
-        return:
-            iou: computed iou
-        """
-        if not x1y1x2y2:
-            # Transform from center and width to exact coordinates
-            b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
-            b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
-            b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
-            b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
-        else:
-            # Get the coordinates of bounding boxes
-            b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
-            b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
-
-        # Get the coordinates of the intersection rectangle
-        inter_rect_x1 = np.maximum(b1_x1, b2_x1)
-        inter_rect_y1 = np.maximum(b1_y1, b2_y1)
-        inter_rect_x2 = np.minimum(b1_x2, b2_x2)
-        inter_rect_y2 = np.minimum(b1_y2, b2_y2)
-        # Intersection area
-        inter_area = (np.clip(inter_rect_x2 - inter_rect_x1 + 1, 0, None)
-                      * np.clip(inter_rect_y2 - inter_rect_y1 + 1, 0, None))
-        # Union Area
-        b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
-        b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
-
-        iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
-
-        return iou
-
-    def batch_probiou(self, obb1, obb2, eps=1e-7):
-        """
-        description: Calculate the prob IoU between oriented bounding boxes, https://arxiv.org/pdf/2106.06072v1.pdf.
-        param:
-            obb1 (np.ndarray): A numpy of shape (N, 5) representing ground truth obbs, with xywhr format.
-            obb2 (np.ndarray): A numpy of shape (M, 5) representing predicted obbs, with xywhr format.
-            eps (float, optional): A small value to avoid division by zero. Defaults to 1e-7.
-        return:
-            iou: computed iou
-        """
-        x1, y1 = obb1[:, 0], obb1[:, 1]
-        x2, y2 = obb2[:, 0], obb2[:, 1]
-
-        a1, b1, c1 = self.covariance_matrix(obb1)
-        a2, b2, c2 = self.covariance_matrix(obb2)
-
-        t1 = (
-                     ((a1 + a2) * (y1 - y2) ** 2 + (b1 + b2) * (x1 - x2) ** 2) /
-                     ((a1 + a2) * (b1 + b2) - (c1 + c2) ** 2 + eps)
-             ) * 0.25
-
-        t2 = (
-                     ((c1 + c2) * (x2 - x1) * (y1 - y2)) /
-                     ((a1 + a2) * (b1 + b2) - (c1 + c2) ** 2 + eps)
-             ) * 0.5
-
-        t3 = (
-                ((a1 + a2) * (b1 + b2) - (c1 + c2) ** 2) /
-                (4 * (np.clip(a1 * b1 - c1 ** 2, 0, None) * np.clip(a2 * b2 - c2 ** 2, 0, None)) ** 0.5 + eps)
-                + eps
-        )
-        t3 = np.log(t3) * 0.5
-
-        bd = np.clip(t1 + t2 + t3, eps, 100.0)
-        hd = np.sqrt(1.0 - np.exp(-bd) + eps)
-        return 1 - hd
-
-    def non_max_suppression(self, prediction, origin_h, origin_w, conf_thres=0.5, nms_thres=0.4):
-        """
-        description: Removes detections with lower object confidence score than 'conf_thres' and performs
-        Non-Maximum Suppression to further filter detections.
-        param:
-            prediction: detections, (x1, y1, x2, y2, conf, cls_id, angle)
-            origin_h: original image height
-            origin_w: original image width
-            conf_thres: a confidence threshold to filter detections
-            nms_thres: a iou threshold to filter detections
-        return:
-            boxes: output after nms with the shape (x1, y1, x2, y2, conf, cls_id, angle)
-        """
-        # Get the boxes that score > CONF_THRESH
-        boxes = prediction[prediction[:, 4] >= conf_thres]
-        col_idx = [0, 1, 2, 3, 89]
-        # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
-        boxes[:, :4] = self.xywh2xyxy(origin_h, origin_w, boxes[:, :4])
-        # clip the coordinates
-        boxes[:, 0] = np.clip(boxes[:, 0], 0, origin_w - 1)
-        boxes[:, 2] = np.clip(boxes[:, 2], 0, origin_w - 1)
-        boxes[:, 1] = np.clip(boxes[:, 1], 0, origin_h - 1)
-        boxes[:, 3] = np.clip(boxes[:, 3], 0, origin_h - 1)
-        # Object confidence
-        confs = boxes[:, 4]
-        # Sort by the confs
-        boxes = boxes[np.argsort(-confs)]
-        # Perform non-maximum suppression
-        keep_boxes = []
-        while boxes.shape[0]:
-            large_overlap = self.batch_probiou(np.expand_dims(boxes[0, col_idx], 0), boxes[:, col_idx]) > nms_thres
-            label_match = boxes[0, 5] == boxes[:, 5]
-            # Indices of boxes with lower confidence scores, large IOUs and matching labels
-            invalid = large_overlap & label_match
-            keep_boxes += [boxes[0]]
-            boxes = boxes[~invalid]
-        boxes = np.stack(keep_boxes, 0) if len(keep_boxes) else np.array([])
-
-        return boxes
+        return keep
 
 
 class inferThread(threading.Thread):

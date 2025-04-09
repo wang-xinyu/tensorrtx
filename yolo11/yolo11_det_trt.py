@@ -19,6 +19,7 @@ IOU_THRESHOLD = 0.4
 POSE_NUM = 17 * 3
 DET_NUM = 6
 SEG_NUM = 32
+OBB_NUM = 1
 
 
 def get_img_path_batches(batch_size, img_dir):
@@ -291,7 +292,7 @@ class YoLo11TRT(object):
             result_scores: finally scores, a numpy, each element is the score correspoing to box
             result_classid: finally classid, a numpy, each element is the classid correspoing to box
         """
-        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM
+        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM + OBB_NUM
         # Get the num of boxes detected
         num = int(output[0])
         # Reshape to a two dimentional ndarray

@@ -1,12 +1,12 @@
 #pragma once
-#include <dirent.h>
-#include <fstream>
 #include <opencv2/opencv.hpp>
+#include <dirent.h>
+#include <fstream>  
 
 static inline cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
     int w, h, x, y;
-    float r_w = input_w / (img.cols * 1.0);
-    float r_h = input_h / (img.rows * 1.0);
+    float r_w = input_w / (img.cols*1.0);
+    float r_h = input_h / (img.rows*1.0);
     if (r_h > r_w) {
         w = input_w;
         h = r_w * img.rows;
@@ -25,20 +25,21 @@ static inline cv::Mat preprocess_img(cv::Mat& img, int input_w, int input_h) {
     return out;
 }
 
-static inline int read_files_in_dir(const char* p_dir_name, std::vector<std::string>& file_names) {
-    DIR* p_dir = opendir(p_dir_name);
+static inline int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
+    DIR *p_dir = opendir(p_dir_name);
     if (p_dir == nullptr) {
         return -1;
     }
 
     struct dirent* p_file = nullptr;
     while ((p_file = readdir(p_dir)) != nullptr) {
-        if (strcmp(p_file->d_name, ".") != 0 && strcmp(p_file->d_name, "..") != 0) {
+        if (strcmp(p_file->d_name, ".") != 0 &&
+            strcmp(p_file->d_name, "..") != 0) {
             //std::string cur_file_name(p_dir_name);
             //cur_file_name += "/";
             //cur_file_name += p_file->d_name;
             std::string cur_file_name(p_file->d_name);
-            //            std::cout << "Found file: " << cur_file_name << std::endl;
+//            std::cout << "Found file: " << cur_file_name << std::endl;
             file_names.push_back(cur_file_name);
         }
     }
@@ -83,3 +84,4 @@ static inline int read_labels(const std::string labels_filename, std::unordered_
 
     return 0;
 }
+
