@@ -8,10 +8,15 @@ const static char* kProtoTensorName = "proto";
 const static int kNumClass = 80;
 const static int kPoseNumClass = 1;
 const static int kNumberOfPoints = 17;  // number of keypoints total
+// obb model's number of classes
+constexpr static int kObbNumClass = 15;
+const static int kObbNe = 1;  // number of extra parameters
 const static int kBatchSize = 1;
 const static int kGpuId = 0;
 const static int kInputH = 640;
 const static int kInputW = 640;
+const static int kObbInputH = 1024;
+const static int kObbInputW = 1024;
 const static float kNmsThresh = 0.45f;
 const static float kConfThresh = 0.5f;
 const static float kConfThreshKeypoints = 0.5f;  // keypoints confidence

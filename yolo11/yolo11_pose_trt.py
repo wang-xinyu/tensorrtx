@@ -19,6 +19,7 @@ IOU_THRESHOLD = 0.4
 POSE_NUM = 17 * 3
 DET_NUM = 6
 SEG_NUM = 32
+OBB_NUM = 1
 keypoint_pairs = [
     (0, 1), (0, 2), (0, 5), (0, 6), (1, 2),
     (1, 3), (2, 4), (5, 6), (5, 7), (5, 11),
@@ -153,8 +154,7 @@ class YoLo11TRT(object):
             batch_image_raw.append(image_raw)
             batch_origin_h.append(origin_h)
             batch_origin_w.append(origin_w)
-            np.copyto(batch_input_image[i],
-                      input_image)
+            np.copyto(batch_input_image[i], input_image)
         batch_input_image = np.ascontiguousarray(batch_input_image)
 
         # Copy input image to host buffer
@@ -329,8 +329,8 @@ class YoLo11TRT(object):
             result_keypoints: Final keypoints, a list of numpy arrays,
             each element represents keypoints for a box, shaped as (#keypoints, 3)
         """
-        # Number of values per detection: 38 base values + 17 keypoints * 3 values each
-        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM
+        # Number of values per detection: 38 base values + 17 keypoints * 3 values each + angle
+        num_values_per_detection = DET_NUM + SEG_NUM + POSE_NUM + OBB_NUM
         # Get the number of boxes detected
         num = int(output[0])
         # Reshape to a two-dimensional ndarray with the full detection shape
@@ -345,7 +345,7 @@ class YoLo11TRT(object):
         result_boxes = boxes[:, :4] if len(boxes) else np.array([])
         result_scores = boxes[:, 4] if len(boxes) else np.array([])
         result_classid = boxes[:, 5] if len(boxes) else np.array([])
-        result_keypoints = boxes[:, -POSE_NUM:] if len(boxes) else np.array([])
+        result_keypoints = boxes[:, -POSE_NUM - 1:-1] if len(boxes) else np.array([])
 
         # Return the post-processed results including keypoints
         return result_boxes, result_scores, result_classid, result_keypoints
@@ -405,11 +405,11 @@ class YoLo11TRT(object):
         # Trandform bbox from [center_x, center_y, w, h] to [x1, y1, x2, y2]
         res_array = np.copy(boxes)
         box_pred_deep_copy = np.copy(boxes[:, :4])
-        keypoints_pred_deep_copy = np.copy(boxes[:, -POSE_NUM:])
+        keypoints_pred_deep_copy = np.copy(boxes[:, -POSE_NUM - 1:-1])
         res_box, res_keypoints = self.xywh2xyxy_with_keypoints(
             origin_h, origin_w, box_pred_deep_copy, keypoints_pred_deep_copy)
         res_array[:, :4] = res_box
-        res_array[:, -POSE_NUM:] = res_keypoints
+        res_array[:, -POSE_NUM - 1:-1] = res_keypoints
         # clip the coordinates
         res_array[:, 0] = np.clip(res_array[:, 0], 0, origin_w - 1)
         res_array[:, 2] = np.clip(res_array[:, 2], 0, origin_w - 1)

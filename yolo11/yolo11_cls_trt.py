@@ -81,7 +81,6 @@ class YoLo11TRT(object):
         # Store
         self.stream = stream
         self.context = context
-        self.engine = engine
         self.host_inputs = host_inputs
         self.cuda_inputs = cuda_inputs
         self.host_outputs = host_outputs

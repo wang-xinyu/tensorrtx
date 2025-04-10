@@ -116,7 +116,7 @@ nvinfer1::IHostMemory* buildEngineYolo11Cls(nvinfer1::IBuilder* builder, nvinfer
     std::cout << "Your platform supports int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator = new Int8EntropyCalibrator2(kBatchSize, kClsInputW, kClsInputH, kInputQuantizationFolder,
+    auto* calibrator = new Int8EntropyCalibrator2(1, kClsInputW, kClsInputH, kInputQuantizationFolder,
                                                   "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
@@ -379,7 +379,7 @@ nvinfer1::IHostMemory* buildEngineYolo11Det(nvinfer1::IBuilder* builder, nvinfer
 
     nvinfer1::IPluginV2Layer* yolo =
             addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat22_dfl_0, cat22_dfl_1, cat22_dfl_2},
-                         strides, stridesLength, false, false);
+                         strides, stridesLength, false, false, false);
 
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
@@ -392,8 +392,8 @@ nvinfer1::IHostMemory* buildEngineYolo11Det(nvinfer1::IBuilder* builder, nvinfer
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator = new Int8EntropyCalibrator2(kBatchSize, kInputW, kInputH, kInputQuantizationFolder,
-                                                  "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -484,6 +484,12 @@ static nvinfer1::IShuffleLayer* cv4_conv_combined(nvinfer1::INetworkDefinition* 
     } else if (algo_type == "pose") {
         nm_nk = kNumberOfPoints * 3;
         c4 = std::max(get_width(256, gw, max_channels) / 4, kNumberOfPoints * 3);
+    } else if (algo_type == "obb") {
+        nm_nk = kObbNe;
+        c4 = std::max(get_width(256, gw, max_channels) / 4, nm_nk);
+    } else {
+        std::cerr << "Unknown algo type: " << algo_type << std::endl;
+        return nullptr;
     }
 
     auto cv0 = convBnSiLU(network, weightMap, input, c4, {3, 3}, 1, lname + ".0");
@@ -759,7 +765,7 @@ nvinfer1::IHostMemory* buildEngineYolo11Seg(nvinfer1::IBuilder* builder, nvinfer
 
     nvinfer1::IPluginV2Layer* yolo =
             addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat23_dfl_0, cat23_dfl_1, cat23_dfl_2},
-                         strides, stridesLength, true, false);
+                         strides, stridesLength, true, false, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
@@ -775,8 +781,8 @@ nvinfer1::IHostMemory* buildEngineYolo11Seg(nvinfer1::IBuilder* builder, nvinfer
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator = new Int8EntropyCalibrator2(kBatchSize, kInputW, kInputH, kInputQuantizationFolder,
-                                                  "int8calib.table", kInputTensorName);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif
 
@@ -1054,7 +1060,7 @@ nvinfer1::IHostMemory* buildEngineYolo11Pose(nvinfer1::IBuilder* builder, nvinfe
 
     nvinfer1::IPluginV2Layer* yolo =
             addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat23_dfl_0, cat23_dfl_1, cat23_dfl_2},
-                         strides, stridesLength, false, true);
+                         strides, stridesLength, false, true, false);
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
@@ -1066,7 +1072,306 @@ nvinfer1::IHostMemory* buildEngineYolo11Pose(nvinfer1::IBuilder* builder, nvinfe
     std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
     assert(builder->platformHasFastInt8());
     config->setFlag(nvinfer1::BuilderFlag::kINT8);
-    auto* calibrator = new Int8EntropyCalibrator2(kBatchSize, kInputW, kInputH, kInputQuantizationFolder,
+    auto* calibrator = new Int8EntropyCalibrator2(1, kInputW, kInputH, kInputQuantizationFolder, "int8calib.table",
+                                                  kInputTensorName);
+    config->setInt8Calibrator(calibrator);
+#endif
+
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    nvinfer1::IHostMemory* serialized_model = builder->buildSerializedNetwork(*network, *config);
+    std::cout << "Build engine successfully!" << std::endl;
+
+    delete network;
+
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
+    }
+    return serialized_model;
+}
+
+nvinfer1::IHostMemory* buildEngineYolo11Obb(nvinfer1::IBuilder* builder, nvinfer1::IBuilderConfig* config,
+                                            nvinfer1::DataType dt, const std::string& wts_path, float& gd, float& gw,
+                                            int& max_channels, std::string& type) {
+    std::map<std::string, nvinfer1::Weights> weightMap = loadWeights(wts_path);
+    //	nvinfer1::INetworkDefinition *network = builder->createNetworkV2(0U);
+    nvinfer1::INetworkDefinition* network = builder->createNetworkV2(
+            1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+
+    /*******************************************************************************************************
+    ******************************************  YOLO11 INPUT  **********************************************
+    *******************************************************************************************************/
+    nvinfer1::ITensor* data =
+            network->addInput(kInputTensorName, dt, nvinfer1::Dims4{kBatchSize, 3, kObbInputH, kObbInputW});
+    assert(data);
+
+    /*******************************************************************************************************
+    *****************************************  YOLO11 BACKBONE  ********************************************
+    *******************************************************************************************************/
+    nvinfer1::IElementWiseLayer* conv0 =
+            convBnSiLU(network, weightMap, *data, get_width(64, gw, max_channels), {3, 3}, 2, "model.0");
+    nvinfer1::IElementWiseLayer* conv1 = convBnSiLU(network, weightMap, *conv0->getOutput(0),
+                                                    get_width(128, gw, max_channels), {3, 3}, 2, "model.1");
+    // 11233
+    bool c3k = false;
+    if (type == "m" || type == "l" || type == "x") {
+        c3k = true;
+    }
+    nvinfer1::IElementWiseLayer* conv2 =
+            C3K2(network, weightMap, *conv1->getOutput(0), get_width(128, gw, max_channels),
+                 get_width(256, gw, max_channels), get_depth(2, gd), c3k, true, 0.25, "model.2");
+    nvinfer1::IElementWiseLayer* conv3 = convBnSiLU(network, weightMap, *conv2->getOutput(0),
+                                                    get_width(256, gw, max_channels), {3, 3}, 2, "model.3");
+    // 22466
+    nvinfer1::IElementWiseLayer* conv4 =
+            C3K2(network, weightMap, *conv3->getOutput(0), get_width(256, gw, max_channels),
+                 get_width(512, gw, max_channels), get_depth(2, gd), c3k, true, 0.25, "model.4");
+    nvinfer1::IElementWiseLayer* conv5 = convBnSiLU(network, weightMap, *conv4->getOutput(0),
+                                                    get_width(512, gw, max_channels), {3, 3}, 2, "model.5");
+    // 22466
+    nvinfer1::IElementWiseLayer* conv6 =
+            C3K2(network, weightMap, *conv5->getOutput(0), get_width(512, gw, max_channels),
+                 get_width(512, gw, max_channels), get_depth(2, gd), true, true, 0.5, "model.6");
+    nvinfer1::IElementWiseLayer* conv7 = convBnSiLU(network, weightMap, *conv6->getOutput(0),
+                                                    get_width(1024, gw, max_channels), {3, 3}, 2, "model.7");
+    // 11233
+    nvinfer1::IElementWiseLayer* conv8 =
+            C3K2(network, weightMap, *conv7->getOutput(0), get_width(1024, gw, max_channels),
+                 get_width(1024, gw, max_channels), get_depth(2, gd), true, true, 0.5, "model.8");
+    nvinfer1::IElementWiseLayer* conv9 =
+            SPPF(network, weightMap, *conv8->getOutput(0), get_width(1024, gw, max_channels),
+                 get_width(1024, gw, max_channels), 5, "model.9");
+    auto* conv10 = C2PSA(network, weightMap, *conv9->getOutput(0), get_width(1024, gw, max_channels),
+                         get_width(1024, gw, max_channels), get_depth(2, gd), 0.5, "model.10");
+    /*******************************************************************************************************
+    *********************************************  YOLO11 HEAD  ********************************************
+    *******************************************************************************************************/
+    float scale[] = {1.0, 1.0, 2.0, 2.0};
+    nvinfer1::IResizeLayer* upsample11 = network->addResize(*conv10->getOutput(0));
+    assert(upsample11);
+    upsample11->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample11->setScales(scale, 4);
+
+    nvinfer1::ITensor* inputTensor12[] = {upsample11->getOutput(0), conv6->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat12 = network->addConcatenation(inputTensor12, 2);
+
+    nvinfer1::IElementWiseLayer* conv13 =
+            C3K2(network, weightMap, *cat12->getOutput(0), get_width(512, gw, max_channels),
+                 get_width(512, gw, max_channels), get_depth(2, gd), c3k, true, 0.5, "model.13");
+
+    nvinfer1::IResizeLayer* upsample14 = network->addResize(*conv13->getOutput(0));
+    assert(upsample14);
+    upsample14->setResizeMode(nvinfer1::InterpolationMode::kNEAREST);
+    upsample14->setScales(scale, 4);
+
+    nvinfer1::ITensor* inputTensor15[] = {upsample14->getOutput(0), conv4->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat15 = network->addConcatenation(inputTensor15, 2);
+
+    nvinfer1::IElementWiseLayer* conv16 =
+            C3K2(network, weightMap, *cat15->getOutput(0), get_width(256, gw, max_channels),
+                 get_width(256, gw, max_channels), get_depth(2, gd), c3k, true, 0.5, "model.16");
+
+    nvinfer1::IElementWiseLayer* conv17 = convBnSiLU(network, weightMap, *conv16->getOutput(0),
+                                                     get_width(256, gw, max_channels), {3, 3}, 2, "model.17");
+    nvinfer1::ITensor* inputTensor18[] = {conv17->getOutput(0), conv13->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat18 = network->addConcatenation(inputTensor18, 2);
+    nvinfer1::IElementWiseLayer* conv19 =
+            C3K2(network, weightMap, *cat18->getOutput(0), get_width(512, gw, max_channels),
+                 get_width(512, gw, max_channels), get_depth(2, gd), c3k, true, 0.5, "model.19");
+
+    nvinfer1::IElementWiseLayer* conv20 = convBnSiLU(network, weightMap, *conv19->getOutput(0),
+                                                     get_width(512, gw, max_channels), {3, 3}, 2, "model.20");
+    nvinfer1::ITensor* inputTensor21[] = {conv20->getOutput(0), conv10->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat21 = network->addConcatenation(inputTensor21, 2);
+    nvinfer1::IElementWiseLayer* conv22 =
+            C3K2(network, weightMap, *cat21->getOutput(0), get_width(1024, gw, max_channels),
+                 get_width(1024, gw, max_channels), get_depth(2, gd), true, true, 0.5, "model.22");
+
+    /*******************************************************************************************************
+    *********************************************  YOLO11 OUTPUT  ******************************************
+    *******************************************************************************************************/
+    // c2, c3 = max((16, ch[0] // 4, self.reg_max * 4)), max(ch[0], min(self.nc, 100))  # channels
+    // c4 = max(ch[0] // 4, self.ne)
+    int c2 = std::max(std::max(16, get_width(256, gw, max_channels) / 4), 16 * 4);
+    int c3 = std::max(get_width(256, gw, max_channels), std::min(kObbNumClass, 100));
+    int c4 = std::max(get_width(256, gw, max_channels) / 4, kObbNe);
+
+    // output0
+    nvinfer1::IElementWiseLayer* conv23_cv2_0_0 =
+            convBnSiLU(network, weightMap, *conv16->getOutput(0), c2, {3, 3}, 1, "model.23.cv2.0.0");
+    nvinfer1::IElementWiseLayer* conv23_cv2_0_1 =
+            convBnSiLU(network, weightMap, *conv23_cv2_0_0->getOutput(0), c2, {3, 3}, 1, "model.23.cv2.0.1");
+    nvinfer1::IConvolutionLayer* conv23_cv2_0_2 =
+            network->addConvolutionNd(*conv23_cv2_0_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1},
+                                      weightMap["model.23.cv2.0.2.weight"], weightMap["model.23.cv2.0.2.bias"]);
+    conv23_cv2_0_2->setStrideNd(nvinfer1::DimsHW{1, 1});
+    conv23_cv2_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
+    auto* conv23_cv3_0_0_0 = DWConv(network, weightMap, *conv16->getOutput(0), get_width(256, gw, max_channels), {3, 3},
+                                    1, "model.23.cv3.0.0.0");
+    auto* conv23_cv3_0_0_1 =
+            convBnSiLU(network, weightMap, *conv23_cv3_0_0_0->getOutput(0), c3, {1, 1}, 1, "model.23.cv3.0.0.1");
+    auto* conv23_cv3_0_1_0 =
+            DWConv(network, weightMap, *conv23_cv3_0_0_1->getOutput(0), c3, {3, 3}, 1, "model.23.cv3.0.1.0");
+    auto* conv23_cv3_0_1_1 =
+            convBnSiLU(network, weightMap, *conv23_cv3_0_1_0->getOutput(0), c3, {1, 1}, 1, "model.23.cv3.0.1.1");
+    nvinfer1::IConvolutionLayer* conv23_cv3_0_2 =
+            network->addConvolutionNd(*conv23_cv3_0_1_1->getOutput(0), kObbNumClass, nvinfer1::DimsHW{1, 1},
+                                      weightMap["model.23.cv3.0.2.weight"], weightMap["model.23.cv3.0.2.bias"]);
+    conv23_cv3_0_2->setStrideNd(nvinfer1::DimsHW{1, 1});
+    conv23_cv3_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
+    nvinfer1::ITensor* inputTensor23_0[] = {conv23_cv2_0_2->getOutput(0), conv23_cv3_0_2->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat23_0 = network->addConcatenation(inputTensor23_0, 2);
+
+    // output1
+    nvinfer1::IElementWiseLayer* conv23_cv2_1_0 =
+            convBnSiLU(network, weightMap, *conv19->getOutput(0), c2, {3, 3}, 1, "model.23.cv2.1.0");
+    nvinfer1::IElementWiseLayer* conv23_cv2_1_1 =
+            convBnSiLU(network, weightMap, *conv23_cv2_1_0->getOutput(0), c2, {3, 3}, 1, "model.23.cv2.1.1");
+    nvinfer1::IConvolutionLayer* conv23_cv2_1_2 =
+            network->addConvolutionNd(*conv23_cv2_1_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1},
+                                      weightMap["model.23.cv2.1.2.weight"], weightMap["model.23.cv2.1.2.bias"]);
+    conv23_cv2_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
+    conv23_cv2_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
+    auto* conv23_cv3_1_0_0 = DWConv(network, weightMap, *conv19->getOutput(0), get_width(512, gw, max_channels), {3, 3},
+                                    1, "model.23.cv3.1.0.0");
+    auto* conv23_cv3_1_0_1 =
+            convBnSiLU(network, weightMap, *conv23_cv3_1_0_0->getOutput(0), c3, {1, 1}, 1, "model.23.cv3.1.0.1");
+    auto* conv23_cv3_1_1_0 =
+            DWConv(network, weightMap, *conv23_cv3_1_0_1->getOutput(0), c3, {3, 3}, 1, "model.23.cv3.1.1.0");
+    auto* conv23_cv3_1_1_1 =
+            convBnSiLU(network, weightMap, *conv23_cv3_1_1_0->getOutput(0), c3, {1, 1}, 1, "model.23.cv3.1.1.1");
+    nvinfer1::IConvolutionLayer* conv23_cv3_1_2 =
+            network->addConvolutionNd(*conv23_cv3_1_1_1->getOutput(0), kObbNumClass, nvinfer1::DimsHW{1, 1},
+                                      weightMap["model.23.cv3.1.2.weight"], weightMap["model.23.cv3.1.2.bias"]);
+    conv23_cv3_1_2->setStrideNd(nvinfer1::DimsHW{1, 1});
+    conv23_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
+    nvinfer1::ITensor* inputTensor23_1[] = {conv23_cv2_1_2->getOutput(0), conv23_cv3_1_2->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat23_1 = network->addConcatenation(inputTensor23_1, 2);
+
+    // output2
+    nvinfer1::IElementWiseLayer* conv23_cv2_2_0 =
+            convBnSiLU(network, weightMap, *conv22->getOutput(0), c2, {3, 3}, 1, "model.23.cv2.2.0");
+    nvinfer1::IElementWiseLayer* conv23_cv2_2_1 =
+            convBnSiLU(network, weightMap, *conv23_cv2_2_0->getOutput(0), c2, {3, 3}, 1, "model.23.cv2.2.1");
+    nvinfer1::IConvolutionLayer* conv23_cv2_2_2 =
+            network->addConvolutionNd(*conv23_cv2_2_1->getOutput(0), 64, nvinfer1::DimsHW{1, 1},
+                                      weightMap["model.23.cv2.2.2.weight"], weightMap["model.23.cv2.2.2.bias"]);
+    conv23_cv2_2_2->setStrideNd(nvinfer1::DimsHW{1, 1});
+    conv23_cv2_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
+    auto* conv23_cv3_2_0_0 = DWConv(network, weightMap, *conv22->getOutput(0), get_width(1024, gw, max_channels),
+                                    {3, 3}, 1, "model.23.cv3.2.0.0");
+    auto* conv23_cv3_2_0_1 =
+            convBnSiLU(network, weightMap, *conv23_cv3_2_0_0->getOutput(0), c3, {1, 1}, 1, "model.23.cv3.2.0.1");
+    auto* conv23_cv3_2_1_0 =
+            DWConv(network, weightMap, *conv23_cv3_2_0_1->getOutput(0), c3, {3, 3}, 1, "model.23.cv3.2.1.0");
+    auto* conv23_cv3_2_1_1 =
+            convBnSiLU(network, weightMap, *conv23_cv3_2_1_0->getOutput(0), c3, {1, 1}, 1, "model.23.cv3.2.1.1");
+    nvinfer1::IConvolutionLayer* conv23_cv3_2_2 =
+            network->addConvolutionNd(*conv23_cv3_2_1_1->getOutput(0), kObbNumClass, nvinfer1::DimsHW{1, 1},
+                                      weightMap["model.23.cv3.2.2.weight"], weightMap["model.23.cv3.2.2.bias"]);
+    conv23_cv3_2_2->setStrideNd(nvinfer1::DimsHW{1, 1});
+    conv23_cv3_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
+    nvinfer1::ITensor* inputTensor23_2[] = {conv23_cv2_2_2->getOutput(0), conv23_cv3_2_2->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat23_2 = network->addConcatenation(inputTensor23_2, 2);
+
+    /*******************************************************************************************************
+    *********************************************  YOLO11 DETECT  ******************************************
+    *******************************************************************************************************/
+
+    nvinfer1::IElementWiseLayer* conv_layers[] = {conv3, conv5, conv7};
+    int strides[sizeof(conv_layers) / sizeof(conv_layers[0])];
+    calculateStrides(conv_layers, sizeof(conv_layers) / sizeof(conv_layers[0]), kObbInputH, strides);
+    int stridesLength = sizeof(strides) / sizeof(int);
+
+    nvinfer1::IShuffleLayer* shuffle23_0 = network->addShuffle(*cat23_0->getOutput(0));
+    shuffle23_0->setReshapeDimensions(
+            nvinfer1::Dims3{kBatchSize, 64 + kObbNumClass, (kObbInputH / strides[0]) * (kObbInputW / strides[0])});
+    nvinfer1::ISliceLayer* split23_0_0 =
+            network->addSlice(*shuffle23_0->getOutput(0), nvinfer1::Dims3{0, 0, 0},
+                              nvinfer1::Dims3{kBatchSize, 64, (kObbInputH / strides[0]) * (kObbInputW / strides[0])},
+                              nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::ISliceLayer* split23_0_1 = network->addSlice(
+            *shuffle23_0->getOutput(0), nvinfer1::Dims3{0, 64, 0},
+            nvinfer1::Dims3{kBatchSize, kObbNumClass, (kObbInputH / strides[0]) * (kObbInputW / strides[0])},
+            nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::IShuffleLayer* dfl23_0 =
+            DFL(network, weightMap, *split23_0_0->getOutput(0), 4,
+                (kObbInputH / strides[0]) * (kObbInputW / strides[0]), 1, 1, 0, "model.23.dfl.conv.weight");
+
+    nvinfer1::IShuffleLayer* shuffle23_1 = network->addShuffle(*cat23_1->getOutput(0));
+    shuffle23_1->setReshapeDimensions(
+            nvinfer1::Dims3{kBatchSize, 64 + kObbNumClass, (kObbInputH / strides[1]) * (kObbInputW / strides[1])});
+    nvinfer1::ISliceLayer* split23_1_0 =
+            network->addSlice(*shuffle23_1->getOutput(0), nvinfer1::Dims3{0, 0, 0},
+                              nvinfer1::Dims3{kBatchSize, 64, (kObbInputH / strides[1]) * (kObbInputW / strides[1])},
+                              nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::ISliceLayer* split23_1_1 = network->addSlice(
+            *shuffle23_1->getOutput(0), nvinfer1::Dims3{0, 64, 0},
+            nvinfer1::Dims3{kBatchSize, kObbNumClass, (kObbInputH / strides[1]) * (kObbInputW / strides[1])},
+            nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::IShuffleLayer* dfl23_1 =
+            DFL(network, weightMap, *split23_1_0->getOutput(0), 4,
+                (kObbInputH / strides[1]) * (kObbInputW / strides[1]), 1, 1, 0, "model.23.dfl.conv.weight");
+
+    nvinfer1::IShuffleLayer* shuffle23_2 = network->addShuffle(*cat23_2->getOutput(0));
+    shuffle23_2->setReshapeDimensions(
+            nvinfer1::Dims3{kBatchSize, 64 + kObbNumClass, (kObbInputH / strides[2]) * (kObbInputW / strides[2])});
+    nvinfer1::ISliceLayer* split23_2_0 =
+            network->addSlice(*shuffle23_2->getOutput(0), nvinfer1::Dims3{0, 0, 0},
+                              nvinfer1::Dims3{kBatchSize, 64, (kObbInputH / strides[2]) * (kObbInputW / strides[2])},
+                              nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::ISliceLayer* split23_2_1 = network->addSlice(
+            *shuffle23_2->getOutput(0), nvinfer1::Dims3{0, 64, 0},
+            nvinfer1::Dims3{kBatchSize, kObbNumClass, (kObbInputH / strides[2]) * (kObbInputW / strides[2])},
+            nvinfer1::Dims3{1, 1, 1});
+    nvinfer1::IShuffleLayer* dfl23_2 =
+            DFL(network, weightMap, *split23_2_0->getOutput(0), 4,
+                (kObbInputH / strides[2]) * (kObbInputW / strides[2]), 1, 1, 0, "model.23.dfl.conv.weight");
+
+    // det0
+    auto shuffle_conv16 =
+            cv4_conv_combined(network, weightMap, *conv16->getOutput(0), "model.23.cv4.0",
+                              (kObbInputH / strides[0]) * (kObbInputW / strides[0]), gw, "obb", max_channels);
+
+    nvinfer1::ITensor* inputTensor23_dfl_0[] = {dfl23_0->getOutput(0), split23_0_1->getOutput(0),
+                                                shuffle_conv16->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat23_dfl_0 = network->addConcatenation(inputTensor23_dfl_0, 3);
+    cat23_dfl_0->setAxis(1);
+
+    // det1
+    auto shuffle_conv19 =
+            cv4_conv_combined(network, weightMap, *conv19->getOutput(0), "model.23.cv4.1",
+                              (kObbInputH / strides[1]) * (kObbInputW / strides[1]), gw, "obb", max_channels);
+    nvinfer1::ITensor* inputTensor23_dfl_1[] = {dfl23_1->getOutput(0), split23_1_1->getOutput(0),
+                                                shuffle_conv19->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat23_dfl_1 = network->addConcatenation(inputTensor23_dfl_1, 3);
+    cat23_dfl_1->setAxis(1);
+
+    // det2
+    auto shuffle_conv22 =
+            cv4_conv_combined(network, weightMap, *conv22->getOutput(0), "model.23.cv4.2",
+                              (kObbInputH / strides[2]) * (kObbInputW / strides[2]), gw, "obb", max_channels);
+    nvinfer1::ITensor* inputTensor23_dfl_2[] = {dfl23_2->getOutput(0), split23_2_1->getOutput(0),
+                                                shuffle_conv22->getOutput(0)};
+    nvinfer1::IConcatenationLayer* cat23_dfl_2 = network->addConcatenation(inputTensor23_dfl_2, 3);
+    cat23_dfl_2->setAxis(1);
+
+    // yolo layer
+    nvinfer1::IPluginV2Layer* yolo =
+            addYoLoLayer(network, std::vector<nvinfer1::IConcatenationLayer*>{cat23_dfl_0, cat23_dfl_1, cat23_dfl_2},
+                         strides, stridesLength, false, false, true);
+
+    yolo->getOutput(0)->setName(kOutputTensorName);
+    network->markOutput(*yolo->getOutput(0));
+
+    config->setMemoryPoolLimit(nvinfer1::MemoryPoolType::kWORKSPACE, 16 * (1 << 20));
+
+#if defined(USE_FP16)
+    config->setFlag(nvinfer1::BuilderFlag::kFP16);
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(nvinfer1::BuilderFlag::kINT8);
+    auto* calibrator = new Int8EntropyCalibrator2(1, kObbInputW, kObbInputH, kInputQuantizationFolder,
                                                   "int8calib.table", kInputTensorName);
     config->setInt8Calibrator(calibrator);
 #endif

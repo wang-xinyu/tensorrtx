@@ -19,7 +19,7 @@ void serialize_engine(std::string& wts_name, std::string& engine_name, std::stri
     IBuilderConfig* config = builder->createBuilderConfig();
     IHostMemory* serialized_engine = nullptr;
 
-    serialized_engine = buildEngineYolo11Pose(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels, type);
+    serialized_engine = buildEngineYolo11Obb(builder, config, DataType::kFLOAT, wts_name, gd, gw, max_channels, type);
 
     assert(serialized_engine);
     std::ofstream p(engine_name, std::ios::binary);
@@ -67,11 +67,13 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
     const int inputIndex = engine->getBindingIndex(kInputTensorName);
     const int outputIndex = engine->getBindingIndex(kOutputTensorName);
+
     assert(inputIndex == 0);
     assert(outputIndex == 1);
     // Create GPU buffers on device
-    CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
+    CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kObbInputH * kObbInputW * sizeof(float)));
     CUDA_CHECK(cudaMalloc((void**)output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
+
     if (cuda_post_process == "c") {
         *output_buffer_host = new float[kBatchSize * kOutputSize];
     } else if (cuda_post_process == "g") {
@@ -99,8 +101,8 @@ void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, flo
     } else if (cuda_post_process == "g") {
         CUDA_CHECK(
                 cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
-        cuda_decode((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
-        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  //cuda nms
+        cuda_decode_obb((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
+        cuda_nms_obb(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  //cuda nms
         CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device,
                                    sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost,
                                    stream));
@@ -116,10 +118,10 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, st
                 std::string& cuda_post_process, float& gd, float& gw, int& max_channels) {
     if (argc < 4)
         return false;
-    if (std::string(argv[1]) == "-s" && (argc == 5 || argc == 7)) {
+    if (std::string(argv[1]) == "-s" && argc == 5) {
         wts = std::string(argv[2]);
         engine = std::string(argv[3]);
-        auto sub_type = std::string(argv[4]);
+        std::string sub_type = std::string(argv[4]);
         if (sub_type[0] == 'n') {
             gd = 0.50;
             gw = 0.25;
@@ -159,8 +161,8 @@ bool parse_args(int argc, char** argv, std::string& wts, std::string& engine, st
 }
 
 int main(int argc, char** argv) {
-    // yolo11_pose -s ../models/yolo11n-pose.wts ../models/yolo11n-pose.fp32.trt n
-    // yolo11_pose -d ../models/yolo11n-pose.fp32.trt ../images c
+    // yolo11_obb -s ../models/yolo11n-obb.wts ../models/yolo11n-obb.fp32.trt n
+    // yolo11_obb -d ../models/yolo11n-obb.fp32.trt ../images c
     cudaSetDevice(kGpuId);
     std::string wts_name;
     std::string engine_name;
@@ -173,10 +175,8 @@ int main(int argc, char** argv) {
 
     if (!parse_args(argc, argv, wts_name, engine_name, img_dir, type, cuda_post_process, gd, gw, max_channels)) {
         std::cerr << "Arguments not right!" << std::endl;
-        std::cerr << "./yolo11_pose -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to "
-                     "plan file"
-                  << std::endl;
-        std::cerr << "./yolo11_pose -d [.engine] ../images  [c/g]// deserialize plan file and run inference"
+        std::cerr << "./yolo11_obb -s [.wts] [.engine] [n/s/m/l/x]  // serialize model to plan file" << std::endl;
+        std::cerr << "./yolo11_obb -d [.engine] ../images  [c/g]// deserialize plan file and run inference"
                   << std::endl;
         return -1;
     }
@@ -224,21 +224,22 @@ int main(int argc, char** argv) {
             img_name_batch.push_back(file_names[j]);
         }
         // Preprocess
-        cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
+        cuda_batch_preprocess(img_batch, device_buffers[0], kObbInputW, kObbInputH, stream);
         // Run inference
         infer(*context, stream, (void**)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host,
               decode_ptr_device, model_bboxes, cuda_post_process);
         std::vector<std::vector<Detection>> res_batch;
         if (cuda_post_process == "c") {
             // NMS
-            batch_nms(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
+            batch_nms_obb(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
         } else if (cuda_post_process == "g") {
-            // Process gpu decode and nms results
-            // todo pose in gpu
-            std::cerr << "pose_postprocess is not support in gpu right now" << std::endl;
+            //Process gpu decode and nms results
+            //            batch_process_obb(res_batch, decode_ptr_host, img_batch.size(), bbox_element, img_batch);
+            // todo seg in gpu
+            std::cerr << "obb_postprocess is not support in gpu right now" << std::endl;
         }
         // Draw bounding boxes
-        draw_bbox_keypoints_line(img_batch, res_batch);
+        draw_bbox_obb(img_batch, res_batch);
         // Save images
         for (size_t j = 0; j < img_batch.size(); j++) {
             cv::imwrite("_" + img_name_batch[j], img_batch[j]);
@@ -259,13 +260,13 @@ int main(int argc, char** argv) {
     delete runtime;
 
     // Print histogram of the output distribution
-    //std::cout << "\nOutput:\n\n";
-    //for (unsigned int i = 0; i < kOutputSize; i++)
+    // std::cout << "\nOutput:\n\n";
+    // for (unsigned int i = 0; i < kOutputSize; i++)
     //{
     //    std::cout << prob[i] << ", ";
     //    if (i % 10 == 0) std::cout << std::endl;
     //}
-    //std::cout << std::endl;
+    // std::cout << std::endl;
 
     return 0;
 }

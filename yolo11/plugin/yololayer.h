@@ -1,5 +1,6 @@
 #pragma once
 
+#include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
 #include "NvInfer.h"
@@ -9,7 +10,7 @@ namespace nvinfer1 {
 class API YoloLayerPlugin : public IPluginV2IOExt {
    public:
     YoloLayerPlugin(int classCount, int numberofpoints, float confthreshkeypoints, int netWidth, int netHeight,
-                    int maxOut, bool is_segmentation, bool is_pose, const int* strides, int stridesLength);
+                    int maxOut, bool is_segmentation, bool is_pose, bool is_obb, const int* strides, int stridesLength);
 
     YoloLayerPlugin(const void* data, size_t length);
 
@@ -79,6 +80,7 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
     int mMaxOutObject;
     bool is_segmentation_;
     bool is_pose_;
+    bool is_obb_;
     int* mStrides;
     int mStridesLength;
 };

@@ -26,8 +26,8 @@ __device__ float sigmoid(float x) {
 
 namespace nvinfer1 {
 YoloLayerPlugin::YoloLayerPlugin(int classCount, int numberofpoints, float confthreshkeypoints, int netWidth,
-                                 int netHeight, int maxOut, bool is_segmentation, bool is_pose, const int* strides,
-                                 int stridesLength) {
+                                 int netHeight, int maxOut, bool is_segmentation, bool is_pose, bool is_obb,
+                                 const int* strides, int stridesLength) {
 
     mClassCount = classCount;
     mNumberofpoints = numberofpoints;
@@ -40,6 +40,7 @@ YoloLayerPlugin::YoloLayerPlugin(int classCount, int numberofpoints, float conft
     memcpy(mStrides, strides, stridesLength * sizeof(int));
     is_segmentation_ = is_segmentation;
     is_pose_ = is_pose;
+    is_obb_ = is_obb;
 }
 
 YoloLayerPlugin::~YoloLayerPlugin() {
@@ -66,6 +67,7 @@ YoloLayerPlugin::YoloLayerPlugin(const void* data, size_t length) {
     }
     read(d, is_segmentation_);
     read(d, is_pose_);
+    read(d, is_obb_);
 
     assert(d == a + length);
 }
@@ -87,6 +89,7 @@ void YoloLayerPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
     }
     write(d, is_segmentation_);
     write(d, is_pose_);
+    write(d, is_obb_);
 
     assert(d == a + getSerializationSize());
 }
@@ -94,7 +97,7 @@ void YoloLayerPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
 size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT {
     return sizeof(mClassCount) + sizeof(mNumberofpoints) + sizeof(mConfthreshkeypoints) + sizeof(mThreadCount) +
            sizeof(mYoloV8netHeight) + sizeof(mYoloV8NetWidth) + sizeof(mMaxOutObject) + sizeof(mStridesLength) +
-           sizeof(int) * mStridesLength + sizeof(is_segmentation_) + sizeof(is_pose_);
+           sizeof(int) * mStridesLength + sizeof(is_segmentation_) + sizeof(is_pose_) + sizeof(is_obb_);
 }
 
 int YoloLayerPlugin::initialize() TRT_NOEXCEPT {
@@ -156,7 +159,7 @@ nvinfer1::IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT {
 
     YoloLayerPlugin* p =
             new YoloLayerPlugin(mClassCount, mNumberofpoints, mConfthreshkeypoints, mYoloV8NetWidth, mYoloV8netHeight,
-                                mMaxOutObject, is_segmentation_, is_pose_, mStrides, mStridesLength);
+                                mMaxOutObject, is_segmentation_, is_pose_, is_obb_, mStrides, mStridesLength);
     p->setPluginNamespace(mPluginNamespace);
     return p;
 }
@@ -173,14 +176,14 @@ __device__ float Logist(float data) {
 
 __global__ void CalDetection(const float* input, float* output, int numElements, int maxoutobject, const int grid_h,
                              int grid_w, const int stride, int classes, int nk, float confkeypoints, int outputElem,
-                             bool is_segmentation, bool is_pose) {
+                             bool is_segmentation, bool is_pose, bool is_obb) {
     int idx = threadIdx.x + blockDim.x * blockIdx.x;
     if (idx >= numElements)
         return;
 
     const int N_kpts = nk;
     int total_grid = grid_h * grid_w;
-    int info_len = 4 + classes + (is_segmentation ? 32 : 0) + (is_pose ? N_kpts * 3 : 0);
+    int info_len = 4 + classes + (is_segmentation ? 32 : 0) + (is_pose ? N_kpts * 3 : 0) + (is_obb ? 1 : 0);
     int batchIdx = idx / total_grid;
     int elemIdx = idx % total_grid;
     const float* curInput = input + batchIdx * total_grid * info_len;
@@ -217,15 +220,16 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
 
     if (is_segmentation) {
         for (int k = 0; k < 32; ++k) {
-            det->mask[k] = curInput[elemIdx + (4 + classes + k) * total_grid];
+            det->mask[k] =
+                    curInput[elemIdx + (4 + classes + (is_pose ? N_kpts * 3 : 0) + (is_obb ? 1 : 0) + k) * total_grid];
         }
     }
 
     if (is_pose) {
         for (int kpt = 0; kpt < N_kpts; kpt++) {
-            int kpt_x_idx = (4 + classes + (is_segmentation ? 32 : 0) + kpt * 3) * total_grid;
-            int kpt_y_idx = (4 + classes + (is_segmentation ? 32 : 0) + kpt * 3 + 1) * total_grid;
-            int kpt_conf_idx = (4 + classes + (is_segmentation ? 32 : 0) + kpt * 3 + 2) * total_grid;
+            int kpt_x_idx = (4 + classes + (is_segmentation ? 32 : 0) + (is_obb ? 1 : 0) + kpt * 3) * total_grid;
+            int kpt_y_idx = (4 + classes + (is_segmentation ? 32 : 0) + (is_obb ? 1 : 0) + kpt * 3 + 1) * total_grid;
+            int kpt_conf_idx = (4 + classes + (is_segmentation ? 32 : 0) + (is_obb ? 1 : 0) + kpt * 3 + 2) * total_grid;
 
             float kpt_confidence = sigmoid(curInput[elemIdx + kpt_conf_idx]);
 
@@ -246,16 +250,37 @@ __global__ void CalDetection(const float* input, float* output, int numElements,
             }
         }
     }
+
+    if (is_obb) {
+        double pi = CV_PI;
+        auto angle_inx = curInput[elemIdx + (4 + classes + (is_segmentation ? 32 : 0) + (is_pose ? N_kpts * 3 : 0) +
+                                             0) * total_grid];
+        auto angle = (sigmoid(angle_inx) - 0.25f) * pi;
+
+        auto cos1 = cos(angle);
+        auto sin1 = sin(angle);
+        auto xf = (curInput[elemIdx + 2 * total_grid] - curInput[elemIdx + 0 * total_grid]) / 2;
+        auto yf = (curInput[elemIdx + 3 * total_grid] - curInput[elemIdx + 1 * total_grid]) / 2;
+
+        auto x = xf * cos1 - yf * sin1;
+        auto y = xf * sin1 + yf * cos1;
+
+        float cx = (col + 0.5f + x) * stride;
+        float cy = (row + 0.5f + y) * stride;
+
+        float w1 = (curInput[elemIdx + 0 * total_grid] + curInput[elemIdx + 2 * total_grid]) * stride;
+        float h1 = (curInput[elemIdx + 1 * total_grid] + curInput[elemIdx + 3 * total_grid]) * stride;
+        det->bbox[0] = cx;
+        det->bbox[1] = cy;
+        det->bbox[2] = w1;
+        det->bbox[3] = h1;
+        det->angle = angle;
+    }
 }
 
 void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cudaStream_t stream, int mYoloV8netHeight,
                                  int mYoloV8NetWidth, int batchSize) {
     int outputElem = 1 + mMaxOutObject * sizeof(Detection) / sizeof(float);
-    if (is_segmentation_) {
-        outputElem = mMaxOutObject * (sizeof(Detection) - sizeof(float) * 51) / sizeof(float) + 1;
-    } else if (is_pose_) {
-        outputElem = mMaxOutObject * (sizeof(Detection) - sizeof(float) * 32) / sizeof(float) + 1;
-    }
     cudaMemsetAsync(output, 0, sizeof(float), stream);
     for (int idx = 0; idx < batchSize; ++idx) {
         CUDA_CHECK(cudaMemsetAsync(output + idx * outputElem, 0, sizeof(float), stream));
@@ -290,7 +315,7 @@ void YoloLayerPlugin::forwardGpu(const float* const* inputs, float* output, cuda
         // The CUDA kernel call remains unchanged
         CalDetection<<<(numElem + mThreadCount - 1) / mThreadCount, mThreadCount, 0, stream>>>(
                 inputs[i], output, numElem, mMaxOutObject, grid_h, grid_w, stride, mClassCount, mNumberofpoints,
-                mConfthreshkeypoints, outputElem, is_segmentation_, is_pose_);
+                mConfthreshkeypoints, outputElem, is_segmentation_, is_pose_, is_obb_);
     }
 
     delete[] flatGrids;
@@ -321,7 +346,7 @@ IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFi
     assert(fc->nbFields == 1);
     assert(strcmp(fc->fields[0].name, "combinedInfo") == 0);
     const int* combinedInfo = static_cast<const int*>(fc->fields[0].data);
-    int netinfo_count = 8;
+    int netinfo_count = 9;
     int class_count = combinedInfo[0];
     int numberofpoints = combinedInfo[1];
     float confthreshkeypoints = combinedInfo[2];
@@ -330,11 +355,12 @@ IPluginV2IOExt* YoloPluginCreator::createPlugin(const char* name, const PluginFi
     int max_output_object_count = combinedInfo[5];
     bool is_segmentation = combinedInfo[6];
     bool is_pose = combinedInfo[7];
+    bool is_obb = combinedInfo[8];
     const int* px_arry = combinedInfo + netinfo_count;
     int px_arry_length = fc->fields[0].length - netinfo_count;
     YoloLayerPlugin* obj =
             new YoloLayerPlugin(class_count, numberofpoints, confthreshkeypoints, input_w, input_h,
-                                max_output_object_count, is_segmentation, is_pose, px_arry, px_arry_length);
+                                max_output_object_count, is_segmentation, is_pose, is_obb, px_arry, px_arry_length);
     obj->setPluginNamespace(mNamespace.c_str());
     return obj;
 }
