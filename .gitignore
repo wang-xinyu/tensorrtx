@@ -1,6 +1,7 @@
 build
 *.wts
 *.engine
+*.tpymodel
 */*.ppm
 *idea*
 
