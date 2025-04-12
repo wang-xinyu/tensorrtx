@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): YOLO11-obb
 - `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
 - `18 Oct 2024`. [zgjja](https://github.com/zgjja): Rafactor docker image.
 - `11 Oct 2024`. [mpj1234](https://github.com/mpj1234): YOLO11
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
 - `11 Mar 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information
 - `7 Mar 2024`. [AadeIT](https://github.com/AadeIT): CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes
-- `17 Oct 2023`. [Rex-LK](https://github.com/Rex-LK): YOLOv8-Seg
 
 ## Tutorials
 
