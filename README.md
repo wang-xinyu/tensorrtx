@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First Lenet example writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): YOLO11-obb
 - `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
 - `18 Oct 2024`. [zgjja](https://github.com/zgjja): Rafactor docker image.
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
 - `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
 - `11 Mar 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information
-- `7 Mar 2024`. [AadeIT](https://github.com/AadeIT): CSRNet: Dilated Convolutional Neural Networks for Understanding the Highly Congested Scenes
 
 ## Tutorials
 
