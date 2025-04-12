@@ -45,3 +45,34 @@ python lenet.py -d   # deserialize plan file and run inference
 
 # 4. see if the output is same as pytorchx/lenet
 ```
+
+
+## Tripy (New TensorRT Python Programming Model)
+
+1. Generate `lenet5.wts` from https://github.com/wang-xinyu/pytorchx/tree/master/lenet
+
+2. Copy `lenet5.wts` into [tensorrtx/lenet](./)
+
+3. Install Tripy:
+
+    ```bash
+    python3 -m pip install nvtripy -f https://nvidia.github.io/TensorRT-Incubator/packages.html
+    ```
+
+4. Change directories:
+
+    ```bash
+    cd tensorrtx/lenet
+    ```
+
+5. Compile and save the model:
+
+    ```bash
+    python3 lenet_tripy.py -s
+    ```
+
+6. Load and run the model:
+
+    ```bash
+    python3 lenet_tripy.py -d
+    ```
