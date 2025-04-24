@@ -1,9 +1,10 @@
-import sys
+import sys  # noqa: F401
 import argparse
 import os
 import struct
 import torch
 from utils.torch_utils import select_device
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Convert .pt file to .wts')
@@ -25,6 +26,7 @@ def parse_args():
             os.path.splitext(os.path.basename(args.weights))[0] + '.wts')
     return args.weights, args.output, args.type
 
+
 pt_file, wts_file, m_type = parse_args()
 print(f'Generating .wts for {m_type} model')
 
@@ -32,7 +34,7 @@ print(f'Generating .wts for {m_type} model')
 print(f'Loading {pt_file}')
 device = select_device('cpu')
 model = torch.load(pt_file, map_location=device)  # Load FP32 weights
-model = model["model"].float()
+model = model['ema' if model.get('ema') else 'model'].float()
 
 if m_type in ['detect', 'seg']:
     # update anchor_grid info

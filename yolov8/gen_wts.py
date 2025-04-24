@@ -37,7 +37,8 @@ print(f'Loading {pt_file}')
 device = 'cpu'
 
 # Load model
-model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
+model = torch.load(pt_file, map_location=device)  # Load FP32 weights
+model = model['ema' if model.get('ema') else 'model'].float()
 
 if m_type in ['detect', 'seg', 'pose', 'obb']:
     anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
