@@ -16,7 +16,7 @@ The basic workflow of TensorRTx is:
 ## News
 
 - `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First [Lenet](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model) example writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
-- `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): [YOLO11-obb](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model)
+- `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): [YOLO11-obb](https://github.com/wang-xinyu/tensorrtx/tree/master/yolo11)
 - `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
 - `18 Oct 2024`. [zgjja](https://github.com/zgjja): Rafactor docker image.
 - `11 Oct 2024`. [mpj1234](https://github.com/mpj1234): YOLO11

@@ -38,9 +38,8 @@ print(f'Loading {pt_file}')
 device = 'cpu'
 
 # Load model
-model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
-# If the training is not finished, the model will be interrupted.
-# model = torch.load(pt_file, map_location=device)['ema'].float()  # load to FP32
+model = torch.load(pt_file, map_location=device)  # Load FP32 weights
+model = model['ema' if model.get('ema') else 'model'].float()
 
 model.to(device).eval()
 
