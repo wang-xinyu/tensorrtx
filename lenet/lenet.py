@@ -4,7 +4,7 @@ import struct
 import sys
 
 import numpy as np
-import pycuda.autoinit
+import pycuda.autoinit  # noqa: F401
 import pycuda.driver as cuda
 import tensorrt as trt
 
@@ -119,7 +119,7 @@ def createLenetEngine(maxBatchSize, builder, config, dt):
 
     # Build engine
     builder.max_batch_size = maxBatchSize
-    builder.max_workspace_size = 1 << 20
+    config.max_workspace_size = 1 << 20
     engine = builder.build_engine(network, config)
 
     del network
