@@ -157,66 +157,65 @@ nvinfer1::IShuffleLayer* DFL(nvinfer1::INetworkDefinition* network, std::map<std
 }
 
 nvinfer1::IPluginV2Layer* addYoLoLayer(nvinfer1::INetworkDefinition* network,
-    std::vector<nvinfer1::IConcatenationLayer*> dets, const int* px_arry,
-    int px_arry_num, bool is_segmentation, bool is_pose, bool is_obb) {
-auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
-const int netinfo_count = 9;  // Assuming the first 5 elements are for netinfo as per existing code.
-const int total_count = netinfo_count + px_arry_num;  // Total number of elements for netinfo and px_arry combined.
+                                       std::vector<nvinfer1::IConcatenationLayer*> dets, const int* px_arry,
+                                       int px_arry_num, bool is_segmentation, bool is_pose, bool is_obb) {
+    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
+    const int netinfo_count = 9;  // Assuming the first 5 elements are for netinfo as per existing code.
+    const int total_count = netinfo_count + px_arry_num;  // Total number of elements for netinfo and px_arry combined.
 
-std::vector<int> combinedInfo(total_count);
-int class_num = kNumClass;
-if (is_pose)
-class_num = kPoseNumClass;
-else if (is_obb)
-class_num = kObbNumClass;
-int input_w = kInputW;
-if (is_obb)
-input_w = kObbInputW;
-int input_h = kInputH;
-if (is_obb)
-input_h = kObbInputH;
-// Fill in the first 5 elements as per existing netinfo.
-combinedInfo[0] = class_num;
-combinedInfo[1] = kNumberOfPoints;
-combinedInfo[2] = kConfThreshKeypoints;
-combinedInfo[3] = input_w;
-combinedInfo[4] = input_h;
-combinedInfo[5] = kMaxNumOutputBbox;
-combinedInfo[6] = is_segmentation;
-combinedInfo[7] = is_pose;
-combinedInfo[8] = is_obb;
+    std::vector<int> combinedInfo(total_count);
+    int class_num = kNumClass;
+    if (is_pose)
+        class_num = kPoseNumClass;
+    else if (is_obb)
+        class_num = kObbNumClass;
+    int input_w = kInputW;
+    if (is_obb)
+        input_w = kObbInputW;
+    int input_h = kInputH;
+    if (is_obb)
+        input_h = kObbInputH;
+    // Fill in the first 5 elements as per existing netinfo.
+    combinedInfo[0] = class_num;
+    combinedInfo[1] = kNumberOfPoints;
+    combinedInfo[2] = kConfThreshKeypoints;
+    combinedInfo[3] = input_w;
+    combinedInfo[4] = input_h;
+    combinedInfo[5] = kMaxNumOutputBbox;
+    combinedInfo[6] = is_segmentation;
+    combinedInfo[7] = is_pose;
+    combinedInfo[8] = is_obb;
 
-// Copy the contents of px_arry into the combinedInfo vector after the initial 5 elements.
-std::copy(px_arry, px_arry + px_arry_num, combinedInfo.begin() + netinfo_count);
+    // Copy the contents of px_arry into the combinedInfo vector after the initial 5 elements.
+    std::copy(px_arry, px_arry + px_arry_num, combinedInfo.begin() + netinfo_count);
 
-// Now let's create the PluginField object to hold this combined information.
-nvinfer1::PluginField pluginField;
-pluginField.name = "combinedInfo";  // This can be any name that the plugin will recognize
-pluginField.data = combinedInfo.data();
-pluginField.type = nvinfer1::PluginFieldType::kINT32;
-pluginField.length = combinedInfo.size();
+    // Now let's create the PluginField object to hold this combined information.
+    nvinfer1::PluginField pluginField;
+    pluginField.name = "combinedInfo";  // This can be any name that the plugin will recognize
+    pluginField.data = combinedInfo.data();
+    pluginField.type = nvinfer1::PluginFieldType::kINT32;
+    pluginField.length = combinedInfo.size();
 
-// Create the PluginFieldCollection to hold the PluginField object.
-nvinfer1::PluginFieldCollection pluginFieldCollection;
-pluginFieldCollection.nbFields = 1;  // We have just one field, but it's a combined array
-pluginFieldCollection.fields = &pluginField;
+    // Create the PluginFieldCollection to hold the PluginField object.
+    nvinfer1::PluginFieldCollection pluginFieldCollection;
+    pluginFieldCollection.nbFields = 1;  // We have just one field, but it's a combined array
+    pluginFieldCollection.fields = &pluginField;
 
-// Create the plugin object using the PluginFieldCollection.
-nvinfer1::IPluginV2* pluginObject = creator->createPlugin("yololayer", &pluginFieldCollection);
+    // Create the plugin object using the PluginFieldCollection.
+    nvinfer1::IPluginV2* pluginObject = creator->createPlugin("yololayer", &pluginFieldCollection);
 
-// We assume that the plugin is to be added onto the network.
-// Prepare input tensors for the YOLO Layer.
-std::vector<nvinfer1::ITensor*> inputTensors;
-for (auto det : dets) {
-inputTensors.push_back(det->getOutput(0));  // Assuming each IConcatenationLayer has one output tensor.
+    // We assume that the plugin is to be added onto the network.
+    // Prepare input tensors for the YOLO Layer.
+    std::vector<nvinfer1::ITensor*> inputTensors;
+    for (auto det : dets) {
+        inputTensors.push_back(det->getOutput(0));  // Assuming each IConcatenationLayer has one output tensor.
+    }
+
+    // Add the plugin to the network using the prepared input tensors.
+    nvinfer1::IPluginV2Layer* yoloLayer = network->addPluginV2(inputTensors.data(), inputTensors.size(), *pluginObject);
+
+    return yoloLayer;  // Return the added YOLO layer.
 }
-
-// Add the plugin to the network using the prepared input tensors.
-nvinfer1::IPluginV2Layer* yoloLayer = network->addPluginV2(inputTensors.data(), inputTensors.size(), *pluginObject);
-
-return yoloLayer;  // Return the added YOLO layer.
-}
-
 
 static nvinfer1::ILayer* C3k(nvinfer1::INetworkDefinition* network, std::map<std::string, nvinfer1::Weights> weightMap,
                              nvinfer1::ITensor& input, int c1, int c2, int n, bool shortcut, std::vector<int> k1,
@@ -487,10 +486,10 @@ nvinfer1::ILayer* A2C2f(nvinfer1::INetworkDefinition* network, std::map<std::str
 
         nvinfer1::ILayer* c3k_ = C3k(network, weightMap, *conv1->getOutput(0), c * 2, c * 2, 2, shortcut, {3, 3},
                                      {3, 3}, 0.5, lname + ".m.0");
-    
+
         nvinfer1::ITensor* inputTensors[] = {conv1->getOutput(0), c3k_->getOutput(0)};
         nvinfer1::IConcatenationLayer* cat = network->addConcatenation(inputTensors, 2);
-        
+
         nvinfer1::IElementWiseLayer* conv2 =
                 convBnSiLU(network, weightMap, *cat->getOutput(0), c2, {1, 1}, 1, lname + ".cv2");
         return conv2;
@@ -501,7 +500,7 @@ nvinfer1::ILayer* ABlock(nvinfer1::INetworkDefinition* network, std::map<std::st
                          nvinfer1::ITensor& input, int dim, int num_heads, float mlp_ratio, int area,
                          std::string lname) {
     int mlp_hidden_dim = (int)(dim * mlp_ratio);
-    
+
     nvinfer1::ILayer* attn = AAttn(network, weightMap, input, dim, num_heads, mlp_ratio, area, lname + ".attn");
     nvinfer1::IElementWiseLayer* sum =
             network->addElementWise(input, *attn->getOutput(0), nvinfer1::ElementWiseOperation::kSUM);
@@ -531,7 +530,7 @@ nvinfer1::ILayer* AAttn(nvinfer1::INetworkDefinition* network, std::map<std::str
     int H = dims.d[2];
     int W = dims.d[3];
     int N = H * W;
-    
+
     auto* qkv = convBn(network, weightMap, input, all_head_dim * 3 * 2, 1, 1, lname + ".qkv");
 
     auto* reshape = network->addShuffle(*qkv->getOutput(0));
@@ -568,7 +567,7 @@ nvinfer1::ILayer* AAttn(nvinfer1::INetworkDefinition* network, std::map<std::str
 
     auto* qT = network->addShuffle(*q->getOutput(0));
     qT->setFirstTranspose(nvinfer1::Permutation{0, 1, 3, 2});
-    
+
     auto matmul = network->addMatrixMultiply(*qT->getOutput(0), nvinfer1::MatrixOperation::kNONE, *k->getOutput(0),
                                              nvinfer1::MatrixOperation::kNONE);
 
@@ -608,10 +607,10 @@ nvinfer1::ILayer* AAttn(nvinfer1::INetworkDefinition* network, std::map<std::str
 
     auto transpose5 = network->addShuffle(*v->getOutput(0));
     transpose5->setFirstTranspose(nvinfer1::Permutation{0, 3, 1, 2});
-    
+
     auto* reshape4 = network->addShuffle(*transpose5->getOutput(0));
     reshape4->setReshapeDimensions(nvinfer1::Dims4{B, H, W, C});
-    
+
     //reshape4->setSecondTranspose(nvinfer1::Permutation{0, 3, 1, 2});
     auto* transpose7 = network->addShuffle(*reshape4->getOutput(0));
     transpose7->setFirstTranspose(nvinfer1::Permutation{0, 3, 1, 2});

@@ -62,4 +62,4 @@ cp [PATH-TO-ultralytics]/yolo12n.wts .
 ## More Information
 See the readme in [home page.](https://github.com/wang-xinyu/tensorrtx)
 
-Supported by 
+Supported by

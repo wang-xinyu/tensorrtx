@@ -41,7 +41,6 @@ YoloLayerPlugin::YoloLayerPlugin(int classCount, int numberofpoints, float conft
     is_segmentation_ = is_segmentation;
     is_pose_ = is_pose;
     is_obb_ = is_obb;
-
 }
 
 YoloLayerPlugin::~YoloLayerPlugin() {
