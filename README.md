@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `2 May 2025`. [fazligorkembal](https://github.com/fazligorkembal): YOLO12
 - `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First [Lenet](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model) example writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): [YOLO11-obb](https://github.com/wang-xinyu/tensorrtx/tree/master/yolo11)
 - `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `22 Apr 2024`. [B1SH0PP](https://github.com/B1SH0PP): EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies.
 - `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
 - `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
-- `11 Mar 2024`. [WuxinrongY](https://github.com/WuxinrongY): YOLOv9: Learning What You Want to Learn Using Programmable Gradient Information
 
 ## Tutorials
 
@@ -82,6 +82,7 @@ Following models are implemented.
 |[yolov9](./yolov9)| The Pytorch implementation is [WongKinYiu/yolov9](https://github.com/WongKinYiu/yolov9). |
 |[yolov10](./yolov10)| The Pytorch implementation is [THU-MIG/yolov10](https://github.com/THU-MIG/yolov10). |
 |[yolo11](./yolo11)| The Pytorch implementation is [ultralytics](https://github.com/ultralytics/ultralytics). |
+|[yolo12](./yolov12)| The Pytorch implementation is [ultralytics](https://github.com/ultralytics/ultralytics). |
 |[yolop](./yolop)| yolop, pytorch implementation from [hustvl/YOLOP](https://github.com/hustvl/YOLOP) |
 |[retinaface](./retinaface)| resnet50 and mobilnet0.25, weights from [biubug6/Pytorch_Retinaface](https://github.com/biubug6/Pytorch_Retinaface) |
 |[arcface](./arcface)| LResNet50E-IR, LResNet100E-IR and MobileFaceNet, weights from [deepinsight/insightface](https://github.com/deepinsight/insightface) |
