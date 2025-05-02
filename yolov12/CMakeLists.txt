@@ -47,4 +47,3 @@ target_link_libraries(yolo12_det nvinfer)
 target_link_libraries(yolo12_det cudart)
 target_link_libraries(yolo12_det myplugins)
 target_link_libraries(yolo12_det ${OpenCV_LIBS})
-
