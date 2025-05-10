@@ -1,0 +1,3 @@
+IMAGE_C = 3
+IMAGE_H = 224
+IMAGE_W = 224
