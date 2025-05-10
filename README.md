@@ -15,6 +15,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `10 May 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): [YOLO11](./yolo11_tripy) writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `2 May 2025`. [fazligorkembal](https://github.com/fazligorkembal): YOLO12
 - `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First [Lenet](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model) example writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): [YOLO11-obb](https://github.com/wang-xinyu/tensorrtx/tree/master/yolo11)
@@ -29,7 +30,6 @@ The basic workflow of TensorRTx is:
 - `28 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-pose
 - `22 Apr 2024`. [B1SH0PP](https://github.com/B1SH0PP): EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies.
 - `18 Apr 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-p2
-- `12 Mar 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-cls
 
 ## Tutorials
 
