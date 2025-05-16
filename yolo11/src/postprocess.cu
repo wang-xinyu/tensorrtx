@@ -71,6 +71,55 @@ static __global__ void decode_kernel(float* predict, int num_bboxes, float confi
     *pout_item++ = 1;  // 1 = keep, 0 = ignore
 }
 
+static __global__ void decode_kernel_pose(float* predict, int num_bboxes, float confidence_threshold, float* parray,
+                                         int max_objects) {
+    float count = predict[0];
+    int position = (blockDim.x * blockIdx.x + threadIdx.x);
+    if (position >= count)
+        return;
+
+    float* pitem = predict + 1 + position * (sizeof(Detection) / sizeof(float));
+    int index = atomicAdd(parray, 1);
+    if (index >= max_objects)
+        return;
+
+    float confidence = pitem[4];
+    if (confidence < confidence_threshold)
+        return;
+
+    float left = pitem[0];
+    float top = pitem[1];
+    float right = pitem[2];
+    float bottom = pitem[3];
+    float label = pitem[5];
+
+    float* pout_item = parray + 1 + index * bbox_element;
+    *pout_item++ = left;
+    *pout_item++ = top;
+    *pout_item++ = right;
+    *pout_item++ = bottom;
+    *pout_item++ = confidence;
+    *pout_item++ = label;
+    *pout_item++ = 1;  // 1 = keep, 0 = ignore
+    
+    // In YOLOv11, keypoints start after the class_id in pitem
+    // The offsets in the Detection struct are:
+    // [0-3]: bbox, [4]: conf, [5]: class_id, [6-37]: mask, [38-89]: keypoints, [90]: angle
+    float* keypoints_src = pitem + 38;  // Start of keypoints (after bbox, conf, class_id, and mask)
+    
+    // Copy all 17 keypoints (each with x, y, conf)
+    for (int i = 0; i < kNumberOfPoints; i++) {
+        float x = keypoints_src[i * 3];        // X coordinate
+        float y = keypoints_src[i * 3 + 1];    // Y coordinate
+        float conf = keypoints_src[i * 3 + 2]; // Confidence
+        
+        // Store in the output array
+        *pout_item++ = x;
+        *pout_item++ = y;
+        *pout_item++ = conf;
+    }
+}
+
 static __device__ float box_iou(float aleft, float atop, float aright, float abottom, float bleft, float btop,
                                 float bright, float bbottom) {
     float cleft = max(aleft, bleft);
@@ -170,6 +219,13 @@ void cuda_decode(float* predict, int num_bboxes, float confidence_threshold, flo
     int block = 256;
     int grid = ceil(num_bboxes / (float)block);
     decode_kernel<<<grid, block, 0, stream>>>((float*)predict, num_bboxes, confidence_threshold, parray, max_objects);
+}
+
+void cuda_decode_pose(float* predict, int num_bboxes, float confidence_threshold, float* parray, int max_objects,
+                     cudaStream_t stream) {
+    int block = 256;
+    int grid = ceil(num_bboxes / (float)block);
+    decode_kernel_pose<<<grid, block, 0, stream>>>((float*)predict, num_bboxes, confidence_threshold, parray, max_objects);
 }
 
 void cuda_nms(float* parray, float nms_threshold, int max_objects, cudaStream_t stream) {

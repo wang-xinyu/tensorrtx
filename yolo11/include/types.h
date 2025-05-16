@@ -15,5 +15,5 @@ struct AffineMatrix {
     float value[6];
 };
 
-const int bbox_element =
-        sizeof(AffineMatrix) / sizeof(float) + 1;  // left, top, right, bottom, confidence, class, keepflag
+// For pose detection: bbox[4] + conf + class_id + keepflag + keypoints[17*3]
+const int bbox_element = 4 + 1 + 1 + 1 + (kNumberOfPoints * 3);  // Total elements per detection
