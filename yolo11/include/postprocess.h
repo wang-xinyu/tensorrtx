@@ -35,6 +35,9 @@ void batch_nms_obb(std::vector<std::vector<Detection>>& batch_res, float* output
 void cuda_decode(float* predict, int num_bboxes, float confidence_threshold, float* parray, int max_objects,
                  cudaStream_t stream);
 
+void cuda_decode_pose(float* predict, int num_bboxes, float confidence_threshold, float* parray, int max_objects,
+                      cudaStream_t stream);
+
 void cuda_nms(float* parray, float nms_threshold, int max_objects, cudaStream_t stream);
 
 void cuda_decode_obb(float* predict, int num_bboxes, float confidence_threshold, float* parray, int max_objects,

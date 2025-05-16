@@ -171,6 +171,23 @@ void process_decode_ptr_host(std::vector<Detection>& res, const float* decode_pt
             det.bbox[3] = decode_ptr_host[basic_pos + 3];
             det.conf = decode_ptr_host[basic_pos + 4];
             det.class_id = decode_ptr_host[basic_pos + 5];
+            
+            // For pose detection, copy keypoints data
+            if (bbox_element >= 7 + kNumberOfPoints * 3) {
+                const float* keypoints_ptr = decode_ptr_host + basic_pos + 7;
+                for (int k = 0; k < kNumberOfPoints; k++) {
+                    // Each keypoint has 3 values: x, y, confidence
+                    float x = keypoints_ptr[k * 3];
+                    float y = keypoints_ptr[k * 3 + 1];
+                    float conf = keypoints_ptr[k * 3 + 2];
+                    
+                    // Store in correct order: x, y, confidence
+                    det.keypoints[k * 3] = x;
+                    det.keypoints[k * 3 + 1] = y;
+                    det.keypoints[k * 3 + 2] = conf;
+                }
+            }
+            
             res.push_back(det);
         }
     }

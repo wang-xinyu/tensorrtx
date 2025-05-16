@@ -1,4 +1,3 @@
-
 #include <fstream>
 #include <iostream>
 #include <opencv2/opencv.hpp>
@@ -99,8 +98,8 @@ void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, flo
     } else if (cuda_post_process == "g") {
         CUDA_CHECK(
                 cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
-        cuda_decode((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
-        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  //cuda nms
+        cuda_decode_pose((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
+        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  // cuda nms
         CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device,
                                    sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost,
                                    stream));
@@ -228,17 +227,20 @@ int main(int argc, char** argv) {
         // Run inference
         infer(*context, stream, (void**)device_buffers, output_buffer_host, kBatchSize, decode_ptr_host,
               decode_ptr_device, model_bboxes, cuda_post_process);
+              
         std::vector<std::vector<Detection>> res_batch;
         if (cuda_post_process == "c") {
             // NMS
             batch_nms(res_batch, output_buffer_host, img_batch.size(), kOutputSize, kConfThresh, kNmsThresh);
+            // Draw bounding boxes and keypoints
+            draw_bbox_keypoints_line(img_batch, res_batch);
         } else if (cuda_post_process == "g") {
-            // Process gpu decode and nms results
-            // todo pose in gpu
-            std::cerr << "pose_postprocess is not support in gpu right now" << std::endl;
+            // Process GPU decode and nms results
+            batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element, img_batch);
+            // Draw bounding boxes and keypoints
+            draw_bbox_keypoints_line(img_batch, res_batch);
         }
-        // Draw bounding boxes
-        draw_bbox_keypoints_line(img_batch, res_batch);
+        
         // Save images
         for (size_t j = 0; j < img_batch.size(); j++) {
             cv::imwrite("_" + img_name_batch[j], img_batch[j]);
