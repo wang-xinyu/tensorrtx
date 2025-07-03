@@ -20,10 +20,7 @@ def load_weights(file):
     assert count == len(lines) - 1, "Mismatch in weight count."
 
     return {
-        splits[0]: tp.Tensor(
-            [struct.unpack(">f", bytes.fromhex(hex_val))[0] for hex_val in splits[2:]],
-            dtype=tp.float32,
-        )
+        splits[0]: tp.Tensor([struct.unpack(">f", bytes.fromhex(hex_val))[0] for hex_val in splits[2:]])
         for splits in (line.split(" ") for line in lines[1:])
     }
 
@@ -70,15 +67,13 @@ def main():
 
         model.load_state_dict(weights)
 
-        compiled_model = tp.compile(
-            model, args=[tp.InputInfo(INPUT_SHAPE, dtype=tp.float32)]
-        )
+        compiled_model = tp.compile(model, args=[tp.InputInfo(INPUT_SHAPE, dtype=tp.float32)])
 
         compiled_model.save(COMPILED_MODEL_PATH)
     else:
         compiled_model = tp.Executable.load(COMPILED_MODEL_PATH)
 
-        data = tp.ones(INPUT_SHAPE, dtype=tp.float32)
+        data = tp.ones(INPUT_SHAPE, dtype=tp.float32).eval()
 
         output = compiled_model(data)
 
