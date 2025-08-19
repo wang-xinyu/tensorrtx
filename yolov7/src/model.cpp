@@ -7,12 +7,11 @@
 #include <cassert>
 
 using namespace nvinfer1;
-
 IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, const std::string& wts_path) {
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
 
     auto* conv0 = ReOrg(network, weightMap, *data, 3);
@@ -188,10 +187,10 @@ IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     IElementWiseLayer* conv113 = convBnSilu(network, weightMap, *conv112->getOutput(0), 480, 1, 1, 0, "model.113");
 
 
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* re114 = network->addResize(*conv113->getOutput(0));
-    re114->setResizeMode(ResizeMode::kNEAREST);
-    re114->setScales(scale, 3);
+    re114->setResizeMode(InterpolationMode::kNEAREST);
+    re114->setScales(scale, 4);
 
     IElementWiseLayer* conv115 = convBnSilu(network, weightMap, *conv89->getOutput(0), 480, 1, 1, 0, "model.115");
     ITensor* input_tensor_116[] = { conv115->getOutput(0), re114->getOutput(0) };
@@ -229,8 +228,8 @@ IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
 
     IElementWiseLayer* conv138 = convBnSilu(network, weightMap, *conv137->getOutput(0), 320, 1, 1, 0, "model.138");
     IResizeLayer* re139 = network->addResize(*conv138->getOutput(0));
-    re139->setResizeMode(ResizeMode::kNEAREST);
-    re139->setScales(scale, 3);
+    re139->setResizeMode(InterpolationMode::kNEAREST);
+    re139->setScales(scale, 4);
     IElementWiseLayer* conv140 = convBnSilu(network, weightMap, *conv67->getOutput(0), 320, 1, 1, 0, "model.140");
     ITensor* input_tensor_141[] = { conv140->getOutput(0), re139->getOutput(0) };
     IConcatenationLayer* concat141 = network->addConcatenation(input_tensor_141, 2);
@@ -269,8 +268,8 @@ IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     IElementWiseLayer* conv163 = convBnSilu(network, weightMap, *conv162->getOutput(0), 160, 1, 1, 0, "model.163");
 
     IResizeLayer* re164 = network->addResize(*conv163->getOutput(0));
-    re164->setResizeMode(ResizeMode::kNEAREST);
-    re164->setScales(scale, 3);
+    re164->setResizeMode(InterpolationMode::kNEAREST);
+    re164->setScales(scale, 4);
 
     IElementWiseLayer* conv165 = convBnSilu(network, weightMap, *conv45->getOutput(0), 160, 1, 1, 0, "model.165");
     ITensor* input_tensor_166[] = { conv165->getOutput(0), re164->getOutput(0) };
@@ -442,8 +441,7 @@ IHostMemory* build_engine_yolov7e6e(unsigned int maxBatchSize, IBuilder* builder
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
@@ -472,7 +470,7 @@ IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
 
     /*----------------------------------yolov7d6 backbone-----------------------------------------*/
@@ -577,10 +575,10 @@ IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv68 = convBnSilu(network, weightMap, *conv67->getOutput(0), 576, 1, 1, 0, "model.68");
 
 
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* re69 = network->addResize(*conv68->getOutput(0));
-    re69->setResizeMode(ResizeMode::kNEAREST);
-    re69->setScales(scale, 3);
+    re69->setResizeMode(InterpolationMode::kNEAREST);
+    re69->setScales(scale, 4);
 
     IElementWiseLayer* conv70 = convBnSilu(network, weightMap, *conv53->getOutput(0), 576, 1, 1, 0, "model.70");
     ITensor* input_tensor_71[] = { conv70->getOutput(0), re69->getOutput(0) };
@@ -605,8 +603,8 @@ IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
 
     IElementWiseLayer* conv84 = convBnSilu(network, weightMap, *conv83->getOutput(0), 384, 1, 1, 0, "model.84");
     IResizeLayer* re85 = network->addResize(*conv84->getOutput(0));
-    re85->setResizeMode(ResizeMode::kNEAREST);
-    re85->setScales(scale, 3);
+    re85->setResizeMode(InterpolationMode::kNEAREST);
+    re85->setScales(scale, 4);
     IElementWiseLayer* conv86 = convBnSilu(network, weightMap, *conv40->getOutput(0), 384, 1, 1, 0, "model.86");
     ITensor* input_tensor_87[] = { conv86->getOutput(0), re85->getOutput(0) };
     IConcatenationLayer* concat87 = network->addConcatenation(input_tensor_87, 2);
@@ -632,8 +630,8 @@ IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
 
     IElementWiseLayer* conv100 = convBnSilu(network, weightMap, *conv99->getOutput(0), 192, 1, 1, 0, "model.100");
     IResizeLayer* re101 = network->addResize(*conv100->getOutput(0));
-    re101->setResizeMode(ResizeMode::kNEAREST);
-    re101->setScales(scale, 3);
+    re101->setResizeMode(InterpolationMode::kNEAREST);
+    re101->setScales(scale, 4);
     IElementWiseLayer* conv102 = convBnSilu(network, weightMap, *conv27->getOutput(0), 192, 1, 1, 0, "model.102");
     ITensor* input_tensor_103[] = { conv102->getOutput(0), re101->getOutput(0) };
     IConcatenationLayer* concat103 = network->addConcatenation(input_tensor_103, 2);
@@ -746,8 +744,7 @@ IHostMemory* build_engine_yolov7d6(unsigned int maxBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
@@ -776,7 +773,7 @@ IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
 
     /*----------------------------------yolov7e6 backbone-----------------------------------------*/
@@ -866,10 +863,10 @@ IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv58 = convBnSilu(network, weightMap, *conv57->getOutput(0), 480, 1, 1, 0, "model.58");
 
 
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* re59 = network->addResize(*conv58->getOutput(0));
-    re59->setResizeMode(ResizeMode::kNEAREST);
-    re59->setScales(scale, 3);
+    re59->setResizeMode(InterpolationMode::kNEAREST);
+    re59->setScales(scale, 4);
 
     IElementWiseLayer* conv60 = convBnSilu(network, weightMap, *conv45->getOutput(0), 480, 1, 1, 0, "model.60");
     ITensor* input_tensor_61[] = { conv60->getOutput(0), re59->getOutput(0) };
@@ -891,8 +888,8 @@ IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 
     IElementWiseLayer* conv72 = convBnSilu(network, weightMap, *conv71->getOutput(0), 320, 1, 1, 0, "model.72");
     IResizeLayer* re73 = network->addResize(*conv72->getOutput(0));
-    re73->setResizeMode(ResizeMode::kNEAREST);
-    re73->setScales(scale, 3);
+    re73->setResizeMode(InterpolationMode::kNEAREST);
+    re73->setScales(scale, 4);
     IElementWiseLayer* conv74 = convBnSilu(network, weightMap, *conv34->getOutput(0), 320, 1, 1, 0, "model.74");
     ITensor* input_tensor_75[] = { conv74->getOutput(0), re73->getOutput(0) };
     IConcatenationLayer* concat75 = network->addConcatenation(input_tensor_75, 2);
@@ -915,8 +912,8 @@ IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
 
     IElementWiseLayer* conv86 = convBnSilu(network, weightMap, *conv85->getOutput(0), 160, 1, 1, 0, "model.86");
     IResizeLayer* re87 = network->addResize(*conv86->getOutput(0));
-    re87->setResizeMode(ResizeMode::kNEAREST);
-    re87->setScales(scale, 3);
+    re87->setResizeMode(InterpolationMode::kNEAREST);
+    re87->setScales(scale, 4);
     IElementWiseLayer* conv88 = convBnSilu(network, weightMap, *conv23->getOutput(0), 160, 1, 1, 0, "model.88");
     ITensor* input_tensor_89[] = { conv88->getOutput(0), re87->getOutput(0) };
     IConcatenationLayer* concat89 = network->addConcatenation(input_tensor_89, 2);
@@ -1017,8 +1014,7 @@ IHostMemory* build_engine_yolov7e6(unsigned int maxBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
@@ -1047,7 +1043,7 @@ IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
 
     /*----------------------------------yolov7w6 backbone-----------------------------------------*/
@@ -1124,10 +1120,10 @@ IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     auto conv47 = SPPCSPC(network, weightMap, *conv46->getOutput(0), 512, "model.47");
     IElementWiseLayer* conv48 = convBnSilu(network, weightMap, *conv47->getOutput(0), 384, 1, 1, 0, "model.48");
 
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* re49 = network->addResize(*conv48->getOutput(0));
-    re49->setResizeMode(ResizeMode::kNEAREST);
-    re49->setScales(scale, 3);
+    re49->setResizeMode(InterpolationMode::kNEAREST);
+    re49->setScales(scale, 4);
 
     IElementWiseLayer* conv50 = convBnSilu(network, weightMap, *conv37->getOutput(0), 384, 1, 1, 0, "model.50");
     ITensor* input_tensor_51[] = { conv50->getOutput(0), re49->getOutput(0) };
@@ -1147,8 +1143,8 @@ IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
 
     IElementWiseLayer* conv60 = convBnSilu(network, weightMap, *conv59->getOutput(0), 256, 1, 1, 0, "model.60");
     IResizeLayer* re61 = network->addResize(*conv60->getOutput(0));
-    re61->setResizeMode(ResizeMode::kNEAREST);
-    re61->setScales(scale, 3);
+    re61->setResizeMode(InterpolationMode::kNEAREST);
+    re61->setScales(scale, 4);
     IElementWiseLayer* conv62 = convBnSilu(network, weightMap, *conv28->getOutput(0), 256, 1, 1, 0, "model.62");
     ITensor* input_tensor_63[] = { conv62->getOutput(0), re61->getOutput(0) };
     IConcatenationLayer* concat63 = network->addConcatenation(input_tensor_63, 2);
@@ -1166,8 +1162,8 @@ IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     IElementWiseLayer* conv71 = convBnSilu(network, weightMap, *concat70->getOutput(0), 256, 1, 1, 0, "model.71");
     IElementWiseLayer* conv72 = convBnSilu(network, weightMap, *conv71->getOutput(0), 128, 1, 1, 0, "model.72");
     IResizeLayer* re73 = network->addResize(*conv72->getOutput(0));
-    re73->setResizeMode(ResizeMode::kNEAREST);
-    re73->setScales(scale, 3);
+    re73->setResizeMode(InterpolationMode::kNEAREST);
+    re73->setScales(scale, 4);
 
     IElementWiseLayer* conv74 = convBnSilu(network, weightMap, *conv19->getOutput(0), 128, 1, 1, 0, "model.74");
     ITensor* input_tensor_75[] = { conv74->getOutput(0), re73->getOutput(0) };
@@ -1255,8 +1251,7 @@ IHostMemory* build_engine_yolov7w6(unsigned int maxBatchSize, IBuilder* builder,
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
@@ -1285,7 +1280,7 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
 
     /*----------------------------------yolov7x backbone-----------------------------------------*/
@@ -1401,10 +1396,10 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv60 = convBnSilu(network, weightMap, *conv59->getOutput(0), 320, 1, 1, 0, "model.60");
 
 
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* re61 = network->addResize(*conv60->getOutput(0));
-    re61->setResizeMode(ResizeMode::kNEAREST);
-    re61->setScales(scale, 3);
+    re61->setResizeMode(InterpolationMode::kNEAREST);
+    re61->setScales(scale, 4);
 
     IElementWiseLayer* conv62 = convBnSilu(network, weightMap, *conv43->getOutput(0), 320, 1, 1, 0, "model.62");
 
@@ -1432,8 +1427,8 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     IElementWiseLayer* conv74 = convBnSilu(network, weightMap, *conv73->getOutput(0), 160, 1, 1, 0, "model.74");
 
     IResizeLayer* re75 = network->addResize(*conv74->getOutput(0));
-    re75->setResizeMode(ResizeMode::kNEAREST);
-    re75->setScales(scale, 3);
+    re75->setResizeMode(InterpolationMode::kNEAREST);
+    re75->setScales(scale, 4);
 
 
     IElementWiseLayer* conv76 = convBnSilu(network, weightMap, *conv28->getOutput(0), 160, 1, 1, 0, "model.76");
@@ -1538,8 +1533,7 @@ IHostMemory* build_engine_yolov7x(unsigned int maxBatchSize,IBuilder* builder, I
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
@@ -1568,7 +1562,7 @@ IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     std::map<std::string, Weights> weightMap = loadWeights(wts_path);
 
     INetworkDefinition* network = builder->createNetworkV2(0U);
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
     /*----------------------------------yolov7 backbone-----------------------------------------*/
     IElementWiseLayer* conv0 = convBnSilu(network, weightMap, *data, 32, 3, 1, 1, "model.0");
@@ -1647,10 +1641,10 @@ IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     IElementWiseLayer* conv51 = SPPCSPC(network, weightMap, *conv50->getOutput(0), 512, "model.51");
 
     IElementWiseLayer* conv52 = convBnSilu(network, weightMap, *conv51->getOutput(0), 256, 1, 1, 0, "model.52");
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* re53 = network->addResize(*conv52->getOutput(0));
-    re53->setResizeMode(ResizeMode::kNEAREST);
-    re53->setScales(scale, 3);
+    re53->setResizeMode(InterpolationMode::kNEAREST);
+    re53->setScales(scale, 4);
     IElementWiseLayer* conv54 = convBnSilu(network, weightMap, *conv37->getOutput(0), 256, 1, 1, 0, "model.54");
     ITensor* input_tensor_55[] = { conv54->getOutput(0), re53->getOutput(0) };
     IConcatenationLayer* concat55 = network->addConcatenation(input_tensor_55, 2);
@@ -1669,8 +1663,8 @@ IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
 
     IElementWiseLayer* conv64 = convBnSilu(network, weightMap, *conv63->getOutput(0), 128, 1, 1, 0, "model.64");
     IResizeLayer* re65 = network->addResize(*conv64->getOutput(0));
-    re65->setResizeMode(ResizeMode::kNEAREST);
-    re65->setScales(scale, 3);
+    re65->setResizeMode(InterpolationMode::kNEAREST);
+    re65->setScales(scale, 4);
     IElementWiseLayer* conv66 = convBnSilu(network, weightMap, *conv24->getOutput(0), 128, 1, 1, 0, "model.66");
     ITensor* input_tensor_67[] = { conv66->getOutput(0), re65->getOutput(0) };
     IConcatenationLayer* concat67 = network->addConcatenation(input_tensor_67, 2);
@@ -1746,8 +1740,7 @@ IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
 
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
@@ -1775,7 +1768,7 @@ IHostMemory* build_engine_yolov7(unsigned int maxBatchSize,IBuilder* builder, IB
 IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    ITensor* data = network->addInput(kInputTensorName, dt, Dims3{ 3, kInputH, kInputW });
+    ITensor* data = network->addInput(kInputTensorName, dt, Dims4{maxBatchSize, 3, kInputH, kInputW });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
 
@@ -1938,10 +1931,10 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     auto conv38 = convBlockLeakRelu(network, weightMap, *conv37->getOutput(0), 128, 1, 1, 0, "model.38");
     assert(conv38);
 
-    float scale[] = { 1.0, 2.0, 2.0 };
+    float scale[] = { 1.0, 1.0, 2.0, 2.0 };
     IResizeLayer* resize39 = network->addResize(*conv38->getOutput(0));
-    resize39->setResizeMode(ResizeMode::kNEAREST);
-    resize39->setScales(scale, 3);
+    resize39->setResizeMode(InterpolationMode::kNEAREST);
+    resize39->setScales(scale, 4);
 
     //    [21, 1, Conv, [128, 1, 1, None, 1, nn.LeakyReLU(0.1)]], # route backbone P4 ---->conv16
     auto conv40 = convBlockLeakRelu(network, weightMap, *conv21->getOutput(0), 128, 1, 1, 0, "model.40");
@@ -1980,8 +1973,8 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     assert(conv48);
 
     IResizeLayer* resize49 = network->addResize(*conv48->getOutput(0));
-    resize49->setResizeMode(ResizeMode::kNEAREST);
-    resize49->setScales(scale, 3);
+    resize49->setResizeMode(InterpolationMode::kNEAREST);
+    resize49->setScales(scale, 4);
 
     // [14, 1, Conv, [64, 1, 1, None, 1, nn.LeakyReLU(0.1)]], # route backbone P3 conv11
     auto conv50 = convBlockLeakRelu(network, weightMap, *conv14->getOutput(0), 64, 1, 1, 0, "model.50");
@@ -2097,8 +2090,7 @@ IHostMemory* build_engine_yolov7_tiny(unsigned int maxBatchSize, IBuilder* build
     yolo->getOutput(0)->setName(kOutputTensorName);
     network->markOutput(*yolo->getOutput(0));
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 #if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
 #elif defined(USE_INT8)
