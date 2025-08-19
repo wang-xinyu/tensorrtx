@@ -73,24 +73,24 @@ void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngin
   delete[] serialized_engine;
 }
 
-void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** output_buffer_device, float** output_buffer_host) {
-  assert(engine->getNbBindings() == 2);
+void prepare_buffer(ICudaEngine* engine, IExecutionContext& context, float** input_buffer_device, float** output_buffer_device, float** output_buffer_host) {
+  assert(engine->getNbIOTensors() == 2);
   // In order to bind the buffers, we need to know the names of the input and output tensors.
   // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-  const int inputIndex = engine->getBindingIndex(kInputTensorName);
-  const int outputIndex = engine->getBindingIndex(kOutputTensorName);
-  assert(inputIndex == 0);
-  assert(outputIndex == 1);
+
   // Create GPU buffers on device
   CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
   CUDA_CHECK(cudaMalloc((void**)output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
+
+  context.setTensorAddress(kInputTensorName, (float*)*input_buffer_device);
+  context.setTensorAddress(kOutputTensorName, (float*)*output_buffer_device);
 
   *output_buffer_host = new float[kBatchSize * kOutputSize];
 }
 
 void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* output, int batchSize) {
   // infer on the batch asynchronously, and DMA output back to host
-  context.enqueue(batchSize, buffers, stream, nullptr);
+  context.enqueueV3(stream);
   CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
   // Prepare cpu and gpu buffers
   float* device_buffers[2];
   float* output_buffer_host = nullptr;
-  prepare_buffer(engine, &device_buffers[0], &device_buffers[1], &output_buffer_host);
+  prepare_buffer(engine, *context, &device_buffers[0], &device_buffers[1], &output_buffer_host);
 
   // Read images from directory
   std::vector<std::string> file_names;
