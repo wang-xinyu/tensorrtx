@@ -20,7 +20,7 @@ def preprocess(image):
     m = min(h, w)
     top = (h - m) // 2
     left = (w - m) // 2
-    image = image[top: top + m, left: left + m]
+    image = image[top:top + m, left:left + m]
 
     # Resize the image with target size while maintaining ratio
     image = cv2.resize(image, (IMAGE_H, IMAGE_W), interpolation=cv2.INTER_LINEAR)
@@ -79,12 +79,14 @@ def main():
         )
 
     images = [preprocess(load_image(path)) for path in args.images]
-    batch = np.concatenate(images, axis=0)
+    batch = tp.Tensor(np.concatenate(images, axis=0))
 
     # Warm up the model:
-    _, _ = model(tp.Tensor(np.zeros_like(batch), dtype=dtype, device=tp.device("gpu")))
+    _, _ = model(tp.zeros_like(batch, dtype=dtype).eval())
 
-    batch = tp.Tensor(batch, dtype=dtype, device=tp.device("gpu"))
+    # Cast the input based on the model type.
+    # Note that the result will be in GPU memory, so we don't need an explicit copy.
+    batch = tp.cast(batch, dtype).eval()
 
     start = time.perf_counter()
     batch_scores, batch_preds = model(batch)
