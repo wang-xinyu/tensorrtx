@@ -35,7 +35,7 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     """
     description: Plots one bounding box on image img,
                  this function comes from YoLov7 project.
-    param: 
+    param:
         x:      a box likes [x1,y1,x2,y2]
         img:    a opencv image object
         color:  color to draw rectangle, such as (0,255,0)
@@ -183,14 +183,14 @@ class YoLov7TRT(object):
     def destroy(self):
         # Remove any context from the top of the context stack, deactivating it.
         self.ctx.pop()
-        
+
     def get_raw_image(self, image_path_batch):
         """
         description: Read an image from image path
         """
         for img_path in image_path_batch:
             yield cv2.imread(img_path)
-        
+
     def get_raw_image_zeros(self, image_path_batch=None):
         """
         description: Ready data for warmup
@@ -278,7 +278,7 @@ class YoLov7TRT(object):
         """
         description: postprocess the prediction
         param:
-            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...] 
+            output:     A numpy likes [num_boxes,cx,cy,w,h,conf,cls_id, cx,cy,w,h,conf,cls_id, ...]
             origin_h:   height of original image
             origin_w:   width of original image
         return:
@@ -302,7 +302,7 @@ class YoLov7TRT(object):
         description: compute the IoU of two bounding boxes
         param:
             box1: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
-            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))            
+            box2: A box coordinate (can be (x1, y1, x2, y2) or (x, y, w, h))
             x1y1x2y2: select the coordinate format
         return:
             iou: computed iou
@@ -431,7 +431,7 @@ if __name__ == "__main__":
     yolov7_wrapper = YoLov7TRT(engine_file_path)
     try:
         print('batch size is', yolov7_wrapper.batch_size)
-        
+
         image_dir = "samples/"
         image_path_batches = get_img_path_batches(yolov7_wrapper.batch_size, image_dir)
 
