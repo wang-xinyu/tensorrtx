@@ -4,7 +4,6 @@ import struct
 import sys
 
 import numpy as np
-import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
 
@@ -46,84 +45,117 @@ def load_weights(file):
 
 def createLenetEngine(maxBatchSize, builder, config, dt):
     weight_map = load_weights(weight_path)
-    network = builder.create_network()
+    network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
 
-    data = network.add_input(INPUT_BLOB_NAME, dt, (1, INPUT_H, INPUT_W))
+    data = network.add_input(INPUT_BLOB_NAME, dt, (1, 1, INPUT_H, INPUT_W))
     assert data
 
-    conv1 = network.add_convolution(input=data,
-                                    num_output_maps=6,
-                                    kernel_shape=(5, 5),
-                                    kernel=weight_map["conv1.weight"],
-                                    bias=weight_map["conv1.bias"])
+    conv1 = network.add_convolution_nd(input=data,
+                                       num_output_maps=6,
+                                       kernel_shape=(5, 5),
+                                       kernel=weight_map["conv1.weight"],
+                                       bias=weight_map["conv1.bias"])
     assert conv1
-    conv1.stride = (1, 1)
+    conv1.stride_nd = (1, 1)
 
     relu1 = network.add_activation(conv1.get_output(0),
                                    type=trt.ActivationType.RELU)
     assert relu1
 
-    pool1 = network.add_pooling(input=relu1.get_output(0),
-                                window_size=trt.DimsHW(2, 2),
-                                type=trt.PoolingType.AVERAGE)
+    pool1 = network.add_pooling_nd(input=relu1.get_output(0),
+                                   window_size=trt.DimsHW(2, 2),
+                                   type=trt.PoolingType.AVERAGE)
     assert pool1
-    pool1.stride = (2, 2)
+    pool1.stride_nd = (2, 2)
 
-    conv2 = network.add_convolution(pool1.get_output(0), 16, trt.DimsHW(5, 5),
-                                    weight_map["conv2.weight"],
-                                    weight_map["conv2.bias"])
+    conv2 = network.add_convolution_nd(pool1.get_output(0), 16, trt.DimsHW(5, 5),
+                                       weight_map["conv2.weight"],
+                                       weight_map["conv2.bias"])
     assert conv2
-    conv2.stride = (1, 1)
+    conv2.stride_nd = (1, 1)
 
     relu2 = network.add_activation(conv2.get_output(0),
                                    type=trt.ActivationType.RELU)
     assert relu2
 
-    pool2 = network.add_pooling(input=relu2.get_output(0),
-                                window_size=trt.DimsHW(2, 2),
-                                type=trt.PoolingType.AVERAGE)
+    pool2 = network.add_pooling_nd(input=relu2.get_output(0),
+                                   window_size=trt.DimsHW(2, 2),
+                                   type=trt.PoolingType.AVERAGE)
     assert pool2
-    pool2.stride = (2, 2)
+    pool2.stride_nd = (2, 2)
 
-    fc1 = network.add_fully_connected(input=pool2.get_output(0),
-                                      num_outputs=120,
-                                      kernel=weight_map['fc1.weight'],
-                                      bias=weight_map['fc1.bias'])
+    # flatten pool2
+    flatten_layer = network.add_shuffle(pool2.get_output(0))
+    flatten_layer.reshape_dims = (1, 16 * 5 * 5,)
+    flatten_output = flatten_layer.get_output(0)
+
+    weight_map['fc1.weight'] = weight_map['fc1.weight'].reshape(120, 400)
+    weight_tensor = network.add_constant(weight_map['fc1.weight'].shape, weight_map['fc1.weight'].astype(np.float32))
+
+    fc1_matrix_multiply = network.add_matrix_multiply(input0=flatten_output,
+                                                      op0=trt.MatrixOperation.NONE,
+                                                      input1=weight_tensor.get_output(0),
+                                                      op1=trt.MatrixOperation.TRANSPOSE)
+    assert fc1_matrix_multiply
+
+    weight_map['fc1.bias'] = weight_map['fc1.bias'].reshape(1, 120)
+    bias_tensor = network.add_constant(weight_map['fc1.bias'].shape, weight_map['fc1.bias'].astype(np.float32))
+    fc1 = network.add_elementwise(fc1_matrix_multiply.get_output(0),
+                                  bias_tensor.get_output(0),
+                                  trt.ElementWiseOperation.SUM)
     assert fc1
 
     relu3 = network.add_activation(fc1.get_output(0),
                                    type=trt.ActivationType.RELU)
     assert relu3
 
-    fc2 = network.add_fully_connected(input=relu3.get_output(0),
-                                      num_outputs=84,
-                                      kernel=weight_map['fc2.weight'],
-                                      bias=weight_map['fc2.bias'])
+    weight_map['fc2.weight'] = weight_map['fc2.weight'].reshape(84, 120)
+    fc2_weight_tensor = network.add_constant(weight_map['fc2.weight'].shape,
+                                             weight_map['fc2.weight'].astype(np.float32))
+
+    fc2_matrix_multiply = network.add_matrix_multiply(input0=relu3.get_output(0),
+                                                      op0=trt.MatrixOperation.NONE,
+                                                      input1=fc2_weight_tensor.get_output(0),
+                                                      op1=trt.MatrixOperation.TRANSPOSE)
+    assert fc2_matrix_multiply
+
+    weight_map['fc2.bias'] = weight_map['fc2.bias'].reshape(1, 84)
+    fc2_bias_tensor = network.add_constant(weight_map['fc2.bias'].shape, weight_map['fc2.bias'].astype(np.float32))
+    fc2 = network.add_elementwise(fc2_matrix_multiply.get_output(0),
+                                  fc2_bias_tensor.get_output(0),
+                                  trt.ElementWiseOperation.SUM)
     assert fc2
 
     relu4 = network.add_activation(fc2.get_output(0),
                                    type=trt.ActivationType.RELU)
     assert relu4
 
-    fc3 = network.add_fully_connected(input=relu4.get_output(0),
-                                      num_outputs=OUTPUT_SIZE,
-                                      kernel=weight_map['fc3.weight'],
-                                      bias=weight_map['fc3.bias'])
+    weight_map['fc3.weight'] = weight_map['fc3.weight'].reshape(10, 84)
+    fc3_weight_tensor = network.add_constant(weight_map['fc3.weight'].shape,
+                                             weight_map['fc3.weight'].astype(np.float32))
+
+    fc3_matrix_multiply = network.add_matrix_multiply(input0=relu4.get_output(0),
+                                                      op0=trt.MatrixOperation.NONE,
+                                                      input1=fc3_weight_tensor.get_output(0),
+                                                      op1=trt.MatrixOperation.TRANSPOSE)
+    assert fc3_matrix_multiply
+
+    weight_map['fc3.bias'] = weight_map['fc3.bias'].reshape(1, 10)
+    fc3_bias_tensor = network.add_constant(weight_map['fc3.bias'].shape, weight_map['fc3.bias'].astype(np.float32))
+    fc3 = network.add_elementwise(fc3_matrix_multiply.get_output(0),
+                                  fc3_bias_tensor.get_output(0),
+                                  trt.ElementWiseOperation.SUM)
     assert fc3
 
     prob = network.add_softmax(fc3.get_output(0))
+    prob.axes = 1 << 1    # dim=1
     assert prob
 
     prob.get_output(0).name = OUTPUT_BLOB_NAME
     network.mark_output(prob.get_output(0))
 
     # Build engine
-    builder.max_batch_size = maxBatchSize
-    builder.max_workspace_size = 1 << 20
-    engine = builder.build_engine(network, config)
-
-    del network
-    del weight_map
+    engine = builder.build_serialized_network(network, config)
 
     return engine
 
@@ -134,7 +166,7 @@ def APIToModel(maxBatchSize):
     engine = createLenetEngine(maxBatchSize, builder, config, trt.float32)
     assert engine
     with open(engine_path, "wb") as f:
-        f.write(engine.serialize())
+        f.write(engine)
 
     del engine
     del builder
@@ -142,16 +174,24 @@ def APIToModel(maxBatchSize):
 
 def doInference(context, host_in, host_out, batchSize):
     engine = context.engine
-    assert engine.num_bindings == 2
+    assert engine.num_io_tensors == 2
 
-    devide_in = cuda.mem_alloc(host_in.nbytes)
-    devide_out = cuda.mem_alloc(host_out.nbytes)
-    bindings = [int(devide_in), int(devide_out)]
+    input_name = engine.get_tensor_name(0)
+    output_name = engine.get_tensor_name(1)
+
+    device_in = cuda.mem_alloc(host_in.nbytes)
+    device_out = cuda.mem_alloc(host_out.nbytes)
     stream = cuda.Stream()
 
-    cuda.memcpy_htod_async(devide_in, host_in, stream)
-    context.execute_async(bindings=bindings, stream_handle=stream.handle)
-    cuda.memcpy_dtoh_async(host_out, devide_out, stream)
+    cuda.memcpy_htod_async(device_in, host_in, stream)
+
+    context.set_tensor_address(input_name, int(device_in))
+    context.set_tensor_address(output_name, int(device_out))
+
+    context.execute_async_v3(stream_handle=stream.handle)
+
+    cuda.memcpy_dtoh_async(host_out, device_out, stream)
+
     stream.synchronize()
 
 
