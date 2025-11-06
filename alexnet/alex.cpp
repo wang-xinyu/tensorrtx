@@ -1,19 +1,17 @@
+#include <chrono>
+#include <fstream>
+#include <map>
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
-#include <fstream>
-#include <map>
-#include <chrono>
 
-#define CHECK(status) \
-    do\
-    {\
-        auto ret = (status);\
-        if (ret != 0)\
-        {\
-            std::cerr << "Cuda failure: " << ret << std::endl;\
-            abort();\
-        }\
+#define CHECK(status)                                          \
+    do {                                                       \
+        auto ret = (status);                                   \
+        if (ret != 0) {                                        \
+            std::cerr << "Cuda failure: " << ret << std::endl; \
+            abort();                                           \
+        }                                                      \
     } while (0)
 
 // stuff we know about the network and the input/output blobs
@@ -31,8 +29,7 @@ static Logger gLogger;
 // Load weights from files shared with TensorRT samples.
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
-std::map<std::string, Weights> loadWeights(const std::string file)
-{
+std::map<std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
     std::map<std::string, Weights> weightMap;
 
@@ -45,8 +42,7 @@ std::map<std::string, Weights> loadWeights(const std::string file)
     input >> count;
     assert(count > 0 && "Invalid weight map file.");
 
-    while (count--)
-    {
+    while (count--) {
         Weights wt{DataType::kFLOAT, nullptr, 0};
         uint32_t size;
 
@@ -57,12 +53,11 @@ std::map<std::string, Weights> loadWeights(const std::string file)
 
         // Load blob
         uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x)
-        {
+        for (uint32_t x = 0, y = size; x < y; ++x) {
             input >> std::hex >> val[x];
         }
         wt.values = val;
-        
+
         wt.count = size;
         weightMap[name] = wt;
     }
@@ -71,18 +66,18 @@ std::map<std::string, Weights> loadWeights(const std::string file)
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt)
-{
+ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{1, 3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../alexnet.wts");
     Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{11, 11}, weightMap["features.0.weight"], weightMap["features.0.bias"]);
+    IConvolutionLayer* conv1 = network->addConvolutionNd(*data, 64, DimsHW{11, 11}, weightMap["features.0.weight"],
+                                                         weightMap["features.0.bias"]);
     assert(conv1);
     conv1->setStrideNd(DimsHW{4, 4});
     conv1->setPaddingNd(DimsHW{2, 2});
@@ -96,7 +91,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(pool1);
     pool1->setStrideNd(DimsHW{2, 2});
 
-    IConvolutionLayer* conv2 = network->addConvolutionNd(*pool1->getOutput(0), 192, DimsHW{5, 5}, weightMap["features.3.weight"], weightMap["features.3.bias"]);
+    IConvolutionLayer* conv2 = network->addConvolutionNd(*pool1->getOutput(0), 192, DimsHW{5, 5},
+                                                         weightMap["features.3.weight"], weightMap["features.3.bias"]);
     assert(conv2);
     conv2->setPaddingNd(DimsHW{2, 2});
     IActivationLayer* relu2 = network->addActivation(*conv2->getOutput(0), ActivationType::kRELU);
@@ -105,19 +101,22 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(pool2);
     pool2->setStrideNd(DimsHW{2, 2});
 
-    IConvolutionLayer* conv3 = network->addConvolutionNd(*pool2->getOutput(0), 384, DimsHW{3, 3}, weightMap["features.6.weight"], weightMap["features.6.bias"]);
+    IConvolutionLayer* conv3 = network->addConvolutionNd(*pool2->getOutput(0), 384, DimsHW{3, 3},
+                                                         weightMap["features.6.weight"], weightMap["features.6.bias"]);
     assert(conv3);
     conv3->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu3 = network->addActivation(*conv3->getOutput(0), ActivationType::kRELU);
     assert(relu3);
 
-    IConvolutionLayer* conv4 = network->addConvolutionNd(*relu3->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.8.weight"], weightMap["features.8.bias"]);
+    IConvolutionLayer* conv4 = network->addConvolutionNd(*relu3->getOutput(0), 256, DimsHW{3, 3},
+                                                         weightMap["features.8.weight"], weightMap["features.8.bias"]);
     assert(conv4);
     conv4->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu4 = network->addActivation(*conv4->getOutput(0), ActivationType::kRELU);
     assert(relu4);
 
-    IConvolutionLayer* conv5 = network->addConvolutionNd(*relu4->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.10.weight"], weightMap["features.10.bias"]);
+    IConvolutionLayer* conv5 = network->addConvolutionNd(
+            *relu4->getOutput(0), 256, DimsHW{3, 3}, weightMap["features.10.weight"], weightMap["features.10.bias"]);
     assert(conv5);
     conv5->setPaddingNd(DimsHW{1, 1});
     IActivationLayer* relu5 = network->addActivation(*conv5->getOutput(0), ActivationType::kRELU);
@@ -126,19 +125,79 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(pool3);
     pool3->setStrideNd(DimsHW{2, 2});
 
-    IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool3->getOutput(0), 4096, weightMap["classifier.1.weight"], weightMap["classifier.1.bias"]);
+    // flatten pool3 layer.
+    IShuffleLayer* pool3FlattenLayer = network->addShuffle(*pool3->getOutput(0));
+    pool3FlattenLayer->setReshapeDimensions(Dims2{1, 9216});  // 9216
+
+    ITensor* pool3FlattenLayerOutput = pool3FlattenLayer->getOutput(0);
+
+    // reshape fc1 weight
+    Dims fc1WeightDims = Dims2{4096, 9216};
+    Weights fc1W = weightMap["classifier.1.weight"];
+    IConstantLayer* fc1WeightLayer = network->addConstant(fc1WeightDims, fc1W);
+    assert(fc1WeightLayer);
+
+    // matrix multiply
+    IMatrixMultiplyLayer* fc1MatrixMultiplyLayer =
+            network->addMatrixMultiply(*pool3FlattenLayerOutput, MatrixOperation::kNONE, *fc1WeightLayer->getOutput(0),
+                                       MatrixOperation::kTRANSPOSE);
+    assert(fc1WeightLayer);
+
+    // add fc1 bias
+    Dims fc1BiasDims = Dims2{1, 4096};
+    Weights fc1Bias = weightMap["classifier.1.bias"];
+    IConstantLayer* fc1BiasLayer = network->addConstant(fc1BiasDims, fc1Bias);
+    assert(fc1BiasLayer);
+
+    IElementWiseLayer* fc1 = network->addElementWise(*fc1MatrixMultiplyLayer->getOutput(0), *fc1BiasLayer->getOutput(0),
+                                                     ElementWiseOperation::kSUM);
     assert(fc1);
 
     IActivationLayer* relu6 = network->addActivation(*fc1->getOutput(0), ActivationType::kRELU);
     assert(relu6);
 
-    IFullyConnectedLayer* fc2 = network->addFullyConnected(*relu6->getOutput(0), 4096, weightMap["classifier.4.weight"], weightMap["classifier.4.bias"]);
+    // reshape fc2 weight
+    Dims fc2WeightDims = Dims2{4096, 4096};
+    Weights fc2W = weightMap["classifier.4.weight"];
+    IConstantLayer* fc2WeightLayer = network->addConstant(fc2WeightDims, fc2W);
+    assert(fc2WeightLayer);
+
+    // fc2 matrix multiply
+    IMatrixMultiplyLayer* fc2MatrixMultiplyLayer = network->addMatrixMultiply(
+            *relu6->getOutput(0), MatrixOperation::kNONE, *fc2WeightLayer->getOutput(0), MatrixOperation::kTRANSPOSE);
+    assert(fc2WeightLayer);
+
+    // add fc2 bias
+    Dims fc2BiasDims = Dims2{1, 4096};
+    Weights fc2Bias = weightMap["classifier.4.bias"];
+    IConstantLayer* fc2BiasLayer = network->addConstant(fc2BiasDims, fc2Bias);
+    assert(fc2BiasLayer);
+
+    IElementWiseLayer* fc2 = network->addElementWise(*fc2MatrixMultiplyLayer->getOutput(0), *fc2BiasLayer->getOutput(0),
+                                                     ElementWiseOperation::kSUM);
     assert(fc2);
 
     IActivationLayer* relu7 = network->addActivation(*fc2->getOutput(0), ActivationType::kRELU);
     assert(relu7);
 
-    IFullyConnectedLayer* fc3 = network->addFullyConnected(*relu7->getOutput(0), 1000, weightMap["classifier.6.weight"], weightMap["classifier.6.bias"]);
+    // reshape fc3 weight
+    Dims fc3WeightDims = Dims2{1000, 4096};
+    Weights fc3W = weightMap["classifier.6.weight"];
+    IConstantLayer* fc3WeightLayer = network->addConstant(fc3WeightDims, fc3W);
+    assert(fc3WeightLayer);
+
+    IMatrixMultiplyLayer* fc3MatrixMultiplyLayer = network->addMatrixMultiply(
+            *relu7->getOutput(0), MatrixOperation::kNONE, *fc3WeightLayer->getOutput(0), MatrixOperation::kTRANSPOSE);
+    assert(fc3WeightLayer);
+
+    // add fc3 bias
+    Dims fc3BiasDims = Dims2{1, 1000};
+    Weights fc3Bias = weightMap["classifier.6.bias"];
+    IConstantLayer* fc3BiasLayer = network->addConstant(fc3BiasDims, fc3Bias);
+    assert(fc3BiasLayer);
+
+    IElementWiseLayer* fc3 = network->addElementWise(*fc3MatrixMultiplyLayer->getOutput(0), *fc3BiasLayer->getOutput(0),
+                                                     ElementWiseOperation::kSUM);
     assert(fc3);
 
     fc3->getOutput(0)->setName(OUTPUT_BLOB_NAME);
@@ -146,25 +205,18 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     network->markOutput(*fc3->getOutput(0));
 
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(1 << 20);
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "build out" << std::endl;
 
-    // Don't need the network any more
-    network->destroy();
-
     // Release host memory
-    for (auto& mem : weightMap)
-    {
-        free((void*) (mem.second.values));
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
     }
 
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
-{
+void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
@@ -175,48 +227,52 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream)
 
     // Serialize the engine
     (*modelStream) = engine->serialize();
-
-    // Close everything down
-    engine->destroy();
-    builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize)
-{
+void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
     // Engine requires exactly IEngine::getNbBindings() number of buffers.
-    assert(engine.getNbBindings() == 2);
-    void* buffers[2];
+    assert(engine.getNbIOTensors() == 2);
 
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine.getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
+    const char* inputName = INPUT_BLOB_NAME;
+    const char* outputName = OUTPUT_BLOB_NAME;
+
+    void* deviceInput{nullptr};
+    void* deviceOutput{nullptr};
 
     // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
+    CHECK(cudaMalloc(&deviceInput, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
+    CHECK(cudaMalloc(&deviceOutput, batchSize * OUTPUT_SIZE * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
 
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
-    context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaMemcpyAsync(deviceInput, input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice,
+                          stream));
+
+    context.setTensorAddress(inputName, deviceInput);
+    context.setTensorAddress(outputName, deviceOutput);
+
+    context.enqueueV3(stream);
+
+    CHECK(cudaMemcpyAsync(output, deviceOutput, batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost,
+                          stream));
+
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
-    CHECK(cudaFree(buffers[inputIndex]));
-    CHECK(cudaFree(buffers[outputIndex]));
+    CHECK(cudaFree(deviceInput));
+    CHECK(cudaFree(deviceOutput));
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./alexnet -s   // serialize model to plan file" << std::endl;
@@ -225,7 +281,7 @@ int main(int argc, char** argv)
     }
 
     // create a model using the API directly and serialize it to a stream
-    char *trtModelStream{nullptr};
+    char* trtModelStream{nullptr};
     size_t size{0};
 
     if (std::string(argv[1]) == "-s") {
@@ -234,13 +290,11 @@ int main(int argc, char** argv)
         assert(modelStream != nullptr);
 
         std::ofstream p("alexnet.engine", std::ios::binary);
-        if (!p)
-        {
+        if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
-        modelStream->destroy();
         return 1;
     } else if (std::string(argv[1]) == "-d") {
         std::ifstream file("alexnet.engine", std::ios::binary);
@@ -257,7 +311,6 @@ int main(int argc, char** argv)
         return -1;
     }
 
-
     // Subtract mean from image
     float data[3 * INPUT_H * INPUT_W];
     for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
@@ -265,7 +318,7 @@ int main(int argc, char** argv)
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr);
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
@@ -279,17 +332,12 @@ int main(int argc, char** argv)
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
 
-    // Destroy the engine
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
-
     // Print histogram of the output distribution
     std::cout << "\nOutput:\n\n";
-    for (unsigned int i = 0; i < OUTPUT_SIZE; i++)
-    {
+    for (unsigned int i = 0; i < OUTPUT_SIZE; i++) {
         std::cout << prob[i] << ", ";
-        if (i % 10 == 0) std::cout << i / 10 << std::endl;
+        if (i % 10 == 0)
+            std::cout << i / 10 << std::endl;
     }
     std::cout << std::endl;
 
