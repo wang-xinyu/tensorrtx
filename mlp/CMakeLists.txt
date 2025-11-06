@@ -21,4 +21,3 @@ target_link_libraries(mlp nvinfer)
 target_link_libraries(mlp cudart)
 
 add_definitions(-O2 -pthread)
-

@@ -7,7 +7,6 @@ import struct
 import tensorrt as trt
 
 # required for the inference using TRT engine
-import pycuda.autoinit
 import pycuda.driver as cuda
 
 # Sizes of input and output for TensorRT model
@@ -84,33 +83,37 @@ def create_mlp_engine(max_batch_size, builder, config, dt):
     network = builder.create_network()
 
     # add an input to network using the *input-name
-    data = network.add_input(INPUT_BLOB_NAME, dt, (1, 1, INPUT_SIZE))
+    data = network.add_input(INPUT_BLOB_NAME, dt, (1, INPUT_SIZE))
     assert data
 
     # add the layer with output-size (number of outputs)
-    linear = network.add_fully_connected(input=data,
-                                         num_outputs=OUTPUT_SIZE,
-                                         kernel=weight_map['linear.weight'],
-                                         bias=weight_map['linear.bias'])
-    assert linear
+    # 1. Perform matrix multiplication
+    weight_tensor = network.add_constant(
+        weight_map['linear.weight'].shape, weight_map['linear.weight'].astype(np.float32))
+    matrix_multiply = network.add_matrix_multiply(input0=data,
+                                                  op0=trt.MatrixOperation.NONE,
+                                                  input1=weight_tensor.get_output(0),
+                                                  op1=trt.MatrixOperation.NONE)
+    assert matrix_multiply
+
+    # 2. Add the bias as elementwise addition (W * X + b)
+    bias_tensor = network.add_constant(weight_map['linear.bias'].shape, weight_map['linear.bias'].astype(np.float32))
+    bias_layer = network.add_elementwise(matrix_multiply.get_output(0),
+                                         bias_tensor.get_output(0),
+                                         trt.ElementWiseOperation.SUM)
+    assert bias_layer
 
     # set the name for output layer
-    linear.get_output(0).name = OUTPUT_BLOB_NAME
+    bias_layer.get_output(0).name = OUTPUT_BLOB_NAME
 
     # mark this layer as final output layer
-    network.mark_output(linear.get_output(0))
+    network.mark_output(bias_layer.get_output(0))
 
-    # set the batch size of current builder
-    builder.max_batch_size = max_batch_size
+    engine = builder.build_serialized_network(network, config)
+    if engine is None:
+        raise RuntimeError("Failed to build serialized TensorRT engine")
 
-    # create the engine with model and hardware configs
-    engine = builder.build_engine(network, config)
-
-    # free captured memory
-    del network
-    del weight_map
-
-    # return engine
+    print("[INFO]: MLP Engine built successfully!")
     return engine
 
 
@@ -134,11 +137,7 @@ def api_to_model(max_batch_size):
     print("[INFO]: Writing engine into binary...")
     with open(ENGINE_PATH, "wb") as f:
         # write serialized model in file
-        f.write(engine.serialize())
-
-    # free the memory
-    del engine
-    del builder
+        f.write(engine)
 
 
 ################################
@@ -162,7 +161,7 @@ def perform_inference(input_val):
 
         inference_engine = inf_context.engine
         # Input and output bindings are required for inference
-        assert inference_engine.num_bindings == 2
+        assert inference_engine.num_io_tensors == 2
 
         # allocate memory in GPU using CUDA bindings
         device_in = cuda.mem_alloc(inf_host_in.nbytes)
@@ -177,8 +176,13 @@ def perform_inference(input_val):
         # copy input from host (CPU) to device (GPU)  in stream
         cuda.memcpy_htod_async(device_in, inf_host_in, stream)
 
+        # Set the tensor addresses for input and output
+        for i, binding in enumerate(bindings):
+            # Use the tensor name obtained from the engine to set the address
+            inf_context.set_tensor_address(inference_engine.get_tensor_name(i), binding)
+
         # execute inference using context provided by engine
-        inf_context.execute_async(bindings=bindings, stream_handle=stream.handle)
+        inf_context.execute_async_v3(stream_handle=stream.handle)
 
         # copy output back from device (GPU) to host (CPU)
         cuda.memcpy_dtoh_async(inf_host_out, device_out, stream)
@@ -245,4 +249,3 @@ if __name__ == "__main__":
         print("\n\tRun inference using `python mlp.py -d`\n")
     else:
         perform_inference(input_val=4.0)
-
