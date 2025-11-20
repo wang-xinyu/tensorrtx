@@ -4,7 +4,6 @@ import struct
 import argparse
 
 import numpy as np
-import pycuda.autoinit
 import pycuda.driver as cuda
 import tensorrt as trt
 
@@ -64,14 +63,16 @@ def add_batch_norm_2d(network, weight_map, input, layer_name, eps):
 def conv_bn_relu(network, weight_map, input, outch, ksize, s, g, lname):
     p = (ksize - 1) // 2
 
-    conv1 = network.add_convolution(input=input,
-                                    num_output_maps=outch,
-                                    kernel_shape=(ksize, ksize),
-                                    kernel=weight_map[lname + "0.weight"],
-                                    bias=trt.Weights())
+    conv1 = network.add_convolution_nd(
+        input=input,
+        num_output_maps=outch,
+        kernel_shape=(ksize, ksize),
+        kernel=weight_map[lname + "0.weight"],
+        bias=trt.Weights()
+    )
     assert conv1
-    conv1.stride = (s, s)
-    conv1.padding = (p, p)
+    conv1.stride_nd = (s, s)
+    conv1.padding_nd = (p, p)
     conv1.num_groups = g
 
     bn1 = add_batch_norm_2d(network, weight_map, conv1.get_output(0), lname + "1", EPS)
@@ -106,20 +107,24 @@ def inverted_res(network, weight_map, input, lname, inch, outch, s, exp):
     if exp != 1:
         ew1 = conv_bn_relu(network, weight_map, input, hidden, 1, 1, 1, lname + "conv.0.")
         ew2 = conv_bn_relu(network, weight_map, ew1.get_output(0), hidden, 3, s, hidden, lname + "conv.1.")
-        conv1 = network.add_convolution(input=ew2.get_output(0),
-                                        num_output_maps=outch,
-                                        kernel_shape=(1, 1),
-                                        kernel=weight_map[lname + "conv.2.weight"],
-                                        bias=trt.Weights())
+        conv1 = network.add_convolution_nd(
+            input=ew2.get_output(0),
+            num_output_maps=outch,
+            kernel_shape=(1, 1),
+            kernel=weight_map[lname + "conv.2.weight"],
+            bias=trt.Weights()
+        )
         assert conv1
         bn1 = add_batch_norm_2d(network, weight_map, conv1.get_output(0), lname + "conv.3", EPS)
     else:
         ew1 = conv_bn_relu(network, weight_map, input, hidden, 3, s, hidden, lname + "conv.0.")
-        conv1 = network.add_convolution(input=ew1.get_output(0),
-                                        num_output_maps=outch,
-                                        kernel_shape=(1, 1),
-                                        kernel=weight_map[lname + "conv.1.weight"],
-                                        bias=trt.Weights())
+        conv1 = network.add_convolution_nd(
+            input=ew1.get_output(0),
+            num_output_maps=outch,
+            kernel_shape=(1, 1),
+            kernel=weight_map[lname + "conv.1.weight"],
+            bias=trt.Weights()
+        )
         assert conv1
         bn1 = add_batch_norm_2d(network, weight_map, conv1.get_output(0), lname + "conv.2", EPS)
 
@@ -136,7 +141,7 @@ def create_engine(max_batch_size, builder, config, dt):
     weight_map = load_weights(WEIGHT_PATH)
     network = builder.create_network()
 
-    data = network.add_input(INPUT_BLOB_NAME, dt, (3, INPUT_H, INPUT_W))
+    data = network.add_input(INPUT_BLOB_NAME, dt, (1, 3, INPUT_H, INPUT_W))
     assert data
 
     ew1 = conv_bn_relu(network, weight_map, data, 32, 3, 2, 1, "features.0.")
@@ -159,24 +164,49 @@ def create_engine(max_batch_size, builder, config, dt):
     ir1 = inverted_res(network, weight_map, ir1.get_output(0), "features.17.", 160, 320, 1, 6)
     ew2 = conv_bn_relu(network, weight_map, ir1.get_output(0), 1280, 1, 1, 1, "features.18.")
 
-    pool1 = network.add_pooling(input=ew2.get_output(0),
-                                type=trt.PoolingType.AVERAGE,
-                                window_size=trt.DimsHW(7, 7))
+    pool1 = network.add_pooling_nd(
+        input=ew2.get_output(0),
+        type=trt.PoolingType.AVERAGE,
+        window_size=trt.DimsHW(7, 7)
+    )
     assert pool1
 
-    fc1 = network.add_fully_connected(input=pool1.get_output(0),
-                                      num_outputs=OUTPUT_SIZE,
-                                      kernel=weight_map["classifier.1.weight"],
-                                      bias=weight_map["classifier.1.bias"])
+    # flatten pool1
+    flatten_pool1 = network.add_shuffle(pool1.get_output(0))
+    flatten_pool1.reshape_dims = (1, 1280,)
+
+    weight_map["classifier.1.weight"] = weight_map["classifier.1.weight"].reshape(1000, 1280)
+    fc1_weight_tensor = network.add_constant(
+        weight_map["classifier.1.weight"].shape,
+        weight_map["classifier.1.weight"].astype(np.float32)
+    )
+
+    fc1_matrix_multiply = network.add_matrix_multiply(
+        input0=flatten_pool1.get_output(0),
+        op0=trt.MatrixOperation.NONE,
+        input1=fc1_weight_tensor.get_output(0),
+        op1=trt.MatrixOperation.TRANSPOSE
+    )
+    assert fc1_matrix_multiply
+
+    # add bias
+    weight_map["classifier.1.bias"] = weight_map["classifier.1.bias"].reshape(1, 1000)
+    fc1_bias_tensor = network.add_constant(
+        weight_map["classifier.1.bias"].shape,
+        weight_map["classifier.1.bias"].astype(np.float32)
+    )
+    fc1 = network.add_elementwise(
+        fc1_matrix_multiply.get_output(0),
+        fc1_bias_tensor.get_output(0),
+        trt.ElementWiseOperation.SUM
+    )
     assert fc1
 
     fc1.get_output(0).name = OUTPUT_BLOB_NAME
     network.mark_output(fc1.get_output(0))
 
     # Build Engine
-    builder.max_batch_size = max_batch_size
-    builder.max_workspace_size = 1 << 32
-    engine = builder.build_engine(network, config)
+    engine = builder.build_serialized_network(network, config)
 
     del network
     del weight_map
@@ -190,7 +220,7 @@ def API_to_model(max_batch_size):
     engine = create_engine(max_batch_size, builder, config, trt.float32)
     assert engine
     with open(ENGINE_PATH, "wb") as f:
-        f.write(engine.serialize())
+        f.write(engine)
 
     del engine
     del builder
@@ -214,27 +244,40 @@ def allocate_buffers(engine):
     outputs = []
     bindings = []
     stream = cuda.Stream()
-    for binding in engine:
-        size = trt.volume(engine.get_binding_shape(binding)) * engine.max_batch_size
-        dtype = trt.nptype(engine.get_binding_dtype(binding))
-        # Allocate host and device buffers
+
+    for i in range(engine.num_io_tensors):
+        name = engine.get_tensor_name(i)
+        shape = engine.get_tensor_shape(name)
+        dtype = trt.nptype(engine.get_tensor_dtype(name))
+
+        size = trt.volume(shape)
+
         host_mem = cuda.pagelocked_empty(size, dtype)
         device_mem = cuda.mem_alloc(host_mem.nbytes)
-        # Append the device buffer to device bindings.
+
         bindings.append(int(device_mem))
-        # Append to the appropriate list.
-        if engine.binding_is_input(binding):
+
+        if engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
             inputs.append(HostDeviceMem(host_mem, device_mem))
         else:
             outputs.append(HostDeviceMem(host_mem, device_mem))
+
     return inputs, outputs, bindings, stream
 
 
 def do_inference(context, bindings, inputs, outputs, stream, batch_size=1):
+    # set address first
+    for i in range(context.engine.num_io_tensors):
+        name = context.engine.get_tensor_name(i)
+        if context.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+            context.set_tensor_address(name, inputs[0].device)
+        else:
+            context.set_tensor_address(name, outputs[0].device)
+
     # Transfer input data to the GPU.
     [cuda.memcpy_htod_async(inp.device, inp.host, stream) for inp in inputs]
     # Run inference.
-    context.execute_async(batch_size=batch_size, bindings=bindings, stream_handle=stream.handle)
+    context.execute_async_v3(stream_handle=stream.handle)
     # Transfer predictions back from the GPU.
     [cuda.memcpy_dtoh_async(out.host, out.device, stream) for out in outputs]
     # Synchronize the stream
