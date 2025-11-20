@@ -42,4 +42,3 @@ target_link_libraries(yolov7 nvinfer)
 target_link_libraries(yolov7 cudart)
 target_link_libraries(yolov7 myplugins)
 target_link_libraries(yolov7 ${OpenCV_LIBS})
-
