@@ -11,7 +11,7 @@ regnet supports for TensorRT-10.
 * opencv 4.10.0
 
 
-## Build and Run
+## Build and Run(Python API and C++ API)
 
 ```
 // 1. generate regnet_x_400mf.pth file and architecture file regnet_x_400mf_summary.txt by running save_pth_model.py
