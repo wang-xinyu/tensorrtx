@@ -107,6 +107,19 @@ Following models are implemented.
 |[csrnet](./csrnet)| CSRNet. The Pytorch implementation is [leeyeehoo/CSRNet-pytorch](https://github.com/leeyeehoo/CSRNet-pytorch) |
 |[EfficientAd](./efficient_ad)| EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies. From [anomalib](https://github.com/openvinotoolkit/anomalib) |
 
+Following models are supported for TensorRT 10.
+
+| Name                         | Description                                                  |
+| ---------------------------- | ------------------------------------------------------------ |
+| [mlp](./mlp)                 | the very basic model for starters, properly documented       |
+| [lenet](./lenet)             | the simplest, as a "hello world" of this project             |
+| [alexnet](./alexnet)         | easy to implement, all layers are supported in tensorrt      |
+| [googlenet](./googlenet)     | GoogLeNet (Inception v1)                                     |
+| [inception](./inception)     | Inception v3, v4                                             |
+| [mobilenet](./mobilenet)     | MobileNet v2                                                 |
+| [regnet](./regnet)           | regnet_x_400mf is implemented                                |
+| [yolov3-tiny](./yolov3-tiny) | weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
+
 ## Model Zoo
 
 The .wts files can be downloaded from model zoo for quick evaluation. But it is recommended to convert .wts from pytorch/mxnet/tensorflow model, so that you can retrain your own model.
