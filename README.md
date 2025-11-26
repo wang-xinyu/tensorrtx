@@ -108,17 +108,16 @@ Following models are implemented.
 |[EfficientAd](./efficient_ad)| EfficientAd: Accurate Visual Anomaly Detection at Millisecond-Level Latencies. From [anomalib](https://github.com/openvinotoolkit/anomalib) |
 
 Following models are supported for TensorRT 10.
-
-| Name                         | Description                                                  |
-| ---------------------------- | ------------------------------------------------------------ |
-| [mlp](./mlp)                 | the very basic model for starters, properly documented       |
-| [lenet](./lenet)             | the simplest, as a "hello world" of this project             |
-| [alexnet](./alexnet)         | easy to implement, all layers are supported in tensorrt      |
-| [googlenet](./googlenet)     | GoogLeNet (Inception v1)                                     |
-| [inception](./inception)     | Inception v3, v4                                             |
-| [mobilenet](./mobilenet)     | MobileNet v2                                                 |
-| [regnet](./regnet)           | regnet_x_400mf is implemented                                |
-| [yolov3-tiny](./yolov3-tiny) | weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
+|Name | Description |
+|-|-|
+|[mlp](./mlp) | the very basic model for starters, properly documented |
+|[lenet](./lenet) | the simplest, as a "hello world" of this project |
+|[alexnet](./alexnet)| easy to implement, all layers are supported in tensorrt |
+|[googlenet](./googlenet)| GoogLeNet (Inception v1) |
+|[inception](./inception)| Inception v3, v4 |
+|[mobilenet](./mobilenet)| MobileNet |
+|[regnet](./regnet)| regnet_x_400mf is implemented. |
+|[yolov3-tiny](./yolov3-tiny)| weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) |
 
 ## Model Zoo
 
