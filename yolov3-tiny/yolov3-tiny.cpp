@@ -223,7 +223,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{1, 3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../yolov3-tiny.wts");
@@ -283,17 +283,12 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     network->markOutput(*yolo->getOutput(0));
 
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
 #ifdef USE_FP16
     config->setFlag(BuilderFlag::kFP16);
 #endif
     std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
-
-    // Don't need the network any more
-    network->destroy();
 
     // Release host memory
     for (auto& mem : weightMap)
@@ -315,10 +310,6 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
 
     // Serialize the engine
     (*modelStream) = engine->serialize();
-
-    // Close everything down
-    engine->destroy();
-    builder->destroy();
 }
 
 void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
@@ -326,32 +317,37 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
 
     // Pointers to input and output device buffers to pass to engine.
     // Engine requires exactly IEngine::getNbBindings() number of buffers.
-    assert(engine.getNbBindings() == 2);
-    void* buffers[2];
+    assert(engine.getNbIOTensors() == 2);
 
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine.getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
+    const char * inputName = INPUT_BLOB_NAME;
+    const char * outputName = OUTPUT_BLOB_NAME;
+
+    void * deviceInput{nullptr};
+    void * deviceOutput{nullptr};
 
     // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
+    CHECK(cudaMalloc(&deviceInput, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
+    CHECK(cudaMalloc(&deviceOutput, batchSize * OUTPUT_SIZE * sizeof(float)));
 
     // Create stream
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
 
     // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
-    context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaMemcpyAsync(deviceInput, input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float), cudaMemcpyHostToDevice, stream));
+    
+    context.setTensorAddress(inputName, deviceInput);
+    context.setTensorAddress(outputName, deviceOutput);
+
+    context.enqueueV3(stream);
+
+    CHECK(cudaMemcpyAsync(output, deviceOutput, batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 
     // Release stream and buffers
     cudaStreamDestroy(stream);
-    CHECK(cudaFree(buffers[inputIndex]));
-    CHECK(cudaFree(buffers[outputIndex]));
+    CHECK(cudaFree(deviceInput));
+    CHECK(cudaFree(deviceOutput));
 }
 
 int read_files_in_dir(const char *p_dir_name, std::vector<std::string> &file_names) {
@@ -392,7 +388,6 @@ int main(int argc, char** argv) {
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
-        modelStream->destroy();
         return 0;
     } else if (argc == 3 && std::string(argv[1]) == "-d") {
         std::ifstream file("yolov3-tiny.engine", std::ios::binary);
@@ -468,9 +463,5 @@ int main(int argc, char** argv) {
         cv::imwrite("_" + f, img);
     }
 
-    // Destroy the engine
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
     return 0;
 }
