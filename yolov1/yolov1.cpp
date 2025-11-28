@@ -39,9 +39,18 @@ using namespace nvinfer1;
 
 static Logger gLogger;
 
-// Load weights from files shared with TensorRT samples.
-// TensorRT weight files have a simple space delimited format:
-// [type] [size] <data x size in hex>
+/**
+ * @brief Load model weights from a file into a map.
+ * 
+ * This function reads a weights file where each line contains a weight blob's
+ * name and values in hexadecimal format. It stores each weight blob in a 
+ * `Weights` structure and returns a map from the blob name to its `Weights`.
+ * 
+ * @param file The path to the weights file to be loaded.
+ * @return std::map<std::string, Weights> A map where keys are weight names and 
+ *         values are corresponding `Weights` structures containing the data, 
+ *         data type, and number of elements.
+ */
 std::map<std::string, Weights> loadWeights(const std::string file) {
     std::cout << "Loading weights: " << file << std::endl;
     std::map<std::string, Weights> weightMap;
@@ -78,6 +87,26 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
     return weightMap;
 }
 
+/**
+ * @brief Add a 2D Batch Normalization layer to a TensorRT network.
+ * 
+ * This function converts PyTorch-style batch normalization parameters 
+ * (weight, bias, running mean, running variance) into TensorRT scale, shift, 
+ * and power weights, and then adds an IScaleLayer to the network.
+ * 
+ * The scale, shift, and power weights are also stored in the weightMap to 
+ * prevent memory leaks, as they are allocated dynamically.
+ * 
+ * @param network Pointer to the TensorRT network definition to which the batch 
+ *                normalization layer will be added.
+ * @param weightMap Map of weight blobs loaded from a pretrained model, used to 
+ *                  retrieve gamma, beta, running mean, and running variance.
+ * @param midName The base name of the layer (used to index the weights in weightMap).
+ * @param input The input ITensor to the batch normalization layer.
+ * @param eps Small epsilon value to avoid division by zero in variance normalization.
+ *            Default is 1e-5.
+ * @return IScaleLayer* Pointer to the created IScaleLayer in the TensorRT network.
+ */
 IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
                             const std::string& midName, ITensor& input, float eps = 1e-5) {
     float* gamma = (float*)weightMap["conv_layers." + midName + ".weight"].values;
@@ -119,6 +148,25 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, W
     return bn;
 }
 
+/**
+ * @brief Add a Convolution -> BatchNorm -> Leaky ReLU sequence to a TensorRT network.
+ * 
+ * This function adds a convolution layer, followed by a batch normalization layer
+ * and a Leaky ReLU activation layer to the specified TensorRT network.
+ * It uses weights from a preloaded weightMap and constructs the layers in sequence.
+ * 
+ * @param network Pointer to the TensorRT network definition to which the layers will be added.
+ * @param weightMap Map of weight blobs loaded from a pretrained model, used to retrieve convolution and batch norm weights.
+ * @param convMidName The base name of the convolution layer (used to index weights in weightMap).
+ * @param bnMidName The base name of the batch normalization layer (used to index weights in weightMap).
+ * @param input The input ITensor to the convolution layer.
+ * @param out_ch Number of output channels for the convolution layer.
+ * @param ksize Kernel size for the convolution layer (default: 3).
+ * @param stride Stride for the convolution layer (default: 1).
+ * @param padding Padding for the convolution layer (default: 1).
+ * @param groups Number of groups for grouped convolution (default: 1).
+ * @return IActivationLayer* Pointer to the Leaky ReLU activation layer added to the network.
+ */
 IActivationLayer* convBnRelu(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
                              const std::string& convMidName, const std::string& bnMidName, ITensor& input, int out_ch,
                              int ksize = 3, int stride = 1, int padding = 1, int groups = 1) {
@@ -143,6 +191,23 @@ IActivationLayer* convBnRelu(INetworkDefinition* network, std::map<std::string, 
 
     return relu;
 }
+
+/**
+ * @brief Create a TensorRT engine for YOLOv1.
+ * 
+ * This function constructs a complete YOLOv1 network in TensorRT using 
+ * pre-trained weights. It builds convolution, batch normalization, pooling,
+ * fully connected, and activation layers, then returns a built ICudaEngine.
+ * 
+ * The function uses the provided builder and builder config to create the 
+ * engine, and dynamically loads the weights from a .wts file.
+ * 
+ * @param maxBatchSize The maximum batch size the engine should support.
+ * @param builder Pointer to the TensorRT IBuilder used to create the network.
+ * @param config Pointer to the TensorRT IBuilderConfig for engine configuration.
+ * @param dt The data type for network inputs (e.g., DataType::kFLOAT).
+ * @return ICudaEngine* Pointer to the created TensorRT engine.
+ */
 
 ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     // 1. Create Network
@@ -262,6 +327,17 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     return engine;
 }
 
+/**
+ * @brief Build and serialize a TensorRT engine to a memory stream.
+ * 
+ * This function creates a TensorRT builder and configuration, constructs the 
+ * network engine by calling `createEngine`, and then serializes the engine 
+ * into a memory stream. The serialized engine can be later deserialized to 
+ * create an ICudaEngine for inference.
+ * 
+ * @param maxBatchSize The maximum batch size that the engine should support.
+ * @param modelStream Pointer to an IHostMemory* that will receive the serialized engine.
+ */
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(gLogger);
@@ -275,6 +351,20 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     (*modelStream) = engine->serialize();
 }
 
+/**
+ * @brief Preprocess an image for TensorRT inference.
+ * 
+ * This function converts an input OpenCV BGR image to the format required 
+ * by TensorRT: RGB order, resized to the network input size, normalized 
+ * to [0,1], and rearranged from HWC (height, width, channel) to CHW 
+ * (channel, height, width) format.
+ * 
+ * @param img The input image in OpenCV BGR format.
+ * @param data Pointer to a pre-allocated float array where the preprocessed 
+ *             image data will be stored in CHW order.
+ * @param input_h The target input height for the network.
+ * @param input_w The target input width for the network.
+ */
 void preprocess_trt_cpp(const cv::Mat& img, float* data, int input_h, int input_w) {
     // 1. BGR -> RGB
     cv::Mat rgb;
@@ -299,6 +389,20 @@ void preprocess_trt_cpp(const cv::Mat& img, float* data, int input_h, int input_
     }
 }
 
+/**
+ * @brief Perform inference using a TensorRT execution context.
+ * 
+ * This function executes a forward pass of the network for a given batch of
+ * input data. It allocates device memory for input and output tensors, copies
+ * the input data to the GPU, performs asynchronous inference, and copies the
+ * results back to host memory.
+ * 
+ * @param context The TensorRT execution context used to run inference.
+ * @param input Pointer to the preprocessed input data in CHW float format.
+ * @param output Pointer to pre-allocated memory where inference results will be stored.
+ * @param pool3FlattenLayerOutput (Unused in current implementation, reserved for intermediate outputs if needed.)
+ * @param batchSize Number of images in the batch to process.
+ */
 void doInference(IExecutionContext& context, float* input, float* output, float* pool3FlattenLayerOutput,
                  int batchSize) {
     const ICudaEngine& engine = context.getEngine();
@@ -342,6 +446,17 @@ void doInference(IExecutionContext& context, float* input, float* output, float*
     CHECK(cudaFree(deviceOutput));
 }
 
+/**
+ * @brief Compute the Intersection over Union (IoU) of two bounding boxes in [x, y, w, h] format.
+ * 
+ * The boxes are given in the format where (x, y) represents the center of the box,
+ * and w, h represent the width and height. The function converts them to corner 
+ * coordinates, computes the intersection area, and returns the IoU.
+ * 
+ * @param a Pointer to the first bounding box array [x, y, w, h].
+ * @param b Pointer to the second bounding box array [x, y, w, h].
+ * @return float The IoU value in the range [0, 1].
+ */
 float iou_xywh(const float* a, const float* b) {
     // a: [x,y,w,h], b: [x,y,w,h]
     float ax1 = a[0] - a[2] / 2.0f;
@@ -369,12 +484,28 @@ float iou_xywh(const float* a, const float* b) {
     return inter_area / (areaA + areaB - inter_area + 1e-6f);
 }
 
+/**
+ * @brief Structure representing a single detection result.
+ */
 struct Detection {
     float x, y, w, h;
     float score;
     int cls;
 };
 
+/**
+ * @brief Perform Non-Maximum Suppression (NMS) on bounding boxes.
+ * 
+ * This function applies class-specific NMS to filter overlapping bounding boxes.
+ * It first computes class-specific confidence scores (conf * class probability),
+ * then sorts detections per class by score, and suppresses boxes with high IoU.
+ * 
+ * @param bboxes Vector of bounding boxes, each in the format [x, y, w, h, conf, class_probs...].
+ * @param num_classes Number of classes in the model.
+ * @param conf_thresh Confidence threshold to filter low-confidence detections (default: 0.1).
+ * @param iou_thresh IoU threshold for NMS to remove overlapping boxes (default: 0.3).
+ * @return std::vector<Detection> Vector of final detection results after NMS.
+ */
 std::vector<Detection> nms_cpp(const std::vector<std::vector<float>>& bboxes, int num_classes, float conf_thresh = 0.1f,
                                float iou_thresh = 0.3f) {
     int N = bboxes.size();
@@ -454,6 +585,23 @@ std::vector<Detection> nms_cpp(const std::vector<std::vector<float>>& bboxes, in
     return out;
 }
 
+/**
+ * @brief Convert YOLOv1 network predictions to bounding boxes and apply NMS.
+ * 
+ * This function takes the raw network output (predictions) in YOLOv1 format
+ * and converts it into bounding boxes in [x, y, w, h, conf, class_probs...] format.
+ * It selects the bounding box with higher confidence for each grid cell, 
+ * then applies class-specific Non-Maximum Suppression (NMS) to produce final detections.
+ * 
+ * @param pred Pointer to the raw prediction array from the network. 
+ *             Shape = S*S*30 (e.g., 7*7*30 = 1470 for YOLOv1).
+ * @param S The grid size of the network output (e.g., 7 for YOLOv1).
+ * @param B Number of predicted bounding boxes per grid cell (usually 2).
+ * @param num_classes Number of object classes.
+ * @param conf_thresh Confidence threshold to filter low-confidence boxes before NMS.
+ * @param iou_thresh IoU threshold for NMS to remove overlapping boxes.
+ * @return std::vector<Detection> Vector of final detection results after NMS.
+ */
 std::vector<Detection> pred2xywhcc_cpp(const float* pred,  // shape = S*S*30 = 1470
                                        int S, int B, int num_classes, float conf_thresh, float iou_thresh) {
     // reshape pred to pred[s][s][30]
@@ -503,6 +651,17 @@ std::vector<Detection> pred2xywhcc_cpp(const float* pred,  // shape = S*S*30 = 1
     return nms_cpp(bboxes, num_classes, conf_thresh, iou_thresh);
 }
 
+/**
+ * @brief Draw bounding boxes and class labels on an image.
+ * 
+ * This function takes a list of detection results and draws the corresponding 
+ * bounding boxes and class labels onto the input OpenCV image. Each class is 
+ * assigned a unique random color for visualization.
+ * 
+ * @param img The OpenCV image on which to draw bounding boxes (BGR format).
+ * @param dets Vector of Detection objects representing the detected objects.
+ * @param class_names Vector of class names corresponding to class IDs in Detection.
+ */
 void draw_bbox(cv::Mat& img, const std::vector<Detection>& dets, const std::vector<std::string>& class_names) {
     int h = img.rows;
     int w = img.cols;
@@ -540,6 +699,21 @@ void draw_bbox(cv::Mat& img, const std::vector<Detection>& dets, const std::vect
     }
 }
 
+/**
+ * @brief Main entry point for YOLOv1 TensorRT demo.
+ * 
+ * This program can either serialize a YOLOv1 model to a TensorRT engine
+ * file or deserialize an existing engine and run inference on a test image.
+ * The detection results are drawn on the image and saved to disk.
+ * 
+ * Usage:
+ *  - ./regnet -s : serialize the model to a plan file (../models/yolov1.engine)
+ *  - ./regnet -d : deserialize the plan file and run inference
+ * 
+ * @param argc Number of command line arguments.
+ * @param argv Array of command line argument strings.
+ * @return int Returns 1 if serialization succeeds, -1 for errors, 0 on successful inference.
+ */
 int main(int argc, char** argv) {
     if (argc != 2) {
         std::cerr << "arguments not right!" << std::endl;
