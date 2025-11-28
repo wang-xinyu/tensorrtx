@@ -1,5 +1,21 @@
-import cv2
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# flake8: noqa: E501
+# pylint: disable=no-member
+
+"""
+Utility functions for YOLOv1 inference.
+
+This module includes:
+    - Image preprocessing
+    - YOLOv1 prediction decoding
+    - Non-maximum suppression (NMS)
+    - IoU calculation
+    - Bounding box drawing utilities
+"""
+
 import random
+import cv2
 import numpy as np
 
 COLORS = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]
@@ -7,13 +23,22 @@ COLORS = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]
 
 def preprocess(img, input_size):
     """
-    Preprocess input image for YOLOv1:
-        1. BGR -> RGB
-        2. Resize
-        3. HWC -> CHW
-        4. Normalize to 0~1
+    Preprocess an input image for YOLOv1 model.
+
+    Steps:
+        1. Convert BGR → RGB
+        2. Resize to (input_size, input_size)
+        3. Convert from HWC to CHW
+        4. Normalize pixel values to [0, 1]
         5. Add batch dimension
-        6. Make contiguous
+        6. Return contiguous array
+
+    Args:
+        img (np.ndarray): BGR source image.
+        input_size (int): Model input resolution.
+
+    Returns:
+        np.ndarray: Preprocessed image ready for model inference.
     """
     # 1. BGR -> RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -34,47 +59,45 @@ def preprocess(img, input_size):
     return np.ascontiguousarray(img)
 
 
-def pred2xywhcc(pred, S, B, num_classes, conf_thresh, iou_thresh):
+def pred2xywhcc(pred, s, num_classes, conf_thresh, iou_thresh):
     """
-    Convert YOLOv1 grid output (S, S, 30) to a list of bounding boxes.
+    Convert YOLOv1 (S, S, 30) grid predictions into bounding boxes.
 
-    Input:
-        pred: raw YOLOv1 prediction, shape (S, S, 30)
-        Format per grid:
-            [B1_x, B1_y, B1_w, B1_h, B1_conf,
-             B2_x, B2_y, B2_w, B2_h, B2_conf,
-             class_1, ..., class_20]
+    Select one bbox (B1 or B2) per grid cell, compute confidence,
+    and apply NMS across all boxes.
 
-    Steps:
-        - For every grid cell, keep the bbox (B1 or B2) with higher confidence.
-        - Keep class probabilities unchanged.
-        - Apply NMS over all selected bounding boxes.
+    Args:
+        pred (np.ndarray): YOLOv1 raw model output.
+        s (int): Grid size (e.g., 7).
+        num_classes (int): Number of classes.
+        conf_thresh (float): Confidence threshold.
+        iou_thresh (float): NMS IoU threshold.
 
-    Output:
-        array of [x, y, w, h, score, class_id]
+    Returns:
+        np.ndarray: Array of boxes [x, y, w, h, score, class_id].
     """
 
-    # pred : shape = (S, S, 30)
+    # pred : shape = (s, s, 30)
     pred = np.array(pred, dtype=np.float32)
 
     # Final bboxes after selecting one bbox per grid cell
-    bboxes = np.zeros((S * S, 5 + num_classes), dtype=np.float32)
+    bboxes = np.zeros((s * s, 5 + num_classes), dtype=np.float32)
 
-    for x in range(S):
-        for y in range(S):
+    for x in range(s):
+        for y in range(s):
 
             conf1, conf2 = pred[x, y, 4], pred[x, y, 9]
 
             if conf1 > conf2:
                 # B1: pred[x,y,0:4] = [x,y,w,h]
-                bboxes[x * S + y, 0:4] = pred[x, y, 0:4]
-                bboxes[x * S + y, 4] = conf1
-                bboxes[x * S + y, 5:] = pred[x, y, 10:]
+                bboxes[x * s + y, 0:4] = pred[x, y, 0:4]
+                bboxes[x * s + y, 4] = conf1
+                bboxes[x * s + y, 5:] = pred[x, y, 10:]
             else:
                 # B2: pred[x,y,5:9]
-                bboxes[x * S + y, 0:4] = pred[x, y, 5:9]
-                bboxes[x * S + y, 4] = conf2
-                bboxes[x * S + y, 5:] = pred[x, y, 10:]
+                bboxes[x * s + y, 0:4] = pred[x, y, 5:9]
+                bboxes[x * s + y, 4] = conf2
+                bboxes[x * s + y, 5:] = pred[x, y, 10:]
 
     xywhcc = nms(bboxes, num_classes, conf_thresh, iou_thresh)
     return xywhcc
@@ -82,19 +105,21 @@ def pred2xywhcc(pred, S, B, num_classes, conf_thresh, iou_thresh):
 
 def nms(bboxs, num_classes, conf_thresh=0.1, iou_thresh=0.3):
     """
-    Non-Maximum Suppression (class-specific) for YOLOv1 results.
+    Perform class-specific Non-Maximum Suppression (NMS).
 
-    Input:
-        bboxs: (N, 5 + num_classes)
-               [x, y, w, h, conf, class_scores...]
+    Computes:
+        - class-specific confidence = conf * class_prob
+        - threshold scores
+        - per-class NMS
 
-        conf: YOLOv1 object confidence
-        class_scores: conditional class probabilities P(class | object)
+    Args:
+        bboxs (np.ndarray): Boxes of shape (N, 5 + num_classes).
+        num_classes (int): Number of classes.
+        conf_thresh (float): Confidence threshold.
+        iou_thresh (float): IoU threshold for NMS.
 
-        final score = conf * class_prob
-
-    Output: (M, 6)
-        [x, y, w, h, max_score, class_id]
+    Returns:
+        np.ndarray: Suppressed boxes, shape (M, 6).
     """
 
     if len(bboxs) == 0:
@@ -114,18 +139,19 @@ def nms(bboxs, num_classes, conf_thresh=0.1, iou_thresh=0.3):
         scores = bbox_cls_spec_conf[:, c].copy()
         order = scores.argsort()[::-1]
 
-        for i in range(len(order)):
-            if scores[order[i]] == 0:
+        for i_idx, i in enumerate(order):
+            if scores[i] == 0:
                 continue
 
-            for j in range(i + 1, len(order)):
-                if scores[order[j]] == 0:
+            for _, j in enumerate(order[i_idx + 1 :], start=i_idx + 1):
+                if scores[j] == 0:
                     continue
-                iou = calculate_iou(bboxs[order[i], 0:4], bboxs[order[j], 0:4])
-                if iou > iou_thresh:
-                    scores[order[j]] = 0
 
-            bbox_cls_spec_conf[:, c] = scores
+                iou = calculate_iou(bboxs[i, 0:4], bboxs[j, 0:4])
+                if iou > iou_thresh:
+                    scores[j] = 0
+
+        bbox_cls_spec_conf[:, c] = scores
 
     # Step 3: keep boxes that have at least one class score > 0
     keep_idx = np.max(bbox_cls_spec_conf, axis=1) > 0
@@ -146,8 +172,14 @@ def nms(bboxs, num_classes, conf_thresh=0.1, iou_thresh=0.3):
 
 def calculate_iou(bbox1, bbox2):
     """
-    Compute IoU for two boxes given as:
-        [x_center, y_center, w, h]
+    Compute IoU between two boxes.
+
+    Args:
+        bbox1 (array-like): [x_center, y_center, w, h]
+        bbox2 (array-like): [x_center, y_center, w, h]
+
+    Returns:
+        float: Intersection-over-Union score.
     """
 
     bbox1 = np.array(bbox1, dtype=np.float32)
@@ -180,13 +212,32 @@ def calculate_iou(bbox1, bbox2):
 
 
 def draw_bbox(img, bboxs, class_names):
+    """
+    Draw bounding boxes on an image.
+
+    Args:
+        img (np.ndarray): Target image.
+        bboxs (np.ndarray): Array of [x, y, w, h, score, class_id].
+        class_names (list[str]): Class name list.
+
+    Returns:
+        np.ndarray: Image with drawn bounding boxes.
+    """
     h, w = img.shape[0:2]
     n = bboxs.shape[0]
     for i in range(n):
-        p1 = (int((bboxs[i, 0] - bboxs[i, 2] / 2) * w), int((bboxs[i, 1] - bboxs[i, 3] / 2) * h))
-        p2 = (int((bboxs[i, 0] + bboxs[i, 2] / 2) * w), int((bboxs[i, 1] + bboxs[i, 3] / 2) * h))
+        p1 = (
+            int((bboxs[i, 0] - bboxs[i, 2] / 2) * w),
+            int((bboxs[i, 1] - bboxs[i, 3] / 2) * h),
+        )
+        p2 = (
+            int((bboxs[i, 0] + bboxs[i, 2] / 2) * w),
+            int((bboxs[i, 1] + bboxs[i, 3] / 2) * h),
+        )
         class_name = class_names[int(bboxs[i, 5])]
         # confidence = bboxs[i, 4]
         cv2.rectangle(img, p1, p2, color=COLORS[int(bboxs[i, 5])], thickness=2)
-        cv2.putText(img, class_name, p1, cv2.FONT_HERSHEY_SIMPLEX, 0.8, COLORS[int(bboxs[i, 5])])
+        cv2.putText(
+            img, class_name, p1, cv2.FONT_HERSHEY_SIMPLEX, 0.8, COLORS[int(bboxs[i, 5])]
+        )
     return img
