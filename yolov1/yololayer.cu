@@ -354,50 +354,50 @@ namespace nvinfer1
     {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
         if (idx == 0) printf("GPU decodeYoloKernel is running!\n");
-        int total_grid = S * S;
-        if (idx >= total_grid) return;
+        int totalGrid = S * S;
+        if (idx >= totalGrid) return;
 
-        int in_stride = 30;
-        int out_stride = 5 + C;
+        int inStride = 30;
+        int outStride = 5 + C;
 
-        int in_idx = idx * in_stride;
-        int out_idx = idx * out_stride;
+        int inIdx = idx * inStride;
+        int outIdx = idx * outStride;
 
         // B1
-        float b1_x    = input[in_idx + 0];
-        float b1_y    = input[in_idx + 1];
-        float b1_w    = input[in_idx + 2];
-        float b1_h    = input[in_idx + 3];
-        float b1_conf = input[in_idx + 4];
+        float b1X    = input[inIdx + 0];
+        float b1Y    = input[inIdx + 1];
+        float b1W    = input[inIdx + 2];
+        float b1H    = input[inIdx + 3];
+        float b1Conf = input[inIdx + 4];
 
         // B2
-        float b2_x    = input[in_idx + 5];
-        float b2_y    = input[in_idx + 6];
-        float b2_w    = input[in_idx + 7];
-        float b2_h    = input[in_idx + 8];
-        float b2_conf = input[in_idx + 9];
+        float b2X    = input[inIdx + 5];
+        float b2Y    = input[inIdx + 6];
+        float b2W    = input[inIdx + 7];
+        float b2H    = input[inIdx + 8];
+        float b2Conf = input[inIdx + 9];
 
-        if (b1_conf > b2_conf)
+        if (b1Conf > b2Conf)
         {
-            output[out_idx + 0] = b1_x;
-            output[out_idx + 1] = b1_y;
-            output[out_idx + 2] = b1_w;
-            output[out_idx + 3] = b1_h;
-            output[out_idx + 4] = b1_conf;
+            output[outIdx + 0] = b1X;
+            output[outIdx + 1] = b1Y;
+            output[outIdx + 2] = b1W;
+            output[outIdx + 3] = b1H;
+            output[outIdx + 4] = b1Conf;
         }
         else
         {
-            output[out_idx + 0] = b2_x;
-            output[out_idx + 1] = b2_y;
-            output[out_idx + 2] = b2_w;
-            output[out_idx + 3] = b2_h;
-            output[out_idx + 4] = b2_conf;
+            output[outIdx + 0] = b2X;
+            output[outIdx + 1] = b2Y;
+            output[outIdx + 2] = b2W;
+            output[outIdx + 3] = b2H;
+            output[outIdx + 4] = b2Conf;
         }
 
         //  class prob
         for (int c = 0; c < C; c++)
         {
-            output[out_idx + 5 + c] = input[in_idx + 10 + c];
+            output[outIdx + 5 + c] = input[inIdx + 10 + c];
         }
     }
 
@@ -427,21 +427,21 @@ namespace nvinfer1
     {
         const int S = mS;
         const int C = mClasses;
-        const int grid_size = S * S;
+        const int gridSize = S * S;
 
-        const float* input_dev = reinterpret_cast<const float*>(inputs[0]);
-        float* output_dev = reinterpret_cast<float*>(outputs[0]);
+        const float* inputDev = reinterpret_cast<const float*>(inputs[0]);
+        float* outputDev = reinterpret_cast<float*>(outputs[0]);
 
         for (int b = 0; b < batchSize; ++b)
         {
-            const float* input_ptr = input_dev + b * grid_size * 30;
-            float* output_ptr      = output_dev + b * grid_size * (5 + C);
+            const float* inputPtr = inputDev + b * gridSize * 30;
+            float* outputPtr      = outputDev + b * gridSize * (5 + C);
 
             int threads = 128;
-            int blocks = (grid_size + threads - 1) / threads;
+            int blocks = (gridSize + threads - 1) / threads;
 
             decodeYoloKernel<<<blocks, threads, 0, stream>>>(
-                input_ptr, output_ptr, S, C
+                inputPtr, outputPtr, S, C
             );
         }
 
