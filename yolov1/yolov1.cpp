@@ -757,14 +757,6 @@ int main(int argc, char** argv) {
 
     auto bboxes = flattenToBboxes(prob, 7, 20);
 
-    std::cout << "bboxes are: " << std::endl;
-    for (int i = 0; i < S; ++i) {
-        for (int j = 0; j < S; ++j) {
-            std::cout << bboxes[i][j] << ",";
-        }
-        std::cout << std::endl;
-    }
-
     auto dets = nms(bboxes, 20, 0.1f, 0.3f);
 
     if (!dets.empty()) {
