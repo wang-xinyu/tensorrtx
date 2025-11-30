@@ -9,6 +9,7 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
+#include "yololayer.h"
 
 #define CHECK(status)                                          \
     do {                                                       \
@@ -25,12 +26,12 @@ static const int INPUT_W = 448;
 static const int S = 7;
 static const int B = 2;
 static const int C = 20;
-static const int OUTPUT_SIZE = S * S * (B * 5 + C);  // 7*7*30 = 1470
+static const int OUTPUT_SIZE = S * S * (5 + C);  // 7*7*25 = 1225
 
 const char* INPUT_BLOB_NAME = "data";
 const char* OUTPUT_BLOB_NAME = "prob";
 
-std::vector<std::string> class_names = {"person", "bird",         "cat",          "cow",     "dog",
+std::vector<std::string> CLASS_NAMES = {"person", "bird",         "cat",          "cow",     "dog",
                                         "horse",  "sheep",        "aeroplane",    "bicycle", "boat",
                                         "bus",    "car",          "motorbike",    "train",   "bottle",
                                         "chair",  "dining table", "potted plant", "sofa",    "tvmonitor"};
@@ -41,14 +42,14 @@ static Logger gLogger;
 
 /**
  * @brief Load model weights from a file into a map.
- * 
+ *
  * This function reads a weights file where each line contains a weight blob's
- * name and values in hexadecimal format. It stores each weight blob in a 
+ * name and values in hexadecimal format. It stores each weight blob in a
  * `Weights` structure and returns a map from the blob name to its `Weights`.
- * 
+ *
  * @param file The path to the weights file to be loaded.
- * @return std::map<std::string, Weights> A map where keys are weight names and 
- *         values are corresponding `Weights` structures containing the data, 
+ * @return std::map<std::string, Weights> A map where keys are weight names and
+ *         values are corresponding `Weights` structures containing the data,
  *         data type, and number of elements.
  */
 std::map<std::string, Weights> loadWeights(const std::string file) {
@@ -89,17 +90,17 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
 
 /**
  * @brief Add a 2D Batch Normalization layer to a TensorRT network.
- * 
- * This function converts PyTorch-style batch normalization parameters 
- * (weight, bias, running mean, running variance) into TensorRT scale, shift, 
+ *
+ * This function converts PyTorch-style batch normalization parameters
+ * (weight, bias, running mean, running variance) into TensorRT scale, shift,
  * and power weights, and then adds an IScaleLayer to the network.
- * 
- * The scale, shift, and power weights are also stored in the weightMap to 
+ *
+ * The scale, shift, and power weights are also stored in the weightMap to
  * prevent memory leaks, as they are allocated dynamically.
- * 
- * @param network Pointer to the TensorRT network definition to which the batch 
+ *
+ * @param network Pointer to the TensorRT network definition to which the batch
  *                normalization layer will be added.
- * @param weightMap Map of weight blobs loaded from a pretrained model, used to 
+ * @param weightMap Map of weight blobs loaded from a pretrained model, used to
  *                  retrieve gamma, beta, running mean, and running variance.
  * @param midName The base name of the layer (used to index the weights in weightMap).
  * @param input The input ITensor to the batch normalization layer.
@@ -150,17 +151,17 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, W
 
 /**
  * @brief Add a Convolution -> BatchNorm -> Leaky ReLU sequence to a TensorRT network.
- * 
+ *
  * This function adds a convolution layer, followed by a batch normalization layer
  * and a Leaky ReLU activation layer to the specified TensorRT network.
  * It uses weights from a preloaded weightMap and constructs the layers in sequence.
- * 
+ *
  * @param network Pointer to the TensorRT network definition to which the layers will be added.
  * @param weightMap Map of weight blobs loaded from a pretrained model, used to retrieve convolution and batch norm weights.
  * @param convMidName The base name of the convolution layer (used to index weights in weightMap).
  * @param bnMidName The base name of the batch normalization layer (used to index weights in weightMap).
  * @param input The input ITensor to the convolution layer.
- * @param out_ch Number of output channels for the convolution layer.
+ * @param outCh Number of output channels for the convolution layer.
  * @param ksize Kernel size for the convolution layer (default: 3).
  * @param stride Stride for the convolution layer (default: 1).
  * @param padding Padding for the convolution layer (default: 1).
@@ -168,12 +169,12 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition* network, std::map<std::string, W
  * @return IActivationLayer* Pointer to the Leaky ReLU activation layer added to the network.
  */
 IActivationLayer* convBnRelu(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
-                             const std::string& convMidName, const std::string& bnMidName, ITensor& input, int out_ch,
+                             const std::string& convMidName, const std::string& bnMidName, ITensor& input, int outCh,
                              int ksize = 3, int stride = 1, int padding = 1, int groups = 1) {
     // 1. conv
     std::string convWeightName = "conv_layers." + convMidName + ".weight";
     std::string convBiasName = "conv_layers." + convMidName + ".bias";
-    IConvolutionLayer* conv = network->addConvolutionNd(input, out_ch, DimsHW{ksize, ksize}, weightMap[convWeightName],
+    IConvolutionLayer* conv = network->addConvolutionNd(input, outCh, DimsHW{ksize, ksize}, weightMap[convWeightName],
                                                         weightMap[convBiasName]);
     assert(conv);
 
@@ -194,14 +195,14 @@ IActivationLayer* convBnRelu(INetworkDefinition* network, std::map<std::string, 
 
 /**
  * @brief Create a TensorRT engine for YOLOv1.
- * 
- * This function constructs a complete YOLOv1 network in TensorRT using 
+ *
+ * This function constructs a complete YOLOv1 network in TensorRT using
  * pre-trained weights. It builds convolution, batch normalization, pooling,
  * fully connected, and activation layers, then returns a built ICudaEngine.
- * 
- * The function uses the provided builder and builder config to create the 
+ *
+ * The function uses the provided builder and builder config to create the
  * engine, and dynamically loads the weights from a .wts file.
- * 
+ *
  * @param maxBatchSize The maximum batch size the engine should support.
  * @param builder Pointer to the TensorRT IBuilder used to create the network.
  * @param config Pointer to the TensorRT IBuilderConfig for engine configuration.
@@ -262,8 +263,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // reshape fc1 weight shape.
     Dims fc1WeightDims = Dims2{4096, 50176};
-    Weights fc1_w = weightMap["fc_layers.0.weight"];
-    IConstantLayer* fc1WeightLayer = network->addConstant(fc1WeightDims, fc1_w);
+    Weights fc1W = weightMap["fc_layers.0.weight"];
+    IConstantLayer* fc1WeightLayer = network->addConstant(fc1WeightDims, fc1W);
     assert(fc1WeightLayer);
 
     // matrix multiply
@@ -289,8 +290,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // reshape fc2 weight
     Dims fc2WeightDims = Dims2{1470, 4096};
-    Weights fc2_w = weightMap["fc_layers.3.weight"];
-    IConstantLayer* fc2WeightLayer = network->addConstant(fc2WeightDims, fc2_w);
+    Weights fc2W = weightMap["fc_layers.3.weight"];
+    IConstantLayer* fc2WeightLayer = network->addConstant(fc2WeightDims, fc2W);
     assert(fc2WeightLayer);
 
     // fc2 matrix multiply
@@ -314,10 +315,18 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IShuffleLayer* out = network->addShuffle(*fc2Sig->getOutput(0));
 
     // correct Dims3(CHW)
-    out->setReshapeDimensions(Dims3(30, 7, 7));
+    out->setReshapeDimensions(Dims4(1, 30, 7, 7));
 
-    out->getOutput(0)->setName(OUTPUT_BLOB_NAME);
-    network->markOutput(*out->getOutput(0));
+    auto creator = getPluginRegistry()->getPluginCreator("YoloLayer_TRT", "1");
+    const PluginFieldCollection* pluginData = creator->getFieldNames();
+    IPluginV2* pluginObj = creator->createPlugin("yololayer", pluginData);
+
+    ITensor* yoloInput = out->getOutput(0);
+
+    auto yolo = network->addPluginV2(&yoloInput, 1, *pluginObj);
+
+    yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    network->markOutput(*yolo->getOutput(0));
 
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     assert(engine);
@@ -329,12 +338,12 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
 /**
  * @brief Build and serialize a TensorRT engine to a memory stream.
- * 
- * This function creates a TensorRT builder and configuration, constructs the 
- * network engine by calling `createEngine`, and then serializes the engine 
- * into a memory stream. The serialized engine can be later deserialized to 
+ *
+ * This function creates a TensorRT builder and configuration, constructs the
+ * network engine by calling `createEngine`, and then serializes the engine
+ * into a memory stream. The serialized engine can be later deserialized to
  * create an ICudaEngine for inference.
- * 
+ *
  * @param maxBatchSize The maximum batch size that the engine should support.
  * @param modelStream Pointer to an IHostMemory* that will receive the serialized engine.
  */
@@ -353,58 +362,56 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
 
 /**
  * @brief Preprocess an image for TensorRT inference.
- * 
- * This function converts an input OpenCV BGR image to the format required 
- * by TensorRT: RGB order, resized to the network input size, normalized 
- * to [0,1], and rearranged from HWC (height, width, channel) to CHW 
+ *
+ * This function converts an input OpenCV BGR image to the format required
+ * by TensorRT: RGB order, resized to the network input size, normalized
+ * to [0,1], and rearranged from HWC (height, width, channel) to CHW
  * (channel, height, width) format.
- * 
+ *
  * @param img The input image in OpenCV BGR format.
- * @param data Pointer to a pre-allocated float array where the preprocessed 
+ * @param data Pointer to a pre-allocated float array where the preprocessed
  *             image data will be stored in CHW order.
- * @param input_h The target input height for the network.
- * @param input_w The target input width for the network.
+ * @param inputH The target input height for the network.
+ * @param inputW The target input width for the network.
  */
-void preprocess_trt_cpp(const cv::Mat& img, float* data, int input_h, int input_w) {
+void preprocess(const cv::Mat& img, float* data, int inputH, int inputW) {
     // 1. BGR -> RGB
     cv::Mat rgb;
     cv::cvtColor(img, rgb, cv::COLOR_BGR2RGB);
 
     // 2. Resize to input size
     cv::Mat resized;
-    cv::resize(rgb, resized, cv::Size(input_w, input_h));
+    cv::resize(rgb, resized, cv::Size(inputW, inputH));
 
     // 3. Convert to float32
     resized.convertTo(resized, CV_32F, 1.0 / 255.0);
 
     // 4. HWC -> CHW
     int channels = 3;
-    int img_size = input_h * input_w;
-    std::vector<cv::Mat> split_channels;
-    cv::split(resized, split_channels);  // R, G, B channels
+    int imgSize = inputH * inputW;
+    std::vector<cv::Mat> splitChannels;
+    cv::split(resized, splitChannels);  // R, G, B channels
 
     // 5. RR.. GG.. BB..
     for (int c = 0; c < channels; ++c) {
-        memcpy(data + c * img_size, split_channels[c].data, img_size * sizeof(float));
+        memcpy(data + c * imgSize, splitChannels[c].data, imgSize * sizeof(float));
     }
 }
 
 /**
  * @brief Perform inference using a TensorRT execution context.
- * 
+ *
  * This function executes a forward pass of the network for a given batch of
  * input data. It allocates device memory for input and output tensors, copies
  * the input data to the GPU, performs asynchronous inference, and copies the
  * results back to host memory.
- * 
+ *
  * @param context The TensorRT execution context used to run inference.
  * @param input Pointer to the preprocessed input data in CHW float format.
  * @param output Pointer to pre-allocated memory where inference results will be stored.
- * @param pool3FlattenLayerOutput (Unused in current implementation, reserved for intermediate outputs if needed.)
  * @param batchSize Number of images in the batch to process.
  */
-void doInference(IExecutionContext& context, float* input, float* output, float* pool3FlattenLayerOutput,
-                 int batchSize) {
+void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
     const ICudaEngine& engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
@@ -448,16 +455,16 @@ void doInference(IExecutionContext& context, float* input, float* output, float*
 
 /**
  * @brief Compute the Intersection over Union (IoU) of two bounding boxes in [x, y, w, h] format.
- * 
+ *
  * The boxes are given in the format where (x, y) represents the center of the box,
- * and w, h represent the width and height. The function converts them to corner 
+ * and w, h represent the width and height. The function converts them to corner
  * coordinates, computes the intersection area, and returns the IoU.
- * 
+ *
  * @param a Pointer to the first bounding box array [x, y, w, h].
  * @param b Pointer to the second bounding box array [x, y, w, h].
  * @return float The IoU value in the range [0, 1].
  */
-float iou_xywh(const float* a, const float* b) {
+float iouXywh(const float* a, const float* b) {
     // a: [x,y,w,h], b: [x,y,w,h]
     float ax1 = a[0] - a[2] / 2.0f;
     float ay1 = a[1] - a[3] / 2.0f;
@@ -469,19 +476,19 @@ float iou_xywh(const float* a, const float* b) {
     float bx2 = b[0] + b[2] / 2.0f;
     float by2 = b[1] + b[3] / 2.0f;
 
-    float inter_x1 = std::max(ax1, bx1);
-    float inter_y1 = std::max(ay1, by1);
-    float inter_x2 = std::min(ax2, bx2);
-    float inter_y2 = std::min(ay2, by2);
+    float interX1 = std::max(ax1, bx1);
+    float interY1 = std::max(ay1, by1);
+    float interX2 = std::min(ax2, bx2);
+    float interY2 = std::min(ay2, by2);
 
-    float inter_w = std::max(0.0f, inter_x2 - inter_x1);
-    float inter_h = std::max(0.0f, inter_y2 - inter_y1);
-    float inter_area = inter_w * inter_h;
+    float interW = std::max(0.0f, interX2 - interX1);
+    float interH = std::max(0.0f, interY2 - interY1);
+    float interArea = interW * interH;
 
     float areaA = (ax2 - ax1) * (ay2 - ay1);
     float areaB = (bx2 - bx1) * (by2 - by1);
 
-    return inter_area / (areaA + areaB - inter_area + 1e-6f);
+    return interArea / (areaA + areaB - interArea + 1e-6f);
 }
 
 /**
@@ -495,64 +502,64 @@ struct Detection {
 
 /**
  * @brief Perform Non-Maximum Suppression (NMS) on bounding boxes.
- * 
+ *
  * This function applies class-specific NMS to filter overlapping bounding boxes.
  * It first computes class-specific confidence scores (conf * class probability),
  * then sorts detections per class by score, and suppresses boxes with high IoU.
- * 
+ *
  * @param bboxes Vector of bounding boxes, each in the format [x, y, w, h, conf, class_probs...].
- * @param num_classes Number of classes in the model.
- * @param conf_thresh Confidence threshold to filter low-confidence detections (default: 0.1).
- * @param iou_thresh IoU threshold for NMS to remove overlapping boxes (default: 0.3).
+ * @param numClasses Number of classes in the model.
+ * @param confThresh Confidence threshold to filter low-confidence detections (default: 0.1).
+ * @param iouThresh IoU threshold for NMS to remove overlapping boxes (default: 0.3).
  * @return std::vector<Detection> Vector of final detection results after NMS.
  */
-std::vector<Detection> nms_cpp(const std::vector<std::vector<float>>& bboxes, int num_classes, float conf_thresh = 0.1f,
-                               float iou_thresh = 0.3f) {
+std::vector<Detection> nms(const std::vector<std::vector<float>>& bboxes, int numClasses, float confThresh = 0.1f,
+                           float iouThresh = 0.3f) {
     int N = bboxes.size();
     if (N == 0)
         return {};
 
     // class-specific confidence = conf * prob
-    std::vector<std::vector<float>> cls_scores(N, std::vector<float>(num_classes));
+    std::vector<std::vector<float>> clsScores(N, std::vector<float>(numClasses));
 
     for (int i = 0; i < N; i++) {
         float conf = bboxes[i][4];
-        for (int c = 0; c < num_classes; c++) {
+        for (int c = 0; c < numClasses; c++) {
             float score = conf * bboxes[i][5 + c];
-            cls_scores[i][c] = (score > conf_thresh ? score : 0.0f);
+            clsScores[i][c] = (score > confThresh ? score : 0.0f);
         }
     }
 
     std::vector<bool> keep(N, false);
     for (int i = 0; i < N; i++)
-        for (int c = 0; c < num_classes; c++)
-            if (cls_scores[i][c] > 0)
+        for (int c = 0; c < numClasses; c++)
+            if (clsScores[i][c] > 0)
                 keep[i] = true;
 
     // NMS for every class
-    for (int c = 0; c < num_classes; c++) {
+    for (int c = 0; c < numClasses; c++) {
         // collect index for each class.
         std::vector<int> idx;
         for (int i = 0; i < N; i++)
-            if (cls_scores[i][c] > 0)
+            if (clsScores[i][c] > 0)
                 idx.push_back(i);
 
         // order by scores.
-        std::sort(idx.begin(), idx.end(), [&](int a, int b) { return cls_scores[a][c] > cls_scores[b][c]; });
+        std::sort(idx.begin(), idx.end(), [&](int a, int b) { return clsScores[a][c] > clsScores[b][c]; });
 
         // NMS
         for (int i = 0; i < (int)idx.size(); i++) {
-            if (cls_scores[idx[i]][c] == 0)
+            if (clsScores[idx[i]][c] == 0)
                 continue;
 
             for (int j = i + 1; j < (int)idx.size(); j++) {
-                if (cls_scores[idx[j]][c] == 0)
+                if (clsScores[idx[j]][c] == 0)
                     continue;
 
-                float iou = iou_xywh(bboxes[idx[i]].data(), bboxes[idx[j]].data());
+                float iou = iouXywh(bboxes[idx[i]].data(), bboxes[idx[j]].data());
 
-                if (iou > iou_thresh)
-                    cls_scores[idx[j]][c] = 0;
+                if (iou > iouThresh)
+                    clsScores[idx[j]][c] = 0;
             }
         }
     }
@@ -560,24 +567,24 @@ std::vector<Detection> nms_cpp(const std::vector<std::vector<float>>& bboxes, in
     // gene finally result.
     std::vector<Detection> out;
     for (int i = 0; i < N; i++) {
-        float best_score = 0.0f;
-        int best_class = -1;
+        float bestScore = 0.0f;
+        int bestClass = -1;
 
-        for (int c = 0; c < num_classes; c++) {
-            if (cls_scores[i][c] > best_score) {
-                best_score = cls_scores[i][c];
-                best_class = c;
+        for (int c = 0; c < numClasses; c++) {
+            if (clsScores[i][c] > bestScore) {
+                bestScore = clsScores[i][c];
+                bestClass = c;
             }
         }
 
-        if (best_class >= 0) {
+        if (bestClass >= 0) {
             Detection det;
             det.x = bboxes[i][0];
             det.y = bboxes[i][1];
             det.w = bboxes[i][2];
             det.h = bboxes[i][3];
-            det.score = best_score;
-            det.cls = best_class;
+            det.score = bestScore;
+            det.cls = bestClass;
             out.push_back(det);
         }
     }
@@ -586,83 +593,57 @@ std::vector<Detection> nms_cpp(const std::vector<std::vector<float>>& bboxes, in
 }
 
 /**
- * @brief Convert YOLOv1 network predictions to bounding boxes and apply NMS.
- * 
- * This function takes the raw network output (predictions) in YOLOv1 format
- * and converts it into bounding boxes in [x, y, w, h, conf, class_probs...] format.
- * It selects the bounding box with higher confidence for each grid cell, 
- * then applies class-specific Non-Maximum Suppression (NMS) to produce final detections.
- * 
- * @param pred Pointer to the raw prediction array from the network. 
- *             Shape = S*S*30 (e.g., 7*7*30 = 1470 for YOLOv1).
- * @param S The grid size of the network output (e.g., 7 for YOLOv1).
- * @param B Number of predicted bounding boxes per grid cell (usually 2).
- * @param num_classes Number of object classes.
- * @param conf_thresh Confidence threshold to filter low-confidence boxes before NMS.
- * @param iou_thresh IoU threshold for NMS to remove overlapping boxes.
- * @return std::vector<Detection> Vector of final detection results after NMS.
+ * @brief Converts the raw YOLO output array into a 2D vector of bounding boxes.
+ *
+ * This function reshapes a flattened 1D probability array of length
+ * `S * S * (5 + numClasses)` into a 2D vector with `S * S` elements.
+ * Each element corresponds to a grid cell and stores `(5 + numClasses)`
+ * floating-point values representing a bounding box prediction.
+ *
+ * The bounding box format is:
+ * - bbox[0] : x coordinate (relative to cell)
+ * - bbox[1] : y coordinate (relative to cell)
+ * - bbox[2] : width
+ * - bbox[3] : height
+ * - bbox[4] : confidence score
+ * - bbox[5 ... 5 + numClasses - 1] : class probabilities
+ *
+ * @param prob Pointer to the flattened probability array.
+ *        Its size must be `S * S * (5 + numClasses)`.
+ * @param S The size of the YOLO grid (e.g., 7 for a 7×7 output grid).
+ * @param numClasses Number of object classes in the model.
+ *
+ * @return A 2D vector with `S * S` rows, each containing
+ *         `(5 + numClasses)` floating-point values representing
+ *         a bounding box prediction.
  */
-std::vector<Detection> pred2xywhcc_cpp(const float* pred,  // shape = S*S*30 = 1470
-                                       int S, int B, int num_classes, float conf_thresh, float iou_thresh) {
-    // reshape pred to pred[s][s][30]
+std::vector<std::vector<float>> flattenToBboxes(const float* prob, int S, int numClasses) {
+    int cellDim = 5 + numClasses;
+    int N = S * S;
 
-    std::vector<std::vector<float>> bboxes(S * S, std::vector<float>(5 + num_classes));
+    std::vector<std::vector<float>> bboxes(N, std::vector<float>(cellDim));
 
-    for (int x = 0; x < S; x++) {
-        for (int y = 0; y < S; y++) {
-            int idx = (x * S + y) * 30;
-
-            // B1
-            float b1_x = pred[idx + 0];
-            float b1_y = pred[idx + 1];
-            float b1_w = pred[idx + 2];
-            float b1_h = pred[idx + 3];
-            float b1_conf = pred[idx + 4];
-
-            // B2
-            float b2_x = pred[idx + 5];
-            float b2_y = pred[idx + 6];
-            float b2_w = pred[idx + 7];
-            float b2_h = pred[idx + 8];
-            float b2_conf = pred[idx + 9];
-
-            int target = x * S + y;
-
-            if (b1_conf > b2_conf) {
-                bboxes[target][0] = b1_x;
-                bboxes[target][1] = b1_y;
-                bboxes[target][2] = b1_w;
-                bboxes[target][3] = b1_h;
-                bboxes[target][4] = b1_conf;
-            } else {
-                bboxes[target][0] = b2_x;
-                bboxes[target][1] = b2_y;
-                bboxes[target][2] = b2_w;
-                bboxes[target][3] = b2_h;
-                bboxes[target][4] = b2_conf;
-            }
-
-            for (int c = 0; c < num_classes; c++)
-                bboxes[target][5 + c] = pred[idx + 10 + c];
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < cellDim; j++) {
+            bboxes[i][j] = prob[i * cellDim + j];
         }
     }
 
-    // NMS
-    return nms_cpp(bboxes, num_classes, conf_thresh, iou_thresh);
+    return bboxes;
 }
 
 /**
  * @brief Draw bounding boxes and class labels on an image.
- * 
- * This function takes a list of detection results and draws the corresponding 
- * bounding boxes and class labels onto the input OpenCV image. Each class is 
+ *
+ * This function takes a list of detection results and draws the corresponding
+ * bounding boxes and class labels onto the input OpenCV image. Each class is
  * assigned a unique random color for visualization.
- * 
+ *
  * @param img The OpenCV image on which to draw bounding boxes (BGR format).
  * @param dets Vector of Detection objects representing the detected objects.
- * @param class_names Vector of class names corresponding to class IDs in Detection.
+ * @param classNames Vector of class names corresponding to class IDs in Detection.
  */
-void draw_bbox(cv::Mat& img, const std::vector<Detection>& dets, const std::vector<std::string>& class_names) {
+void drawBbox(cv::Mat& img, const std::vector<Detection>& dets, const std::vector<std::string>& classNames) {
     int h = img.rows;
     int w = img.cols;
 
@@ -693,23 +674,23 @@ void draw_bbox(cv::Mat& img, const std::vector<Detection>& dets, const std::vect
         cv::Scalar color(COLORS[d.cls][2], COLORS[d.cls][1], COLORS[d.cls][0]);
         cv::rectangle(img, cv::Point(x1, y1), cv::Point(x2, y2), color, 2);
 
-        std::string cls_name = class_names[d.cls];
+        std::string clsName = classNames[d.cls];
 
-        cv::putText(img, cls_name, cv::Point(x1, y1 - 3), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 0, 0), 2);
+        cv::putText(img, clsName, cv::Point(x1, y1 - 3), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 0, 0), 2);
     }
 }
 
 /**
  * @brief Main entry point for YOLOv1 TensorRT demo.
- * 
+ *
  * This program can either serialize a YOLOv1 model to a TensorRT engine
  * file or deserialize an existing engine and run inference on a test image.
  * The detection results are drawn on the image and saved to disk.
- * 
+ *
  * Usage:
  *  - ./regnet -s : serialize the model to a plan file (../models/yolov1.engine)
  *  - ./regnet -d : deserialize the plan file and run inference
- * 
+ *
  * @param argc Number of command line arguments.
  * @param argv Array of command line argument strings.
  * @return int Returns 1 if serialization succeeds, -1 for errors, 0 on successful inference.
@@ -762,7 +743,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    preprocess_trt_cpp(img, data, INPUT_H, INPUT_W);
+    preprocess(img, data, INPUT_H, INPUT_W);
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -772,17 +753,26 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
 
     float prob[OUTPUT_SIZE];
-    float pool3FlattenLayerOutput[9216];
-    doInference(*context, data, prob, pool3FlattenLayerOutput, 1);
+    doInference(*context, data, prob, 1);
 
-    auto dets = pred2xywhcc_cpp(prob, 7, 2, 20, 0.1f, 0.3f);
+    auto bboxes = flattenToBboxes(prob, 7, 20);
+
+    std::cout << "bboxes are: " << std::endl;
+    for (int i = 0; i < S; ++i) {
+        for (int j = 0; j < S; ++j) {
+            std::cout << bboxes[i][j] << ",";
+        }
+        std::cout << std::endl;
+    }
+
+    auto dets = nms(bboxes, 20, 0.1f, 0.3f);
 
     if (!dets.empty()) {
-        draw_bbox(img, dets, class_names);
+        drawBbox(img, dets, CLASS_NAMES);
 
-        std::string out_path = "../output.jpg";
-        cv::imwrite(out_path, img);
-        std::cout << "Saved to " << out_path << std::endl;
+        std::string outPath = "../output.jpg";
+        cv::imwrite(outPath, img);
+        std::cout << "Saved to " << outPath << std::endl;
     }
 
     return 0;
