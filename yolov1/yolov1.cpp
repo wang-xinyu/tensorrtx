@@ -20,6 +20,8 @@
         }                                                      \
     } while (0)
 
+#define USE_FP16  // comment out this if want to use FP32
+
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 448;
 static const int INPUT_W = 448;
@@ -327,6 +329,14 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
+
+#ifdef USE_FP16
+    config->setFlag(BuilderFlag::kFP16);
+#endif
+    std::cout << "Building engine, please wait for a while..." << std::endl;
+    std::cout << "Device FP16 support: " << builder->platformHasFastFp16() << std::endl;
+
+    std::cout << "Config FP16 enabled: " << config->getFlag(BuilderFlag::kFP16) << std::endl;
 
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     assert(engine);

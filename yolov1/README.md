@@ -41,3 +41,6 @@ make
 ```
 
 5. check the image generated.
+
+# Config
+- FP16/FP32 can be selected by the macro in yolov1.cpp
