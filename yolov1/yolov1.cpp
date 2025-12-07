@@ -7,8 +7,10 @@
 #include <random>
 #include <vector>
 #include "NvInfer.h"
+#include "calibrator.h"
 #include "cuda_runtime_api.h"
-#include "logging.h"
+#include "myLogger.h"
+#include "utils.h"
 #include "yololayer.h"
 
 #define CHECK(status)                                          \
@@ -20,7 +22,7 @@
         }                                                      \
     } while (0)
 
-#define USE_FP16  // comment out this if want to use FP32
+#define USE_INT8  // set USE_INT8 or USE_FP16 or USE_FP32
 
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = 448;
@@ -40,7 +42,7 @@ std::vector<std::string> CLASS_NAMES = {"person", "bird",         "cat",        
 
 using namespace nvinfer1;
 
-static Logger gLogger;
+static myLogger gLogger(ILogger::Severity::kINFO);
 
 /**
  * @brief Load model weights from a file into a map.
@@ -330,14 +332,21 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     yolo->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*yolo->getOutput(0));
 
-#ifdef USE_FP16
+#if defined(USE_FP16)
     config->setFlag(BuilderFlag::kFP16);
-#endif
-    std::cout << "Building engine, please wait for a while..." << std::endl;
     std::cout << "Device FP16 support: " << builder->platformHasFastFp16() << std::endl;
 
     std::cout << "Config FP16 enabled: " << config->getFlag(BuilderFlag::kFP16) << std::endl;
+#elif defined(USE_INT8)
+    std::cout << "Your platform support int8: " << (builder->platformHasFastInt8() ? "true" : "false") << std::endl;
+    assert(builder->platformHasFastInt8());
+    config->setFlag(BuilderFlag::kINT8);
+    Int8EntropyCalibrator2* calibrator =
+            new Int8EntropyCalibrator2(1, INPUT_W, INPUT_H, "./coco2007_calib/", "int8calib.table", INPUT_BLOB_NAME);
+    config->setInt8Calibrator(calibrator);
+#endif
 
+    std::cout << "Building engine, please wait for a while..." << std::endl;
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     assert(engine);
 
@@ -368,44 +377,6 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
 
     // Serialize the engine
     (*modelStream) = engine->serialize();
-}
-
-/**
- * @brief Preprocess an image for TensorRT inference.
- *
- * This function converts an input OpenCV BGR image to the format required
- * by TensorRT: RGB order, resized to the network input size, normalized
- * to [0,1], and rearranged from HWC (height, width, channel) to CHW
- * (channel, height, width) format.
- *
- * @param img The input image in OpenCV BGR format.
- * @param data Pointer to a pre-allocated float array where the preprocessed
- *             image data will be stored in CHW order.
- * @param inputH The target input height for the network.
- * @param inputW The target input width for the network.
- */
-void preprocess(const cv::Mat& img, float* data, int inputH, int inputW) {
-    // 1. BGR -> RGB
-    cv::Mat rgb;
-    cv::cvtColor(img, rgb, cv::COLOR_BGR2RGB);
-
-    // 2. Resize to input size
-    cv::Mat resized;
-    cv::resize(rgb, resized, cv::Size(inputW, inputH));
-
-    // 3. Convert to float32
-    resized.convertTo(resized, CV_32F, 1.0 / 255.0);
-
-    // 4. HWC -> CHW
-    int channels = 3;
-    int imgSize = inputH * inputW;
-    std::vector<cv::Mat> splitChannels;
-    cv::split(resized, splitChannels);  // R, G, B channels
-
-    // 5. RR.. GG.. BB..
-    for (int c = 0; c < channels; ++c) {
-        memcpy(data + c * imgSize, splitChannels[c].data, imgSize * sizeof(float));
-    }
 }
 
 /**
@@ -753,7 +724,9 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    preprocess(img, data, INPUT_H, INPUT_W);
+    cv::Mat pre_img = preprocessImg(img, INPUT_W, INPUT_H);
+
+    hwcToChw(pre_img, data);
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
@@ -766,6 +739,14 @@ int main(int argc, char** argv) {
     doInference(*context, data, prob, 1);
 
     auto bboxes = flattenToBboxes(prob, 7, 20);
+
+    std::cout << "bboxes are: " << std::endl;
+    for (int i = 0; i < S; ++i) {
+        for (int j = 0; j < S; ++j) {
+            std::cout << bboxes[i][j] << ",";
+        }
+        std::cout << std::endl;
+    }
 
     auto dets = nms(bboxes, 20, 0.1f, 0.3f);
 

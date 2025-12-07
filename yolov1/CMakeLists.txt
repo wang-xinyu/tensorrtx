@@ -7,6 +7,7 @@ add_definitions(-std=c++11)
 option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Debug)
+add_compile_options(-g -O0)
 
 find_package(CUDA REQUIRED)
 
@@ -19,18 +20,16 @@ link_directories(/usr/local/cuda/lib64)
 include_directories(/usr/include/aarch64-linux-gnu/)
 link_directories(/usr/lib/aarch64-linux-gnu/)
 
+# opencv
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 
 cuda_add_library(yololayer SHARED ${PROJECT_SOURCE_DIR}/yololayer.cu)
-target_link_libraries(yololayer nvinfer cudart)
+target_link_libraries(yololayer nvinfer cudart ${OpenCV_LIBS})
 
-# opencv
-find_package(OpenCV REQUIRED)
-include_directories(
-    ${OpenCV_INCLUDE_DIRS}
-)
-
-add_executable(yolov1 ${PROJECT_SOURCE_DIR}/yolov1.cpp)
+add_executable(yolov1 ${PROJECT_SOURCE_DIR}/calibrator.cpp ${PROJECT_SOURCE_DIR}/yolov1.cpp)
 target_link_libraries(yolov1 nvinfer)
 target_link_libraries(yolov1 cudart)
 target_link_libraries(yolov1 yololayer)

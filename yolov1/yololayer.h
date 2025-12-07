@@ -33,7 +33,7 @@ class YoloLayerPlugin : public IPluginV2IOExt {
 
     int initialize() TRT_NOEXCEPT override;
 
-    virtual void terminate() TRT_NOEXCEPT override{};
+    virtual void terminate() TRT_NOEXCEPT override {};
 
     virtual size_t getWorkspaceSize(int maxBatchSize) const TRT_NOEXCEPT override { return 0; }
 
@@ -44,9 +44,20 @@ class YoloLayerPlugin : public IPluginV2IOExt {
 
     virtual void serialize(void* buffer) const TRT_NOEXCEPT override;
 
-    bool supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs,
+    bool supportsFormatCombination(int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs,
                                    int nbOutputs) const TRT_NOEXCEPT override {
-        return inOut[pos].format == TensorFormat::kLINEAR && inOut[pos].type == DataType::kFLOAT;
+        const nvinfer1::PluginTensorDesc& desc = inOut[pos];
+
+        if (desc.format != nvinfer1::TensorFormat::kLINEAR) {
+            return false;
+        }
+
+        if (pos < nbInputs) {
+            return (desc.type == nvinfer1::DataType::kFLOAT || desc.type == nvinfer1::DataType::kHALF ||
+                    desc.type == nvinfer1::DataType::kINT8);
+        } else {
+            return (desc.type == nvinfer1::DataType::kFLOAT || desc.type == nvinfer1::DataType::kHALF);
+        }
     }
 
     const char* getPluginType() const TRT_NOEXCEPT override;
