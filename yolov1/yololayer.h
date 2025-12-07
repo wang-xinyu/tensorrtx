@@ -33,7 +33,7 @@ class YoloLayerPlugin : public IPluginV2IOExt {
 
     int initialize() TRT_NOEXCEPT override;
 
-    virtual void terminate() TRT_NOEXCEPT override {};
+    virtual void terminate() TRT_NOEXCEPT override{};
 
     virtual size_t getWorkspaceSize(int maxBatchSize) const TRT_NOEXCEPT override { return 0; }
 

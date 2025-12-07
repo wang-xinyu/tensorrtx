@@ -44,3 +44,16 @@ make
 
 # Config
 - FP16/FP32 can be selected by the macro in yolov1.cpp
+
+# INT8 Quantization
+
+1. Prepare calibration images, you can randomly select images from your train set. For coco, you can also download coco 2007 images `coco2007` from
+ [kaggle](https://www.kaggle.com/datasets/zaraks/pascal-voc-2007).
+
+2. unzip it in yolov1/build.
+
+3. select about 4000 images from train dataset and make a folder named `coco2007_calib`
+
+4. set the macro `USE_INT8` in yolov1.cpp and make.
+
+5. serialize the model and test.
