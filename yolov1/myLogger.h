@@ -18,7 +18,7 @@ class myLogger : public nvinfer1::ILogger {
     /**
      * @brief Construct a new myLogger object.
      *
-     * @param severity The minimum severity level to report.  
+     * @param severity The minimum severity level to report.
      *                 Defaults to Severity::kVERBOSE (log everything).
      */
     myLogger(Severity severity = Severity::kVERBOSE) : reportableSeverity(severity) {}
