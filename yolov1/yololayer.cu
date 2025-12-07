@@ -353,7 +353,6 @@ namespace nvinfer1
     )
     {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx == 0) printf("GPU decodeYoloKernel is running!\n");
         int totalGrid = S * S;
         if (idx >= totalGrid) return;
 
