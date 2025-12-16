@@ -1,4 +1,3 @@
-import sys
 import argparse
 import os
 import struct
@@ -27,13 +26,14 @@ pt_file, wts_file = parse_args()
 # Initialize
 device = select_device('cpu')
 # Load model
-model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
+model = torch.load(pt_file, map_location=device, weights_only=False)['model'].float()  # load to FP32
 
 # update anchor_grid info
 anchor_grid = model.model[-1].anchors * model.model[-1].stride[..., None, None]
 # model.model[-1].anchor_grid = anchor_grid
 delattr(model.model[-1], 'anchor_grid')  # model.model[-1] is detect layer
-model.model[-1].register_buffer("anchor_grid", anchor_grid)  # The parameters are saved in the OrderDict through the "register_buffer" method, and then saved to the weight.
+# The parameters are saved in the OrderDict through the "register_buffer" method, and then saved to the weight.
+model.model[-1].register_buffer("anchor_grid", anchor_grid)
 
 model.to(device).eval()
 
