@@ -1,4 +1,3 @@
-import sys
 import argparse
 import os
 import struct
@@ -27,7 +26,7 @@ pt_file, wts_file = parse_args()
 # Initialize
 device = select_device('cpu')
 # Load model
-model = torch.load(pt_file, map_location=device)['model'].float()  # load to FP32
+model = torch.load(pt_file, map_location=device, weights_only=False)['model'].float()  # load to FP32
 model.to(device).eval()
 
 with open(wts_file, 'w') as f:
@@ -41,5 +40,5 @@ with open(wts_file, 'w') as f:
         # Values, each separated by a space
         for vv in vr:
             f.write(' ')
-            f.write(struct.pack('>f' ,float(vv)).hex())
+            f.write(struct.pack('>f', float(vv)).hex())
         f.write('\n')
