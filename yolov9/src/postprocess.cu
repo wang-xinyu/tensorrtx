@@ -3,20 +3,21 @@
 //
 #include "postprocess.h"
 
-static __global__ void decode_kernel(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects) {
+static __global__ void decode_kernel(float* predict, int num_bboxes, float confidence_threshold, float* parray,
+                                     int max_objects) {
 
     float count = predict[0];
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
     if (position >= count)
         return;
-    float *pitem = predict + 1 + position * 6;
+    float* pitem = predict + 1 + position * 6;
     int index = atomicAdd(parray, 1);
     if (index >= max_objects)
         return;
     float confidence = pitem[4];
     if (confidence < confidence_threshold)
         return;
-    float *pout_item = parray + 1 + index * bbox_element;
+    float* pout_item = parray + 1 + index * bbox_element;
     float left = pitem[0];
     float top = pitem[1];
     float right = pitem[2];
@@ -28,10 +29,11 @@ static __global__ void decode_kernel(float *predict, int num_bboxes, float confi
     *pout_item++ = bottom;
     *pout_item++ = confidence;
     *pout_item++ = label;
-    *pout_item++ = 1; // 1 = keep, 0 = ignore
+    *pout_item++ = 1;  // 1 = keep, 0 = ignore
 }
 
-static __device__ float box_iou(float aleft, float atop, float aright, float abottom, float bleft, float btop, float bright, float bbottom) {
+static __device__ float box_iou(float aleft, float atop, float aright, float abottom, float bleft, float btop,
+                                float bright, float bbottom) {
 
     float cleft = max(aleft, bleft);
     float ctop = max(atop, btop);
@@ -47,25 +49,27 @@ static __device__ float box_iou(float aleft, float atop, float aright, float abo
     return c_area / (a_area + b_area - c_area);
 }
 
-static __global__ void nms_kernel(float *bboxes, int max_objects, float threshold) {
+static __global__ void nms_kernel(float* bboxes, int max_objects, float threshold) {
 
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
-    int count = bboxes[0];
+    int count = min(static_cast<int>(bboxes[0]), max_objects);
 
     // float count = 0.0f;
     if (position >= count)
         return;
 
-    float *pcurrent = bboxes + 1 + position * bbox_element;
+    float* pcurrent = bboxes + 1 + position * bbox_element;
     for (int i = 1; i < count; ++i) {
-        float *pitem = bboxes + 1 + i * bbox_element;
-        if (i == position || pcurrent[5] != pitem[5]) continue;
+        float* pitem = bboxes + 1 + i * bbox_element;
+        if (i == position || pcurrent[5] != pitem[5])
+            continue;
 
         if (pitem[4] >= pcurrent[4]) {
             if (pitem[4] == pcurrent[4] && i < position)
                 continue;
 
-            float iou = box_iou(pcurrent[0], pcurrent[1], pcurrent[2], pcurrent[3],pitem[0], pitem[1], pitem[2], pitem[3]);
+            float iou =
+                    box_iou(pcurrent[0], pcurrent[1], pcurrent[2], pcurrent[3], pitem[0], pitem[1], pitem[2], pitem[3]);
 
             if (iou > threshold) {
                 pcurrent[6] = 0;
@@ -75,17 +79,15 @@ static __global__ void nms_kernel(float *bboxes, int max_objects, float threshol
     }
 }
 // 置信度过滤
-void cuda_decode(float *predict, int num_bboxes, float confidence_threshold, float *parray, int max_objects,
+void cuda_decode(float* predict, int num_bboxes, float confidence_threshold, float* parray, int max_objects,
                  cudaStream_t stream) {
     int block = 256;
-    int grid = ceil(num_bboxes / (float) block);
-    decode_kernel << < grid, block, 0, stream >> > ((float *) predict, num_bboxes, confidence_threshold, parray, max_objects);
-
+    int grid = ceil(num_bboxes / (float)block);
+    decode_kernel<<<grid, block, 0, stream>>>((float*)predict, num_bboxes, confidence_threshold, parray, max_objects);
 }
 
-void cuda_nms(float *parray, float nms_threshold, int max_objects, cudaStream_t stream) {
+void cuda_nms(float* parray, float nms_threshold, int max_objects, cudaStream_t stream) {
     int block = max_objects < 256 ? max_objects : 256;
-    int grid = ceil(max_objects / (float) block);
-    nms_kernel << < grid, block, 0, stream >> > (parray, max_objects, nms_threshold);
-
+    int grid = ceil(max_objects / (float)block);
+    nms_kernel<<<grid, block, 0, stream>>>(parray, max_objects, nms_threshold);
 }
