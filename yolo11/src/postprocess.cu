@@ -88,7 +88,7 @@ static __device__ float box_iou(float aleft, float atop, float aright, float abo
 
 static __global__ void nms_kernel(float* bboxes, int max_objects, float threshold) {
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
-    int count = bboxes[0];
+    int count = min(static_cast<int>(bboxes[0]), max_objects);
     if (position >= count)
         return;
 
@@ -143,7 +143,7 @@ static __device__ float box_probiou(float cx1, float cy1, float w1, float h1, fl
 
 static __global__ void nms_kernel_obb(float* bboxes, int max_objects, float threshold) {
     int position = (blockDim.x * blockIdx.x + threadIdx.x);
-    int count = bboxes[0];
+    int count = min(static_cast<int>(bboxes[0]), max_objects);
     if (position >= count)
         return;
 
