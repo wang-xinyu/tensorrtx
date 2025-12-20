@@ -8,7 +8,7 @@ struct alignas(float) Detection {
     float class_id;
     float mask[32];
     float keypoints[kNumberOfPoints * 3];  // 17*3 keypoints
-    float angle;  // obb angle
+    float angle;                           // obb angle
 };
 
 struct AffineMatrix {
