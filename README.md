@@ -14,7 +14,7 @@ The basic workflow of TensorRTx is:
 4. Load the TensorRT engine and run inference.
 
 ## News
-
+- `8 Jan 2026`. [ydk61](https://github.com/ydk61): YOLOv13
 - `10 May 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): [YOLO11](./yolo11_tripy) writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `2 May 2025`. [fazligorkembal](https://github.com/fazligorkembal): YOLO12
 - `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First [Lenet](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model) example writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
