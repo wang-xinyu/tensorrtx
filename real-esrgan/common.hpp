@@ -61,7 +61,7 @@ ITensor* residualDenseBlock(INetworkDefinition *network, std::map<std::string, W
 
     ITensor* concat_input2[] = { x, x1 };
     IConcatenationLayer* concat2 = network->addConcatenation(concat_input2, 2);
-    concat2->setAxis(0);
+    concat2->setAxis(1);
     IConvolutionLayer* conv_2 = network->addConvolutionNd(*concat2->getOutput(0), 32, DimsHW{ 3, 3 }, weightMap[lname + ".conv2.weight"], weightMap[lname + ".conv2.bias"]);
     conv_2->setStrideNd(DimsHW{ 1, 1 });
     conv_2->setPaddingNd(DimsHW{ 1, 1 });
@@ -71,7 +71,7 @@ ITensor* residualDenseBlock(INetworkDefinition *network, std::map<std::string, W
 
     ITensor* concat_input3[] = { x, x1, x2 };
     IConcatenationLayer* concat3 = network->addConcatenation(concat_input3, 3);
-    concat3->setAxis(0);
+    concat3->setAxis(1);
     IConvolutionLayer* conv_3 = network->addConvolutionNd(*concat3->getOutput(0), 32, DimsHW{ 3, 3 }, weightMap[lname + ".conv3.weight"], weightMap[lname + ".conv3.bias"]);
     conv_3->setStrideNd(DimsHW{ 1, 1 });
     conv_3->setPaddingNd(DimsHW{ 1, 1 });
@@ -81,7 +81,7 @@ ITensor* residualDenseBlock(INetworkDefinition *network, std::map<std::string, W
 
     ITensor* concat_input4[] = { x, x1, x2, x3 };
     IConcatenationLayer* concat4 = network->addConcatenation(concat_input4, 4);
-    concat4->setAxis(0);
+    concat4->setAxis(1);
     IConvolutionLayer* conv_4 = network->addConvolutionNd(*concat4->getOutput(0), 32, DimsHW{ 3, 3 }, weightMap[lname + ".conv4.weight"], weightMap[lname + ".conv4.bias"]);
     conv_4->setStrideNd(DimsHW{ 1, 1 });
     conv_4->setPaddingNd(DimsHW{ 1, 1 });
@@ -91,7 +91,7 @@ ITensor* residualDenseBlock(INetworkDefinition *network, std::map<std::string, W
 
     ITensor* concat_input5[] = { x, x1, x2, x3, x4 };
     IConcatenationLayer* concat5 = network->addConcatenation(concat_input5, 5);
-    concat5->setAxis(0);
+    concat5->setAxis(1);
     IConvolutionLayer* conv_5 = network->addConvolutionNd(*concat5->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap[lname + ".conv5.weight"], weightMap[lname + ".conv5.bias"]);
     conv_5->setStrideNd(DimsHW{ 1, 1 });
     conv_5->setPaddingNd(DimsHW{ 1, 1 });

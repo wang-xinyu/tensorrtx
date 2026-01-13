@@ -23,10 +23,10 @@ static Logger gLogger;
 
 // Creat the engine using only the API and not any parser.
 ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt, std::string& wts_name) {
-    INetworkDefinition* network = builder->createNetworkV2(0U);
+    INetworkDefinition* network = builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
 
-    // Create input tensor of shape {INPUT_H, INPUT_W, INPUT_C} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{ INPUT_H, INPUT_W, INPUT_C });
+    // Create input tensor of shape {maxBatchSize, INPUT_H, INPUT_W, INPUT_C} with name INPUT_BLOB_NAME
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{ maxBatchSize, INPUT_H, INPUT_W, INPUT_C });
     assert(data);
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
 
@@ -59,9 +59,9 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     //upsample
     IResizeLayer* interpolate_nearest = network->addResize(*feat);
-    float sclaes1[] = { 1, 2, 2 };
-    interpolate_nearest->setScales(sclaes1, 3);
-    interpolate_nearest->setResizeMode(ResizeMode::kNEAREST);
+    float sclaes1[] = { 1, 1, 2, 2 };
+    interpolate_nearest->setScales(sclaes1, 4);
+    interpolate_nearest->setResizeMode(InterpolationMode::kNEAREST);
 
     IConvolutionLayer* conv_up1 = network->addConvolutionNd(*interpolate_nearest->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_up1.weight"], weightMap["conv_up1.bias"]);
     conv_up1->setStrideNd(DimsHW{ 1, 1 });
@@ -70,9 +70,9 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     leaky_relu_1->setAlpha(0.2);
 
     IResizeLayer* interpolate_nearest2 = network->addResize(*leaky_relu_1->getOutput(0));
-    float sclaes2[] = { 1, 2, 2 };
-    interpolate_nearest2->setScales(sclaes2, 3);
-    interpolate_nearest2->setResizeMode(ResizeMode::kNEAREST);
+    float sclaes2[] = { 1, 1, 2, 2 };
+    interpolate_nearest2->setScales(sclaes2, 4);
+    interpolate_nearest2->setResizeMode(InterpolationMode::kNEAREST);
     IConvolutionLayer* conv_up2 = network->addConvolutionNd(*interpolate_nearest2->getOutput(0), 64, DimsHW{ 3, 3 }, weightMap["conv_up2.weight"], weightMap["conv_up2.bias"]);
     conv_up2->setStrideNd(DimsHW{ 1, 1 });
     conv_up2->setPaddingNd(DimsHW{ 1, 1 });
@@ -90,7 +90,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* out = conv_last->getOutput(0);
 
     // Custom postprocess (RGB -> BGR, NCHW->NHWC, *255, ROUND, uint8)
-    Postprocess postprocess{ maxBatchSize, out->getDimensions().d[0], out->getDimensions().d[1], out->getDimensions().d[2] };
+    Postprocess postprocess{ maxBatchSize, out->getDimensions().d[1], out->getDimensions().d[2], out->getDimensions().d[3] };
     IPluginCreator* postprocess_creator = getPluginRegistry()->getPluginCreator("postprocess", "1");
     IPluginV2 *postprocess_plugin = postprocess_creator->createPlugin("postprocess_plugin", (PluginFieldCollection*)&postprocess);
     IPluginV2Layer* postprocess_layer = network->addPluginV2(&out, 1, *postprocess_plugin);
@@ -101,8 +101,7 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     network->markOutput(*final_tensor);
 
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(16 * (1 << 20));  // 16MB
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
 
     if (PRECISION_MODE == 16) {
         std::cout << "==== precision f16 ====" << std::endl << std::endl;
@@ -143,13 +142,15 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, std::strin
 
     // Close everything down
     delete engine;
-    delete builder;
     delete config;
+    delete builder;
 }
 
 void doInference(IExecutionContext& context, cudaStream_t& stream, void **buffers, uint8_t* output, int batchSize) {
     // infer on the batch asynchronously, and DMA output back to host
-    context.enqueue(batchSize, buffers, stream, nullptr);
+    context.setInputTensorAddress(INPUT_BLOB_NAME, buffers[0]);
+    context.setOutputTensorAddress(OUTPUT_BLOB_NAME, buffers[1]);
+    context.enqueueV3(stream);
     CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchSize * OUTPUT_SIZE * sizeof(uint8_t), cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 }
@@ -228,12 +229,12 @@ int main(int argc, char** argv) {
     IExecutionContext* context = engine->createExecutionContext();
     assert(context != nullptr);
     delete[] trtModelStream;
-    assert(engine->getNbBindings() == 2);
+    assert(engine->getNbIOTensors() == 2);
     void* buffers[2];
     // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine->getBindingIndex(OUTPUT_BLOB_NAME);
+    // Note that indices are guaranteed to be less than IEngine::getNbIOTensors()
+    const int inputIndex = 0;
+    const int outputIndex = 1;
     assert(inputIndex == 0);
     assert(outputIndex == 1);
 
