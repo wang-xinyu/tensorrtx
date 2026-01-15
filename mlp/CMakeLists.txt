@@ -1,24 +1,42 @@
-cmake_minimum_required(VERSION 3.14)  # change the version, if asked by compiler
-project(mlp)
+cmake_minimum_required(VERSION 3.17.0)
 
-set(CMAKE_CXX_STANDARD 14)
+project(
+  mlp
+  VERSION 0.1
+  LANGUAGES C CXX CUDA)
 
-# include and link dirs of tensorrt, you need adapt them if yours are different
-include_directories(/usr/include/x86_64-linux-gnu/)
-link_directories(/usr/lib/x86_64-linux-gnu/)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES
+      60
+      70
+      72
+      75
+      80
+      86
+      89)
+endif()
 
-# include and link dirs of cuda for inference
-include_directories(/usr/local/cuda/include)
-link_directories(/usr/local/cuda/lib64)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
 
-# create link for executable files
-add_executable(mlp mlp.cpp)
+option(CUDA_USE_STATIC_CUDA_RUNTIME "Use static cudaruntime library" OFF)
 
-# perform linking with nvinfer libraries
-target_link_libraries(mlp nvinfer)
+find_package(Threads REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 
-# link with cuda libraries for Inference
-target_link_libraries(mlp cudart)
+if(NOT TARGET TensorRT::TensorRT)
+  include(FindTensorRT.cmake)
+else()
+  message("TensorRT has been found, skipping for ${PROJECT_NAME}")
+endif()
 
-add_definitions(-O2 -pthread)
+add_executable(${PROJECT_NAME} mlp.cpp)
 
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_LIST_DIR})
+
+target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads CUDA::cudart
+                                             TensorRT::TensorRT)

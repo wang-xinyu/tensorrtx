@@ -49,11 +49,11 @@ Change the `TAG` on top of the `.dockerfile`. Note: all images are officially ow
 
 For more detail of the support matrix, please check [HERE](https://docs.nvidia.com/deeplearning/frameworks/support-matrix/index.html)
 
-### How to customize opencv?
+### How to customize the opencv in the image?
 
 If prebuilt package from apt cannot meet your requirements, please refer to the demo code in `.dockerfile` to build opencv from source.
 
-### How to solve image build fail issues?
+### How to solve failiures when building image?
 
 For *443 timeout* or any similar network issues, a proxy may required. To make your host proxy work for building env of docker, please change the `build` node inside docker-compose file like this:
 ```YAML

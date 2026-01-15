@@ -1,57 +1,45 @@
 # Install the dependencies of tensorrtx
 
-## Ubuntu
+Using docker as development environment is strongly recommended, you may check [HERE](../docker/README) for the deployment instructions of docker container and _ignore_ the rest of this document.
 
-Ubuntu16.04 / cuda10.0 / cudnn7.6.5 / tensorrt7.0.0 / opencv3.3 would be the example, other versions might also work, just need you to try.
+While if this is not your case, we always recommend using major LTS version of your OS, Nvidia driver, CUDA, and so on.
 
-It is strongly recommended to use `apt` to manage software in Ubuntu.
+## OS
 
-### 1. Install CUDA
+Ubuntu-22.04 is recommended. It is strongly recommended to use `apt` to manage packages in Ubuntu.
 
-Go to [cuda-10.0-download](https://developer.nvidia.com/cuda-10.0-download-archive). Choose `Linux` -> `x86_64` -> `Ubuntu` -> `16.04` -> `deb(local)` and download the .deb package.
+## Nvidia Related
 
-Then follow the installation instructions.
+### Driver
 
-```
-sudo dpkg -i cuda-repo-ubuntu1604-10-0-local-10.0.130-410.48_1.0-1_amd64.deb
-sudo apt-key add /var/cuda-repo-<version>/7fa2af80.pub
-sudo apt-get update
-sudo apt-get install cuda
-```
+You should install the nvidia driver first before anything else, go to [Ubuntu Driver Installation Guide](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/index.html#ubuntu) for more details.
 
-### 2. Install TensorRT
+**NOTE**: Since version 560, the installation step is a little different than before, check [HERE](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/index.html#recent-updates) for more details.
 
-Go to [nvidia-tensorrt-7x-download](https://developer.nvidia.com/nvidia-tensorrt-7x-download). You might need login.
+### CUDA
 
-Choose TensorRT 7.0 and `TensorRT 7.0.0.11 for Ubuntu 1604 and CUDA 10.0 DEB local repo packages`
+Go to [NVIDIA CUDA Installation Guide for Linux](https://developer.nvidia.com/cuda-10.0-download-archive) for the detailed steps.
 
-Install with following commands, after `apt install tensorrt`, it will automatically install cudnn, nvinfer, nvinfer-plugin, etc.
+**NOTE**:
 
-```
-sudo dpkg -i nv-tensorrt-repo-ubuntu1604-cuda10.0-trt7.0.0.11-ga-20191216_1-1_amd64.deb
-sudo apt update
-sudo apt install tensorrt
-```
+- Do not forget to check [Post-installation Actions](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#post-installation-actions) to setup the environment correctly.
+- Make your CUDA version comply with your driver version
+- If you want multi-version CUDA, docker is strongly recommended.
 
-### 3. Install OpenCV
+### TensorRT
+
+check [HERE](https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html#downloading) to install TensorRT.
+
+### (Optional) OpenCV
 
 ```
-sudo add-apt-repository ppa:timsc/opencv-3.3
-sudo apt-get update
-sudo apt install libopencv-dev
+sudo apt-get update && sudo apt install libgtk-3-dev libopencv-dev
 ```
 
-### 4. Check your installation
+## Verify installation
 
 ```
 dpkg -l | grep cuda
 dpkg -l | grep nvinfer
 dpkg -l | grep opencv
 ```
-
-### 5. Run tensorrtx
-
-It is recommended to go through the [getting started guide, lenet5 as a demo.](https://github.com/wang-xinyu/tensorrtx/blob/master/tutorials/getting_started.md) first.
-
-But if you are proficient in tensorrt, please check the readme of the model you want directly.
-
