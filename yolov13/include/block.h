@@ -102,10 +102,6 @@ nvinfer1::ILayer* HyperACE(nvinfer1::INetworkDefinition* network, std::map<std::
                            int num_hyperedges = 8, bool dsc3k = false, bool shortcut = false, float e1 = 0.5,
                            float e2 = 1, std::string context = "both", bool channel_adjust = true);
 
-nvinfer1::ILayer* DownsampleConv(nvinfer1::INetworkDefinition* network,
-                                 std::map<std::string, nvinfer1::Weights> weightMap, nvinfer1::ITensor& input,
-                                 int in_channels, std::string lname, bool channel_adjust);
-
 nvinfer1::IElementWiseLayer* FullPad_Tunnel(nvinfer1::INetworkDefinition* network,
                                             std::map<std::string, nvinfer1::Weights> weightMap,
                                             std::vector<nvinfer1::ITensor*> input, std::string lname);
