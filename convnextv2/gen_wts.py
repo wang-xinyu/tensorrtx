@@ -1,6 +1,6 @@
 import torch
 import struct
-import os
+
 
 def gen_wts(model_path, wts_path):
     print(f"Loading {model_path}...")
@@ -16,16 +16,16 @@ def gen_wts(model_path, wts_path):
         state_dict = data
 
     print(f"Exporting to {wts_path}...")
-    
+
     # Infer architecture
     dims = []
     depths = [0, 0, 0, 0]
-    
+
     # Check dimensions from downsample layers
     # downsample_layers.0.0 is stem: conv set output to dim[0]
     # downsample_layers.1.0 is conv: dim[0] -> dim[1]
     # ...
-    
+
     if 'downsample_layers.0.0.weight' in state_dict:
         dims.append(state_dict['downsample_layers.0.0.weight'].shape[0])
     if 'downsample_layers.1.0.weight' in state_dict:
@@ -34,7 +34,7 @@ def gen_wts(model_path, wts_path):
         dims.append(state_dict['downsample_layers.2.0.weight'].shape[0])
     if 'downsample_layers.3.0.weight' in state_dict:
         dims.append(state_dict['downsample_layers.3.0.weight'].shape[0])
-        
+
     # Count blocks per stage
     for k in state_dict.keys():
         if k.startswith('stages.'):
@@ -45,7 +45,7 @@ def gen_wts(model_path, wts_path):
                 if stage_idx < 4:
                     depths[stage_idx] = max(depths[stage_idx], block_idx + 1)
 
-    print(f"Inferred Architecture:")
+    print("Inferred Architecture:")
     print(f"  Dims: {dims}")
     print(f"  Depths: {depths}")
 
@@ -58,8 +58,9 @@ def gen_wts(model_path, wts_path):
                 f.write(" ")
                 f.write(struct.pack('>f', float(val)).hex())
             f.write("\n")
-    
+
     print("Done.")
+
 
 if __name__ == "__main__":
     import sys
@@ -67,7 +68,7 @@ if __name__ == "__main__":
         print(f"Usage: python {sys.argv[0]} <pt_path> <wts_path>")
         print(f"Example: python {sys.argv[0]} models/test.pt convnextv2.wts")
         sys.exit(1)
-    
+
     pt_path = sys.argv[1]
     wts_path = sys.argv[2]
     gen_wts(pt_path, wts_path)

@@ -1,12 +1,12 @@
-# ConvNeXtV2 TensorRT 
+# ConvNeXtV2 TensorRT
 
 ## Environment
 
-- ubuntu20.04 
+- ubuntu20.04
 -  cuda11.8
--  cudnn8.9.7 
--  TensorRT8.6.1.6 
--  OpenCV4.13 
+-  cudnn8.9.7
+-  TensorRT8.6.1.6
+-  OpenCV4.13
 
 ## Support
 

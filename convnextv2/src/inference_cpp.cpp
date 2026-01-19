@@ -1,11 +1,11 @@
-#include "NvInfer.h"
 #include <cuda_runtime_api.h>
-#include "logging.h"
-#include "LayerNormPlugin.h"
 #include <fstream>
 #include <iostream>
-#include <vector>
 #include <opencv2/opencv.hpp>
+#include <vector>
+#include "LayerNormPlugin.h"
+#include "NvInfer.h"
+#include "logging.h"
 
 using namespace nvinfer1;
 
@@ -27,13 +27,14 @@ std::vector<std::string> load_imagenet_labels(const std::string& label_file = "i
 static const char* INPUT_BLOB_NAME = "data";
 static const char* OUTPUT_BLOB_NAME = "prob";
 
-void inference(const std::string& engine_file, const std::string& image_file, const std::string& label_file = "imagenet_classes.txt") {
+void inference(const std::string& engine_file, const std::string& image_file,
+               const std::string& label_file = "imagenet_classes.txt") {
     std::cout << "Running inference..." << std::endl;
-    
+
     // Register LayerNorm plugin
     static LayerNormPluginCreator pluginCreator;
     getPluginRegistry()->registerCreator(pluginCreator, "");
-    
+
     std::ifstream file(engine_file, std::ios::binary);
     if (!file.good()) {
         std::cerr << "Error: Engine file not found: " << engine_file << std::endl;
@@ -77,16 +78,17 @@ void inference(const std::string& engine_file, const std::string& image_file, co
     // Assuming NCHW format for input
     int input_h = inputDims.d[2];
     int input_w = inputDims.d[3];
-    int input_c = inputDims.d[1]; // Usually 3
+    int input_c = inputDims.d[1];  // Usually 3
 
     // Assuming N x NumClasses or just NumClasses
     int outputSize = 1;
     for (int i = 0; i < outputDims.nbDims; ++i) {
         // Skip batch dimension if it is dynamic (-1) or 1
-        if (i == 0 && (outputDims.d[i] == -1 || outputDims.d[i] == 1)) continue; 
+        if (i == 0 && (outputDims.d[i] == -1 || outputDims.d[i] == 1))
+            continue;
         outputSize *= outputDims.d[i];
     }
-    
+
     std::cout << "Input Dimensions: " << input_c << "x" << input_h << "x" << input_w << std::endl;
     std::cout << "Output Size: " << outputSize << std::endl;
 
@@ -98,15 +100,15 @@ void inference(const std::string& engine_file, const std::string& image_file, co
     }
     cv::resize(img, img, cv::Size(input_w, input_h));
     img.convertTo(img, CV_32F);
-    
+
     // Normalize (Mean [0.485, 0.456, 0.406], Std [0.229, 0.224, 0.225])
     // OpenCV is BGR. Pytorch expects RGB.
     cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
     img /= 255.0;
-    
+
     float mean[] = {0.485, 0.456, 0.406};
     float std[] = {0.229, 0.224, 0.225};
-    
+
     // HWC -> NCHW and Normalize
     float* hostData = new float[input_c * input_h * input_w];
     for (int h = 0; h < input_h; ++h) {
@@ -132,13 +134,13 @@ void inference(const std::string& engine_file, const std::string& image_file, co
         bindings[inputIndex] = deviceData;
         bindings[outputIndex] = deviceOutput;
     }
-    
+
     // Execute
     context->executeV2(bindings);
 
     // Copy back
     cudaMemcpy(hostOutput, deviceOutput, outputSize * sizeof(float), cudaMemcpyDeviceToHost);
-    
+
     // Argmax
     float maxVal = -1e9;
     int maxIdx = -1;
@@ -148,10 +150,11 @@ void inference(const std::string& engine_file, const std::string& image_file, co
             maxIdx = i;
         }
     }
-    
+
     auto labels = load_imagenet_labels(label_file);
     if (!labels.empty() && maxIdx < static_cast<int>(labels.size())) {
-        std::cout << "Predicted Class: " << maxIdx << " - " << labels[maxIdx] << " (Score: " << maxVal << ")" << std::endl;
+        std::cout << "Predicted Class: " << maxIdx << " - " << labels[maxIdx] << " (Score: " << maxVal << ")"
+                  << std::endl;
     } else {
         std::cout << "Predicted Class: " << maxIdx << " (Score: " << maxVal << ")" << std::endl;
     }
@@ -176,8 +179,8 @@ int main(int argc, char** argv) {
     std::string engine_path = argv[1];
     std::string image_path = argv[2];
     std::string label_file = (argc == 4) ? argv[3] : "imagenet_classes.txt";
-    
+
     inference(engine_path, image_path, label_file);
-    
+
     return 0;
 }

@@ -23,4 +23,3 @@ target_link_libraries(layernorm_plugin ${NVINFER} ${NVINFER_PLUGIN} ${CUDA_LIBRA
 # Inference executable
 cuda_add_executable(inference_cpp src/inference_cpp.cpp src/LayerNormPlugin.cu)
 target_link_libraries(inference_cpp ${NVINFER} ${NVINFER_PLUGIN} ${CUDA_LIBRARIES} ${OpenCV_LIBS})
-
