@@ -1,4 +1,4 @@
-# How to make contribution
+# How to Contribute
 
 1. Fork this repo to your github account
 
@@ -10,11 +10,11 @@
 
 5. Pre-commit check and push, we use clang-format to do coding style checking, and the coding style is following google c++ coding style with 4-space.
 
-```
-pip install pre-commit
-pip install clang-format
+```bash
+pip install pre-commit clang-format
 
-cd tensorrtx/
+cd tensorrtx
+pre-commit install
 git add [files-to-commit]
 pre-commit run
 

@@ -7,13 +7,16 @@ ENV DEBIAN_FRONTEND noninteractive
 # basic tools
 RUN apt update && apt-get install -y --fix-missing --no-install-recommends \
 sudo wget curl git ca-certificates ninja-build tzdata pkg-config \
-gdb libglib2.0-dev libmount-dev \
+gdb libglib2.0-dev libmount-dev locales \
 && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir yapf isort cmake-format pre-commit
 
+## fix a potential pre-commit error
+RUN locale-gen "en_US.UTF-8"
+
 ## override older cmake
 RUN find /usr/local/share -type d -name "cmake-*" -exec rm -rf {} + \
-&& curl -fsSL "https://github.com/Kitware/CMake/releases/download/v3.29.0/cmake-3.29.0-linux-x86_64.sh" \
+&& curl -fsSL "https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-linux-x86_64.sh" \
 -o cmake.sh && bash cmake.sh --skip-license --exclude-subdir --prefix=/usr/local && rm cmake.sh
 
 RUN apt update && apt-get install -y \
