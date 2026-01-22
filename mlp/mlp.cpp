@@ -1,123 +1,86 @@
-#include "NvInfer.h"    // TensorRT library
-#include "iostream"     // Standard input/output library
-#include "logging.h"    // logging file -- by NVIDIA
-#include <map>          // for weight maps
-#include <fstream>      // for file-handling
-#include <chrono>       // for timing the execution
+#include <chrono>
+#include <iostream>
+#include <numeric>
+#include <vector>
+#include "logging.h"
+#include "utils.h"
 
-// provided by nvidia for using TensorRT APIs
 using namespace nvinfer1;
+
+#define INPUT_SIZE 1
+#define OUTPUT_SIZE 1
+constexpr static const char* INPUT_NAME = "data";
+constexpr static const char* OUTPUT_NAME = "out";
+constexpr static const char* WTS_PATH = "../models/mlp.wts";
+constexpr static const char* ENGINE_PATH = "../models/mlp.engine";
 
 // Logger from TRT API
 static Logger gLogger;
 
-const int INPUT_SIZE = 1;
-const int OUTPUT_SIZE = 1;
-
-/** ////////////////////////////
-// DEPLOYMENT RELATED /////////
-////////////////////////////*/
-std::map<std::string, Weights> loadWeights(const std::string file) {
-    /**
-     * Parse the .wts file and store weights in dict format.
-     *
-     * @param file path to .wts file
-     * @return weight_map: dictionary containing weights and their values
-     */
-
-    std::cout << "[INFO]: Loading weights..." << file << std::endl;
-    std::map<std::string, Weights> weightMap;
-
-    // Open Weight file
-    std::ifstream input(file);
-    assert(input.is_open() && "[ERROR]: Unable to load weight file...");
-
-    // Read number of weights
-    int32_t count;
-    input >> count;
-    assert(count > 0 && "Invalid weight map file.");
-
-    // Loop through number of line, actually the number of weights & biases
-    while (count--) {
-        // TensorRT weights
-        Weights wt{DataType::kFLOAT, nullptr, 0};
-        uint32_t size;
-        // Read name and type of weights
-        std::string w_name;
-        input >> w_name >> std::dec >> size;
-        wt.type = DataType::kFLOAT;
-
-        uint32_t *val = reinterpret_cast<uint32_t *>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x) {
-            // Change hex values to uint32 (for higher values)
-            input >> std::hex >> val[x];
-        }
-        wt.values = val;
-        wt.count = size;
-
-        // Add weight values against its name (key)
-        weightMap[w_name] = wt;
-    }
-    return weightMap;
-}
-
-ICudaEngine *createMLPEngine(unsigned int maxBatchSize, IBuilder *builder, IBuilderConfig *config, DataType dt) {
-    /**
-     * Create Multi-Layer Perceptron using the TRT Builder and Configurations
-     *
-     * @param maxBatchSize: batch size for built TRT model
-     * @param builder: to build engine and networks
-     * @param config: configuration related to Hardware
-     * @param dt: datatype for model layers
-     * @return engine: TRT model
-     */
-
+/**
+ * Create a single-layer "MLP" using the TRT Builder and Configurations
+ *
+ * @param N: max batch size for built TRT model
+ * @param builder: to build engine and networks
+ * @param config: configuration related to Hardware
+ * @param dt: datatype for model layers
+ * @return engine: TRT model
+ */
+ICudaEngine* createMLPEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     std::cout << "[INFO]: Creating MLP using TensorRT..." << std::endl;
 
     // Load Weights from relevant file
-    std::map<std::string, Weights> weightMap = loadWeights("../mlp.wts");
+    std::map<std::string, Weights> weightMap = loadWeights(WTS_PATH);
 
     // Create an empty network
-    INetworkDefinition *network = builder->createNetworkV2(0U);
+#if TRT_VERSION >= 10000
+    auto* network = builder->createNetworkV2(0);
+#else
+    auto* network = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+#endif
 
-    // Create an input with proper *name
-    ITensor *data = network->addInput("data", DataType::kFLOAT, Dims3{1, 1, 1});
+    // Create an input with proper name
+    ITensor* data = network->addInput(INPUT_NAME, dt, Dims4{N, 1, 1, 1});
     assert(data);
 
-    // Add layer for MLP
-    IFullyConnectedLayer *fc1 = network->addFullyConnected(*data, 1,
-                                                           weightMap["linear.weight"],
-                                                           weightMap["linear.bias"]);
-    assert(fc1);
+    // all tensors
+    auto* fc1w = network->addConstant(Dims4{1, 1, 1, 1}, weightMap["linear.weight"])->getOutput(0);
+    auto* fc1b = network->addConstant(Dims4{1, 1, 1, 1}, weightMap["linear.bias"])->getOutput(0);
+    assert(fc1w && fc1b);
+    // fc layer
+    auto* fc1_0 = network->addMatrixMultiply(*data, MatrixOperation::kNONE, *fc1w, MatrixOperation::kTRANSPOSE);
+    auto* fc1_1 = network->addElementWise(*fc1_0->getOutput(0), *fc1b, ElementWiseOperation::kSUM);
+    assert(fc1_0 && fc1_1);
+    fc1_0->setName("fc1_0");
 
-    // set output with *name
-    fc1->getOutput(0)->setName("out");
+    // set output with name
+    auto* output = fc1_1->getOutput(0);
+    output->setName(OUTPUT_NAME);
 
     // mark the output
-    network->markOutput(*fc1->getOutput(0));
+    network->markOutput(*output);
 
-    // Set configurations
-    builder->setMaxBatchSize(1);
-    // Set workspace size
-    config->setMaxWorkspaceSize(1 << 20);
-
-    // Build CUDA Engine using network and configurations
-    ICudaEngine *engine = builder->buildEngineWithConfig(*network, *config);
+#if TRT_VERSION >= 8000
+    IHostMemory* serialized_mem = builder->buildSerializedNetwork(*network, *config);
+    ICudaEngine* engine = runtime->deserializeCudaEngine(serialized_mem->data(), serialized_mem->size());
+    delete network;
+#else
+    builder->setMaxBatchSize(N);
+    config->setMaxWorkspaceSize(WORKSPACE_SIZE);
+    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    network->destroy();
+#endif
     assert(engine != nullptr);
 
-    // Don't need the network any more
-    // free captured memory
-    network->destroy();
-
     // Release host memory
-    for (auto &mem: weightMap) {
-        free((void *) (mem.second.values));
+    for (auto& mem : weightMap) {
+        free((void*)(mem.second.values));
     }
 
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory **modelStream) {
+void APIToModel(int32_t maxBatchSize, IRuntime* runtime, IHostMemory** modelStream) {
     /**
      * Create engine using TensorRT APIs
      *
@@ -125,199 +88,170 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory **modelStream) {
      * @param modelStream: shared memory to store serialized model
      */
 
-    // Create builder with the help of logger
-    IBuilder *builder = createInferBuilder(gLogger);
-
-    // Create hardware configs
-    IBuilderConfig *config = builder->createBuilderConfig();
+    // Create builder with the logger
+    IBuilder* builder = createInferBuilder(gLogger);
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // Build an engine
-    ICudaEngine *engine = createMLPEngine(maxBatchSize, builder, config, DataType::kFLOAT);
+    ICudaEngine* engine = createMLPEngine(maxBatchSize, runtime, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // serialize the engine into binary stream
     (*modelStream) = engine->serialize();
 
-    // free up the memory
+#if TRT_VERSION >= 8000
+    delete engine;
+    delete config;
+    delete builder;
+#else
     engine->destroy();
+    config->destroy();
     builder->destroy();
+#endif
 }
 
-void performSerialization() {
+void doInference(IExecutionContext& ctx, void* input, float* output, int batchSize = 1) {
     /**
-     * Serialization Function
-     */
-    // Shared memory object
-    IHostMemory *modelStream{nullptr};
-
-    // Write model into stream
-    APIToModel(1, &modelStream);
-    assert(modelStream != nullptr);
-
-
-    std::cout << "[INFO]: Writing engine into binary..." << std::endl;
-
-    // Open the file and write the contents there in binary format
-    std::ofstream p("../mlp.engine", std::ios::binary);
-    if (!p) {
-        std::cerr << "could not open plan output file" << std::endl;
-        return;
-    }
-    p.write(reinterpret_cast<const char *>(modelStream->data()), modelStream->size());
-
-    // Release the memory
-    modelStream->destroy();
-
-    std::cout << "[INFO]: Successfully created TensorRT engine..." << std::endl;
-    std::cout << "\n\tRun inference using `./mlp -d`" << std::endl;
-
-}
-
-/** ////////////////////////////
-// INFERENCE RELATED //////////
-////////////////////////////*/
-void doInference(IExecutionContext &context, float *input, float *output, int batchSize) {
-    /**
-     * Perform inference using the CUDA context
+     * Perform inference using the CUDA ctx
      *
-     * @param context: context created by engine
+     * @param ctx: context created by engine
      * @param input: input from the host
      * @param output: output to save on host
      * @param batchSize: batch size for TRT model
      */
+    // Get engine from the ctx
+    const ICudaEngine& engine = ctx.getEngine();
 
-    // Get engine from the context
-    const ICudaEngine &engine = context.getEngine();
+#if TRT_VERSION >= 8000
+    int32_t nIO = engine.getNbIOTensors();
+    const int inputIndex = 0;
+    const int outputIndex = engine.getNbIOTensors() - 1;
+#else
+    int32_t nIO = engine.getNbBindings();
+    const int inputIndex = engine.getBindingIndex(INPUT_NAME);
+    const int outputIndex = engine.getBindingIndex(OUTPUT_NAME);
+#endif
+    assert(nIO == 2);  // mlp contains 1 input and 1 output
 
-    // Pointers to input and output device buffers to pass to engine.
-    // Engine requires exactly IEngine::getNbBindings() number of buffers.
-    assert(engine.getNbBindings() == 2);
-    void *buffers[2];
-
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine.getBindingIndex("data");
-    const int outputIndex = engine.getBindingIndex("out");
-
-    // Create GPU buffers on device -- allocate memory for input and output
-    cudaMalloc(&buffers[inputIndex], batchSize * INPUT_SIZE * sizeof(float));
-    cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float));
-
-    // create CUDA stream for simultaneous CUDA operations
+    // create cuda stream for aync cuda operations
     cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    CHECK(cudaStreamCreate(&stream));
 
-    // copy input from host (CPU) to device (GPU)  in stream
-    cudaMemcpyAsync(buffers[inputIndex], input, batchSize * INPUT_SIZE * sizeof(float), cudaMemcpyHostToDevice, stream);
+    // create GPU buffers on cuda device and copy input data from host
+    std::vector<void*> buffers(2, nullptr);
+    size_t inputSize = 0;
+    size_t outputSize = batchSize * OUTPUT_SIZE * sizeof(float);
+#if TRT_VERSION >= 8000
+    auto* input_name = engine.getIOTensorName(inputIndex);
+    inputSize = batchSize * INPUT_SIZE * getSize(engine.getTensorDataType(input_name));
+#else
+    inputSize = batchSize * INPUT_SIZE * getSize(engine.getBindingDataType(inputIndex));
+#endif
+    CHECK(cudaMalloc(&buffers[inputIndex], inputSize));
+    CHECK(cudaMalloc(&buffers[outputIndex], outputSize));
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, inputSize, cudaMemcpyHostToDevice, stream));
 
-    // execute inference using context provided by engine
-    context.enqueue(batchSize, buffers, stream, nullptr);
+    // execute inference using ctx provided by engine
+#if TRT_VERSION >= 8000
+    for (int32_t i = 0; i < engine.getNbIOTensors(); i++) {
+        auto const name = engine.getIOTensorName(i);
+        auto dims = ctx.getTensorShape(name);
+        auto total = std::accumulate(dims.d, dims.d + dims.nbDims, 1, std::multiplies<int>());
+        std::cout << name << "\t" << total << std::endl;
+        ctx.setTensorAddress(name, buffers[i]);
+    }
+    assert(ctx.enqueueV3(stream));
+#else
+    assert(ctx.enqueueV2(buffers.data(), stream, nullptr));
+#endif
 
-    // copy output back from device (GPU) to host (CPU)
-    cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost,
-                    stream);
-
-    // synchronize the stream to prevent issues
-    //      (block CUDA and wait for CUDA operations to be completed)
-    cudaStreamSynchronize(stream);
-
-    // Release stream and buffers (memory)
-    cudaStreamDestroy(stream);
-    cudaFree(buffers[inputIndex]);
-    cudaFree(buffers[outputIndex]);
+    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], outputSize, cudaMemcpyDeviceToHost, stream));
+    CHECK(cudaStreamSynchronize(stream));
+    for (auto& buffer : buffers) {
+        CHECK(cudaFree(buffer));
+    }
+    CHECK(cudaStreamDestroy(stream));
 }
 
-void performInference() {
-    /**
-     * Get inference using the pre-trained model
-     */
-
-    // stream to write model
-    char *trtModelStream{nullptr};
-    size_t size{0};
-
-    // read model from the engine file
-    std::ifstream file("../mlp.engine", std::ios::binary);
-    if (file.good()) {
-        file.seekg(0, file.end);
-        size = file.tellg();
-        file.seekg(0, file.beg);
-        trtModelStream = new char[size];
-        assert(trtModelStream);
-        file.read(trtModelStream, size);
-        file.close();
-    }
-
-    // create a runtime (required for deserialization of model) with NVIDIA's logger
-    IRuntime *runtime = createInferRuntime(gLogger);
-    assert(runtime != nullptr);
-
-    // deserialize engine for using the char-stream
-    ICudaEngine *engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
-    assert(engine != nullptr);
-
-    // create execution context -- required for inference executions
-    IExecutionContext *context = engine->createExecutionContext();
-    assert(context != nullptr);
-
-    float out[1];  // array for output
-    float data[1]; // array for input
-    for (float &i: data)
-        i = 12.0;   // put any value for input
-
-    // time the execution
-    auto start = std::chrono::system_clock::now();
-
-    // do inference using the parameters
-    doInference(*context, data, out, 1);
-
-    // time the execution
-    auto end = std::chrono::system_clock::now();
-    std::cout << "\n[INFO]: Time taken by execution: "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-
-
-    // free the captured space
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
-
-    std::cout << "\nInput:\t" << data[0];
-    std::cout << "\nOutput:\t";
-    for (float i: out) {
-        std::cout << i;
-    }
-    std::cout << std::endl;
-}
-
-int checkArgs(int argc, char **argv) {
-    /**
-     * Parse command line arguments
-     *
-     * @param argc: argument count
-     * @param argv: arguments vector
-     * @return int: a flag to perform operation
-     */
-
+int main(int argc, char** argv) {
+    checkTrtEnv();
     if (argc != 2) {
         std::cerr << "[ERROR]: Arguments not right!" << std::endl;
         std::cerr << "./mlp -s   // serialize model to plan file" << std::endl;
         std::cerr << "./mlp -d   // deserialize plan file and run inference" << std::endl;
-        return -1;
-    }
-    if (std::string(argv[1]) == "-s") {
         return 1;
-    } else if (std::string(argv[1]) == "-d") {
-        return 2;
     }
-    return -1;
-}
 
-int main(int argc, char **argv) {
-    int args = checkArgs(argc, argv);
-    if (args == 1)
-        performSerialization();
-    else if (args == 2)
-        performInference();
+    IRuntime* runtime = createInferRuntime(gLogger);
+    assert(runtime != nullptr);
+    char* trtModelStream{nullptr};
+    size_t size{0};
+
+    if (std::string(argv[1]) == "-s") {
+        IHostMemory* modelStream{nullptr};
+        APIToModel(1, runtime, &modelStream);
+        assert(modelStream != nullptr);
+
+        std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
+        if (!p.good()) {
+            std::cerr << "could not open plan output file" << std::endl;
+            return 1;
+        }
+        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+
+#if TRT_VERSION >= 8000
+        delete modelStream;
+#else
+        modelStream->destroy();
+#endif
+        std::cout << "[INFO]: Successfully created TensorRT engine." << std::endl;
+        return 0;
+    } else if (std::string(argv[1]) == "-d") {
+        std::ifstream file(ENGINE_PATH, std::ios::binary);
+
+        if (file.good()) {
+            file.seekg(0, file.end);
+            size = file.tellg();
+            file.seekg(0, file.beg);
+            trtModelStream = new char[size];
+            assert(trtModelStream);
+            file.read(trtModelStream, size);
+            file.close();
+        }
+    }
+
+#if TRT_VERSION >= 8000
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
+#else
+    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
+#endif
+    assert(engine != nullptr);
+    delete[] trtModelStream;
+
+    IExecutionContext* ctx = engine->createExecutionContext();
+    assert(ctx != nullptr);
+
+    float output[1] = {-1.f};
+    float input[1] = {12.0f};
+
+    for (int i = 0; i < 100; i++) {
+        auto start = std::chrono::high_resolution_clock::now();
+        doInference(*ctx, input, output);
+        auto end = std::chrono::high_resolution_clock::now();
+        auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        std::cout << "Execution time: " << time << "us\t"
+                  << "output: " << output[0] << std::endl;
+    }
+
+#if TRT_VERSION >= 8000
+    delete ctx;
+    delete engine;
+    delete runtime;
+#else
+    ctx->destroy();
+    engine->destroy();
+    runtime->destroy();
+#endif
+
     return 0;
 }

@@ -1,35 +1,41 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.17.0)
 
-project(LPRnet)
+project(
+  lprnet
+  VERSION 0.1
+  LANGUAGES C CXX CUDA)
 
-add_definitions(-std=c++11)
-
-option(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_BUILD_TYPE Debug)
-
-find_package(CUDA REQUIRED)
-
-include_directories(${PROJECT_SOURCE_DIR}/include)
-if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    message("embed_platform on")
-    include_directories(/usr/local/cuda/targets/aarch64-linux/include)
-    link_directories(/usr/local/cuda/targets/aarch64-linux/lib)
-else()
-    message("embed_platform off")
-    include_directories(/usr/local/cuda/include)
-    link_directories(/usr/local/cuda/lib64)
-    # tensorrt
-    include_directories(/usr/local/TensorRT-7.0.0.11/include)
-    link_directories(/usr/local/TensorRT-7.0.0.11/lib)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES
+      60
+      70
+      72
+      75
+      80
+      86
+      89)
 endif()
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_STANDARD 17)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_INCLUDE_CURRENT_DIR TRUE)
+
+option(CUDA_USE_STATIC_CUDA_RUNTIME "Use static cudaruntime library" OFF)
+
+find_package(Threads REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 find_package(OpenCV)
-include_directories(OpenCV_INCLUDE_DIRS)
 
-add_executable(LPRnet ${PROJECT_SOURCE_DIR}/LPRnet.cpp)
-target_link_libraries(LPRnet nvinfer)
-target_link_libraries(LPRnet cudart)
-target_link_libraries(LPRnet ${OpenCV_LIBS})
+if(NOT TARGET TensorRT::TensorRT)
+  include(FindTensorRT.cmake)
+else()
+  message("TensorRT has been found, skipping for ${PROJECT_NAME}")
+endif()
 
-add_definitions(-O2 -pthread)
+add_executable(${PROJECT_NAME} ${PROJECT_NAME}.cpp)
+target_include_directories(${PROJECT_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads CUDA::cudart
+                                             TensorRT::TensorRT ${OpenCV_LIBS})

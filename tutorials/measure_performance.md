@@ -97,8 +97,6 @@ private:
 };
 ```
 
-
-
 ## 2. set profiler for context and print the log
 
 ```c++
@@ -110,4 +108,3 @@ context->setProfiler(&sp);
 context->enqueue(...);
 gLogInfo << sp << std::endl;
 ```
-

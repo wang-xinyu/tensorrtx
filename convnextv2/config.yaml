@@ -1,0 +1,16 @@
+# ConvNeXtV2 Configuration
+
+# Model variants reference:
+# Atto:  depths: [2, 2, 6, 2], dims: [40, 80, 160, 320]
+# Femto: depths: [2, 2, 6, 2], dims: [48, 96, 192, 384]
+# Pico:  depths: [2, 2, 6, 2], dims: [64, 128, 256, 512]
+# Nano:  depths: [2, 2, 8, 2], dims: [80, 160, 320, 640]
+# Tiny:  depths: [3, 3, 9, 3], dims: [96, 192, 384, 768]
+# Base:  depths: [3, 3, 27, 3], dims: [128, 256, 512, 1024]
+# Large: depths: [3, 3, 27, 3], dims: [192, 384, 768, 1536]
+# Huge:  depths: [3, 3, 27, 3], dims: [352, 704, 1408, 2816]
+
+depths: [2, 2, 8, 2]
+dims: [80, 160, 320, 640]
+input_h: 224
+input_w: 224
