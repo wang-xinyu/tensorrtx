@@ -60,8 +60,7 @@ YoloLayerPlugin::YoloLayerPlugin(int classCount, int numberOfPoints, float confT
     */
 }
 
-YoloLayerPlugin::~YoloLayerPlugin() {
-}
+YoloLayerPlugin::~YoloLayerPlugin() {}
 
 YoloLayerPlugin::YoloLayerPlugin(const void* data, size_t length) {
     using namespace Tn;
@@ -102,7 +101,8 @@ void YoloLayerPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
 
 size_t YoloLayerPlugin::getSerializationSize() const TRT_NOEXCEPT {
     return sizeof(mClassCount) + sizeof(mNumberOfPoints) + sizeof(mConfThresholdKeypoints) + sizeof(mThreadCount) +
-           sizeof(mInputWidth) + sizeof(mInputHeight) + sizeof(mMaxDetections) + sizeof(mIsSegmentation) + sizeof(mIsPose) + sizeof(mIsObb) + sizeof(mAnchorCount);
+           sizeof(mInputWidth) + sizeof(mInputHeight) + sizeof(mMaxDetections) + sizeof(mIsSegmentation) +
+           sizeof(mIsPose) + sizeof(mIsObb) + sizeof(mAnchorCount);
 }
 
 int YoloLayerPlugin::initialize() TRT_NOEXCEPT {
@@ -169,7 +169,7 @@ nvinfer1::IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT {
 int YoloLayerPlugin::enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace,
                              cudaStream_t stream) TRT_NOEXCEPT {
     gatherKernelLauncher(reinterpret_cast<const float* const*>(inputs), reinterpret_cast<float*>(outputs[0]), stream,
-                         mInputWidth, mInputHeight, batchSize); // TODO: MOVE mInputWidth/Height TO constant gpu memory
+                         mInputWidth, mInputHeight, batchSize);  // TODO: MOVE mInputWidth/Height TO constant gpu memory
 
     return 0;
 }
@@ -179,8 +179,9 @@ __device__ float Logist(float data) {
 }
 
 __global__ void gatherKernel(const float* input, float* output, int numElements, int maxoutobject, const int grid_h,
-                             const int grid_w, const int stride, int class_count, int nk, float confkeypoints, int outputElem,
-                             bool is_segmentation, bool is_pose, bool is_obb) { // TODO: REMOVE UNUSED PARAMETERS
+                             const int grid_w, const int stride, int class_count, int nk, float confkeypoints,
+                             int outputElem, bool is_segmentation, bool is_pose,
+                             bool is_obb) {  // TODO: REMOVE UNUSED PARAMETERS
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= numElements)
         return;
@@ -196,12 +197,12 @@ __global__ void gatherKernel(const float* input, float* output, int numElements,
     int class_id = -1;
     for (int c = 0; c < class_count; c++) {
         float conf = input[idx * (class_count + 4) + 4 + c];
-            if (conf > score) {
-                score = conf;
-                class_id = c;
-            }
+        if (conf > score) {
+            score = conf;
+            class_id = c;
+        }
     }
-    if (score < 0.5) { // TODO: MAKE THRESHOLD A PARAMETER
+    if (score < 0.5) {  // TODO: MAKE THRESHOLD A PARAMETER
         return;
     }
 
@@ -293,7 +294,6 @@ IPluginV2IOExt* YoloLayerPluginCreator::createPlugin(const char* name, const Plu
     bool is_pose = combinedInfo[7];
     bool is_obb = combinedInfo[8];
     int anchor_count = combinedInfo[9];
-    
 
     YoloLayerPlugin* plugin =
             new YoloLayerPlugin(class_count, number_of_points, conf_threshold_keypoints, input_width, input_height,
