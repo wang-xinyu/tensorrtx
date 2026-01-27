@@ -103,20 +103,32 @@ void deserialize_engine(std::string& engine_name, IRuntime** runtime, ICudaEngin
     delete[] serialized_engine;
 }
 
+const int kMaxMasksToDraw = 100;  // Limit GPU masks to manage memory
+
+// Helper to convert normalized planar RGB (device_buffer[0] content) to 8-bit BGR Interleaved
+void convert_float_planar_to_uint8(const float* img_src, uint8_t* img_dst, int h, int w) {
+    int area = h * w;
+    for (int i = 0; i < area; ++i) {
+        // img_src is R, G, B planar (0-1 range approx, or normalized?)
+        // Preprocess was: dst[i] = src[i] / 255.0.
+        // So it is 0-1.
+        // OpenCV wants BGR.
+        float r = img_src[0 * area + i];
+        float g = img_src[1 * area + i];
+        float b = img_src[2 * area + i];
+
+        // Clamp and Scale
+        img_dst[i * 3 + 0] = (uint8_t)std::min(255.0f, std::max(0.0f, b * 255.0f));
+        img_dst[i * 3 + 1] = (uint8_t)std::min(255.0f, std::max(0.0f, g * 255.0f));
+        img_dst[i * 3 + 2] = (uint8_t)std::min(255.0f, std::max(0.0f, r * 255.0f));
+    }
+}
+
 void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** output_buffer_device,
                     float** output_seg_buffer_device, float** output_buffer_host, float** output_seg_buffer_host,
-                    float** decode_ptr_host, float** decode_ptr_device, std::string cuda_post_process) {
-    assert(engine->getNbBindings() == 3);
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine->getBindingIndex(kInputTensorName);
-    const int outputIndex = engine->getBindingIndex(kOutputTensorName);
-    const int outputIndex_seg = engine->getBindingIndex("proto");
-
-    assert(inputIndex == 0);
-    assert(outputIndex == 1);
-    assert(outputIndex_seg == 2);
-    // Create GPU buffers on device
+                    float** decode_ptr_host, float** decode_ptr_device, std::string cuda_post_process,
+                    float** extra_buffers) {
+    // TensorRT 10: No more getBindingIndex, just allocate buffers directly
     CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
     CUDA_CHECK(cudaMalloc((void**)output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
     CUDA_CHECK(cudaMalloc((void**)output_seg_buffer_device, kBatchSize * kOutputSegSize * sizeof(float)));
@@ -129,27 +141,34 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
             std::cerr << "Do not yet support GPU post processing for multiple batches" << std::endl;
             exit(0);
         }
-        // Allocate memory for decode_ptr_host and copy to device
         *decode_ptr_host = new float[1 + kMaxNumOutputBbox * bbox_element];
         CUDA_CHECK(cudaMalloc((void**)decode_ptr_device, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element)));
+
+        // Extra buffers for GPU segmentation
+        CUDA_CHECK(cudaMalloc((void**)&extra_buffers[0], sizeof(int)));
+        CUDA_CHECK(cudaMalloc((void**)&extra_buffers[1], kMaxNumOutputBbox * sizeof(int)));
+        CUDA_CHECK(cudaMalloc((void**)&extra_buffers[2], kMaxNumOutputBbox * 32 * sizeof(float)));
+        CUDA_CHECK(cudaMalloc((void**)&extra_buffers[3], kMaxNumOutputBbox * 4 * sizeof(float)));
+        CUDA_CHECK(cudaMalloc((void**)&extra_buffers[4], kMaxMasksToDraw * kInputH * kInputW * sizeof(float)));
     }
 }
 
 void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, float* output, float* output_seg,
            int batchsize, float* decode_ptr_host, float* decode_ptr_device, int model_bboxes,
-           std::string cuda_post_process) {
-    // infer on the batch asynchronously, and DMA output back to host
+           std::string cuda_post_process, float** extra_buffers) {
     auto start = std::chrono::system_clock::now();
-    context.enqueue(batchsize, buffers, stream, nullptr);
-    if (cuda_post_process == "c") {
 
-        std::cout << "kOutputSize:" << kOutputSize << std::endl;
+    // TensorRT 10: Use setInputTensorAddress/setOutputTensorAddress + enqueueV3
+    context.setInputTensorAddress(kInputTensorName, buffers[0]);
+    context.setOutputTensorAddress(kOutputTensorName, buffers[1]);
+    context.setOutputTensorAddress(kProtoTensorName, buffers[2]);
+    context.enqueueV3(stream);
+
+    if (cuda_post_process == "c") {
         CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchsize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,
                                    stream));
-        std::cout << "kOutputSegSize:" << kOutputSegSize << std::endl;
         CUDA_CHECK(cudaMemcpyAsync(output_seg, buffers[2], batchsize * kOutputSegSize * sizeof(float),
                                    cudaMemcpyDeviceToHost, stream));
-
         auto end = std::chrono::system_clock::now();
         std::cout << "inference time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
                   << "ms" << std::endl;
@@ -157,15 +176,38 @@ void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, flo
         CUDA_CHECK(
                 cudaMemsetAsync(decode_ptr_device, 0, sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), stream));
         cuda_decode((float*)buffers[1], model_bboxes, kConfThresh, decode_ptr_device, kMaxNumOutputBbox, stream);
-        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);  //cuda nms
-        CUDA_CHECK(cudaMemcpyAsync(decode_ptr_host, decode_ptr_device,
-                                   sizeof(float) * (1 + kMaxNumOutputBbox * bbox_element), cudaMemcpyDeviceToHost,
-                                   stream));
+        cuda_nms(decode_ptr_device, kNmsThresh, kMaxNumOutputBbox, stream);
+
+        // GPU Segmentation Pipeline
+        int* final_count_device = (int*)extra_buffers[0];
+        int* mask_mapping_device = (int*)extra_buffers[1];
+        float* compacted_masks_device = extra_buffers[2];
+        float* dense_bboxes_device = extra_buffers[3];
+        float* final_masks_device = extra_buffers[4];
+
+        cuda_compact_and_gather_masks(decode_ptr_device, final_count_device, compacted_masks_device,
+                                      mask_mapping_device, kMaxNumOutputBbox, stream);
+
+        int num_dets = 0;
+        CUDA_CHECK(cudaMemcpyAsync(&num_dets, final_count_device, sizeof(int), cudaMemcpyDeviceToHost, stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+
+        num_dets = std::min(num_dets, kMaxMasksToDraw);
+
+        if (num_dets > 0) {
+            cuda_gather_kept_bboxes(decode_ptr_device, mask_mapping_device, dense_bboxes_device, kMaxNumOutputBbox,
+                                    stream);
+            cuda_process_mask((float*)buffers[2], compacted_masks_device, dense_bboxes_device, final_masks_device,
+                              num_dets, 160, 160, kInputH, kInputW, stream);
+            cuda_blur_masks(final_masks_device, num_dets, kInputH, kInputW, stream);
+            cuda_draw_results((float*)buffers[0], final_masks_device, decode_ptr_device, mask_mapping_device, num_dets,
+                              0, 0.5f, stream);
+        }
+
         auto end = std::chrono::system_clock::now();
         std::cout << "inference and gpu postprocess time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     }
-
     CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -247,10 +289,12 @@ int main(int argc, char** argv) {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     cuda_preprocess_init(kMaxInputImageSize);
-    auto out_dims = engine->getBindingDimensions(1);
-    model_bboxes = out_dims.d[0];
+    // TensorRT 10: Use getTensorShape instead of getBindingDimensions
+    auto out_dims = engine->getTensorShape(kOutputTensorName);
+    model_bboxes = out_dims.d[1];  // dimension order may differ, adjust as needed
     // Prepare cpu and gpu buffers
     float* device_buffers[3];
+    float* extra_buffers[5];  // 0:count, 1:mapping, 2:compacted, 3:dense_bboxes, 4:final_masks
     float* output_buffer_host = nullptr;
     float* output_seg_buffer_host = nullptr;
     float* decode_ptr_host = nullptr;
@@ -268,7 +312,7 @@ int main(int argc, char** argv) {
     assert(kNumClass == labels_map.size());
 
     prepare_buffer(engine, &device_buffers[0], &device_buffers[1], &device_buffers[2], &output_buffer_host,
-                   &output_seg_buffer_host, &decode_ptr_host, &decode_ptr_device, cuda_post_process);
+                   &output_seg_buffer_host, &decode_ptr_host, &decode_ptr_device, cuda_post_process, extra_buffers);
 
     // // batch predict
     for (size_t i = 0; i < file_names.size(); i += kBatchSize) {
@@ -284,7 +328,7 @@ int main(int argc, char** argv) {
         cuda_batch_preprocess(img_batch, device_buffers[0], kInputW, kInputH, stream);
         // Run inference
         infer(*context, stream, (void**)device_buffers, output_buffer_host, output_seg_buffer_host, kBatchSize,
-              decode_ptr_host, decode_ptr_device, model_bboxes, cuda_post_process);
+              decode_ptr_host, decode_ptr_device, model_bboxes, cuda_post_process, extra_buffers);
         std::vector<std::vector<Detection>> res_batch;
         if (cuda_post_process == "c") {
             // NMS
@@ -297,10 +341,21 @@ int main(int argc, char** argv) {
                 cv::imwrite("_" + img_name_batch[b], img);
             }
         } else if (cuda_post_process == "g") {
-            // Process gpu decode and nms results
-            // batch_process(res_batch, decode_ptr_host, img_batch.size(), bbox_element, img_batch);
-            // todo seg in gpu
-            std::cerr << "seg_postprocess is not support in gpu right now" << std::endl;
+            // "g" mode: GPU result is in device_buffers[0] (RRRGGGBBB float)
+            // Download it
+            float* host_img = new float[3 * kInputH * kInputW];
+            CUDA_CHECK(cudaMemcpyAsync(host_img, device_buffers[0], 3 * kInputH * kInputW * sizeof(float),
+                                       cudaMemcpyDeviceToHost, stream));
+            CUDA_CHECK(cudaStreamSynchronize(stream));
+
+            // Convert to uint8 BGR and save
+            cv::Mat res_img(kInputH, kInputW, CV_8UC3);
+            convert_float_planar_to_uint8(host_img, res_img.data, kInputH, kInputW);
+
+            // Save only the first image of batch (batch size restriction for 'g' mode check exists)
+            cv::imwrite("_gpu_" + img_name_batch[0], res_img);
+
+            delete[] host_img;
         }
     }
 
@@ -310,6 +365,13 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaFree(device_buffers[1]));
     CUDA_CHECK(cudaFree(device_buffers[2]));
     CUDA_CHECK(cudaFree(decode_ptr_device));
+
+    // Free extra buffers
+    if (cuda_post_process == "g") {
+        for (int k = 0; k < 5; ++k)
+            CUDA_CHECK(cudaFree(extra_buffers[k]));
+    }
+
     delete[] decode_ptr_host;
     delete[] output_buffer_host;
     delete[] output_seg_buffer_host;
@@ -318,15 +380,6 @@ int main(int argc, char** argv) {
     delete context;
     delete engine;
     delete runtime;
-
-    // Print histogram of the output distribution
-    // std::cout << "\nOutput:\n\n";
-    // for (unsigned int i = 0; i < kOutputSize; i++)
-    //{
-    //    std::cout << prob[i] << ", ";
-    //    if (i % 10 == 0) std::cout << std::endl;
-    //}
-    // std::cout << std::endl;
 
     return 0;
 }
