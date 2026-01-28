@@ -129,6 +129,14 @@ void prepare_buffer(ICudaEngine* engine, float** input_buffer_device, float** ou
                     float** decode_ptr_host, float** decode_ptr_device, std::string cuda_post_process,
                     float** extra_buffers) {
     // TensorRT 10: No more getBindingIndex, just allocate buffers directly
+#if NV_TENSORRT_MAJOR < 10
+    const int inputIndex = engine->getBindingIndex(kInputTensorName);
+    const int outputIndex = engine->getBindingIndex(kOutputTensorName);
+    const int outputIndex_seg = engine->getBindingIndex(kProtoTensorName);
+    assert(inputIndex == 0);
+    assert(outputIndex == 1);
+    assert(outputIndex_seg == 2);
+#endif
     CUDA_CHECK(cudaMalloc((void**)input_buffer_device, kBatchSize * 3 * kInputH * kInputW * sizeof(float)));
     CUDA_CHECK(cudaMalloc((void**)output_buffer_device, kBatchSize * kOutputSize * sizeof(float)));
     CUDA_CHECK(cudaMalloc((void**)output_seg_buffer_device, kBatchSize * kOutputSegSize * sizeof(float)));
@@ -158,11 +166,15 @@ void infer(IExecutionContext& context, cudaStream_t& stream, void** buffers, flo
            std::string cuda_post_process, float** extra_buffers) {
     auto start = std::chrono::system_clock::now();
 
+#if NV_TENSORRT_MAJOR >= 10
     // TensorRT 10: Use setInputTensorAddress/setOutputTensorAddress + enqueueV3
     context.setInputTensorAddress(kInputTensorName, buffers[0]);
     context.setOutputTensorAddress(kOutputTensorName, buffers[1]);
     context.setOutputTensorAddress(kProtoTensorName, buffers[2]);
     context.enqueueV3(stream);
+#else
+    context.enqueue(batchsize, buffers, stream, nullptr);
+#endif
 
     if (cuda_post_process == "c") {
         CUDA_CHECK(cudaMemcpyAsync(output, buffers[1], batchsize * kOutputSize * sizeof(float), cudaMemcpyDeviceToHost,
@@ -289,9 +301,16 @@ int main(int argc, char** argv) {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     cuda_preprocess_init(kMaxInputImageSize);
+#if NV_TENSORRT_MAJOR >= 10
     // TensorRT 10: Use getTensorShape instead of getBindingDimensions
     auto out_dims = engine->getTensorShape(kOutputTensorName);
     model_bboxes = out_dims.d[1];  // dimension order may differ, adjust as needed
+#else
+    // TensorRT 8.x: Use getBindingDimensions
+    int index = engine->getBindingIndex(kOutputTensorName);
+    auto out_dims = engine->getBindingDimensions(index);
+    model_bboxes = out_dims.d[0];
+#endif
     // Prepare cpu and gpu buffers
     float* device_buffers[3];
     float* extra_buffers[5];  // 0:count, 1:mapping, 2:compacted, 3:dense_bboxes, 4:final_masks
