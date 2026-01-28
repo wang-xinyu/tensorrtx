@@ -1,15 +1,23 @@
 import argparse
 import os
 import struct
+import numpy as np
 from basicsr.archs.rrdbnet_arch import RRDBNet
 from realesrgan import RealESRGANer
 from realesrgan.archs.srvgg_arch import SRVGGNetCompact
+
+
+def float32_to_float16_hex(value):
+    f16 = np.float16(value)
+    u16 = np.frombuffer(f16.tobytes(), dtype=np.uint16)[0]
+    return format(u16, "04x")
+
 
 def main():
     """Inference demo for Real-ESRGAN.
     """
     parser = argparse.ArgumentParser()
-    #parser.add_argument('-i', '--input', type=str, default='../TestData3', help='Input image or folder')
+    # parser.add_argument('-i', '--input', type=str, default='../TestData3', help='Input image or folder')
     parser.add_argument('-i', '--input', type=str, default='inputs', help='Input image or folder')
     parser.add_argument(
         '-n',
@@ -84,9 +92,13 @@ def main():
             f.write("{} {}".format(k, len(vr)))
             for vv in vr:
                 f.write(" ")
-                f.write(struct.pack(">f", float(vv)).hex())
+                if args.fp32:
+                    f.write(struct.pack(">f", float(vv)).hex())
+                else:
+                    f.write(float32_to_float16_hex(float(vv)))
             f.write("\n")
         print('Completed real-esrgan.wts file!')
+
 
 if __name__ == '__main__':
     main()

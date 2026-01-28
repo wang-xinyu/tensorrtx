@@ -20,8 +20,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(/usr/local/cuda/include)
 link_directories(/usr/local/cuda/lib64)
 # tensorrt
-include_directories(/usr/include/x86_64-linux-gnu/)
-link_directories(/usr/lib/x86_64-linux-gnu/)
+include_directories(/usr/local/TensorRT-10.10.0.31/include)
+link_directories(/usr/local/TensorRT-10.10.0.31/lib)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Ofast -g -Wfatal-errors -D_MWAITXINTRIN_H_INCLUDED")
 cuda_add_library(myplugins SHARED preprocess.cu postprocess.cu)
@@ -40,5 +40,3 @@ target_link_libraries(real-esrgan ${OpenCV_LIBS})
 if(UNIX)
 add_definitions(-O2 -pthread)
 endif(UNIX)
-
-
