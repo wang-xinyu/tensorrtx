@@ -92,12 +92,7 @@ Tested on:
 - TensorRT: 10.x
 - Model: YOLOv8m-seg (640x640)
 
-## Result Images
 
-| Input | Output (with GPU masks) |
-|-------|------------------------|
-| ![bus.jpg](results/bus.jpg) | ![output_optimized_bus.jpg](results/output_optimized_bus.jpg) |
-| ![zidane.jpg](results/zidane.jpg) | ![output_optimized_zidane.jpg](results/output_optimized_zidane.jpg) |
 
 ## Usage
 
