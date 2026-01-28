@@ -10,10 +10,9 @@
 #define BATCH_SIZE 1
 
 // stuff we know about the network and the input/output blobs
-static const int PRECISION_MODE = 32;  // fp32 : 32, fp16 : 16
 static const bool VISUALIZATION = true;
-static const int INPUT_H = 640;
-static const int INPUT_W = 448;
+static const int INPUT_H = 400;
+static const int INPUT_W = 400;
 static const int INPUT_C = 3;
 static const int OUT_SCALE = 4;
 static const int OUTPUT_SIZE = INPUT_C * INPUT_H * OUT_SCALE * INPUT_W * OUT_SCALE;
@@ -110,6 +109,9 @@ ICudaEngine* build_engine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     ITensor* final_tensor = postprocess_layer->getOutput(0);
     final_tensor->setName(OUTPUT_BLOB_NAME);
     network->markOutput(*final_tensor);
+    if (PRECISION_MODE == 16) {
+        final_tensor->setType(DataType::kHALF);
+    }
 
     // Build engine
     config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 16 * (1 << 20));  // 16MB
@@ -142,7 +144,12 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream, std::strin
     IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+    ICudaEngine* engine = nullptr;
+    if (PRECISION_MODE == 16) {
+        engine = build_engine(maxBatchSize, builder, config, DataType::kHALF, wts_name);
+    } else {
+        engine = build_engine(maxBatchSize, builder, config, DataType::kFLOAT, wts_name);
+    }
 
     assert(engine != nullptr);
 

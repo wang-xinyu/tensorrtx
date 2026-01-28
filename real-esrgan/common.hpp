@@ -10,6 +10,8 @@
 
 using namespace nvinfer1;
 
+static const int PRECISION_MODE = 16;  // fp32 : 32, fp16 : 16
+
 // TensorRT weight files have a simple space delimited format:
 // [type] [size] <data x size in hex>
 std::map<std::string, Weights> loadWeights(const std::string file) {
@@ -32,14 +34,22 @@ std::map<std::string, Weights> loadWeights(const std::string file) {
         // Read name and type of blob
         std::string name;
         input >> name >> std::dec >> size;
-        wt.type = DataType::kFLOAT;
 
-        // Load blob
-        uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
-        for (uint32_t x = 0, y = size; x < y; ++x) {
-            input >> std::hex >> val[x];
+        if (PRECISION_MODE == 16) {
+            wt.type = DataType::kHALF;
+            uint16_t* val = reinterpret_cast<uint16_t*>(malloc(sizeof(val) * size));
+            for (uint32_t x = 0, y = size; x < y; ++x) {
+                input >> std::hex >> val[x];
+            }
+            wt.values = val;
+        } else {
+            wt.type = DataType::kFLOAT;
+            uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * size));
+            for (uint32_t x = 0, y = size; x < y; ++x) {
+                input >> std::hex >> val[x];
+            }
+            wt.values = val;
         }
-        wt.values = val;
 
         wt.count = size;
         weightMap[name] = wt;
