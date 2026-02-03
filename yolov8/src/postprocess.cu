@@ -1,6 +1,7 @@
 //
 // Created by lindsay on 23-7-17.
 //
+#include "cuda_utils.h"
 #include "postprocess.h"
 #include "types.h"
 
@@ -190,4 +191,266 @@ void cuda_nms_obb(float* parray, float nms_threshold, int max_objects, cudaStrea
     int block = max_objects < 256 ? max_objects : 256;
     int grid = ceil(max_objects / (float)block);
     nms_kernel_obb<<<grid, block, 0, stream>>>(parray, max_objects, nms_threshold);
+}
+
+// ======================================================================================
+// GPU Segmentation Kernels (Ported from StiQy)
+// ======================================================================================
+
+__device__ inline float sigmoid(float x) {
+    return 1.0f / (1.0f + expf(-x));
+}
+
+static __global__ void compact_and_gather_masks_kernel(float* nms_output, int* final_count, float* compacted_masks_out,
+                                                       int* mapping_out, int max_objects) {
+    int position = (blockDim.x * blockIdx.x + threadIdx.x);
+    if (position >= max_objects)
+        return;
+
+    // The number of items to check is stored at nms_output[0]
+    int count = (int)nms_output[0];
+    if (position >= count)
+        return;
+
+    float* pcurrent = nms_output + 1 + position * bbox_element;
+    int keep_flag = (int)pcurrent[4 + 1 + 1];  // index 6: 0=x,1=y,2=w,3=h,4=conf,5=cls,6=keep
+
+    if (keep_flag == 1) {
+        // This detection was kept by NMS. Get its new, compacted index.
+        int final_index = atomicAdd(final_count, 1);
+
+        // The mask coefficients start at index 7.
+        float* mask_src = pcurrent + 7;
+        float* mask_dst = compacted_masks_out + final_index * 32;
+
+        for (int i = 0; i < 32; ++i) {
+            mask_dst[i] = mask_src[i];
+        }
+        // record mapping from nms slot -> final compacted index
+        mapping_out[position] = final_index;
+    }
+}
+
+void cuda_compact_and_gather_masks(const float* decode_ptr_device, int* final_count_device,
+                                   float* compacted_masks_device, int* mask_mapping_device, int max_objects,
+                                   cudaStream_t stream) {
+    CUDA_CHECK(cudaMemsetAsync(final_count_device, 0, sizeof(int), stream));
+    CUDA_CHECK(cudaMemsetAsync(mask_mapping_device, -1, sizeof(int) * max_objects, stream));
+    int threads = 256;
+    int blocks = (max_objects + threads - 1) / threads;
+    // Note: cast const away for decode_ptr_device as kernel assumes non-const (though it treats it as input)
+    compact_and_gather_masks_kernel<<<blocks, threads, 0, stream>>>(
+            (float*)decode_ptr_device, final_count_device, compacted_masks_device, mask_mapping_device, max_objects);
+}
+
+// Integrated Kernel with Strict Clipping and Bilinear Interpolation
+__global__ void process_mask_kernel(const float* proto, const float* masks_in, const float* bboxes, float* masks_out,
+                                    int num_dets, int proto_h, int proto_w, int out_h, int out_w) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int det_idx = blockIdx.z * blockDim.z + threadIdx.z;
+
+    if (x >= out_w || y >= out_h || det_idx >= num_dets)
+        return;
+
+    // Strict Clipping Logic
+    float x1 = bboxes[det_idx * 4 + 0];
+    float y1 = bboxes[det_idx * 4 + 1];
+    float x2 = bboxes[det_idx * 4 + 2];
+    float y2 = bboxes[det_idx * 4 + 3];
+
+    // Check if pixel is outside the bounding box
+    if (x < x1 || x > x2 || y < y1 || y > y2) {
+        masks_out[det_idx * (out_h * out_w) + y * out_w + x] = 0.0f;
+        return;
+    }
+
+    // Bilinear Interpolation
+    float proto_x_float = ((float)x + 0.5f) / 4.0f - 0.5f;
+    float proto_y_float = ((float)y + 0.5f) / 4.0f - 0.5f;
+
+    int proto_x1 = (int)floorf(proto_x_float);
+    int proto_y1 = (int)floorf(proto_y_float);
+    int proto_x2 = proto_x1 + 1;
+    int proto_y2 = proto_y1 + 1;
+
+    float w_x = proto_x_float - proto_x1;
+    float w_y = proto_y_float - proto_y1;
+
+    const float* mask_weights = masks_in + det_idx * 32;
+    float mask_val = 0.0f;
+
+    for (int j = 0; j < 32; ++j) {
+        const float* proto_channel = proto + j * (proto_h * proto_w);
+        float p1 = (proto_x1 >= 0 && proto_y1 >= 0) ? proto_channel[proto_y1 * proto_w + proto_x1] : 0.0f;
+        float p2 = (proto_x2 < proto_w && proto_y1 >= 0) ? proto_channel[proto_y1 * proto_w + proto_x2] : 0.0f;
+        float p3 = (proto_x1 >= 0 && proto_y2 < proto_h) ? proto_channel[proto_y2 * proto_w + proto_x1] : 0.0f;
+        float p4 = (proto_x2 < proto_w && proto_y2 < proto_h) ? proto_channel[proto_y2 * proto_w + proto_x2] : 0.0f;
+
+        float interpolated_p =
+                p1 * (1 - w_x) * (1 - w_y) + p2 * w_x * (1 - w_y) + p3 * (1 - w_x) * w_y + p4 * w_x * w_y;
+        mask_val += mask_weights[j] * interpolated_p;
+    }
+
+    masks_out[det_idx * (out_h * out_w) + y * out_w + x] = sigmoid(mask_val);
+}
+
+void cuda_process_mask(const float* proto, const float* masks_in, const float* bboxes_in, float* masks_out,
+                       int num_dets, int proto_h, int proto_w, int out_h, int out_w, cudaStream_t stream) {
+    if (num_dets == 0)
+        return;
+    dim3 block_dim(16, 16, 1);
+    dim3 grid_dim((out_w + block_dim.x - 1) / block_dim.x, (out_h + block_dim.y - 1) / block_dim.y,
+                  (num_dets + block_dim.z - 1) / block_dim.z);
+    process_mask_kernel<<<grid_dim, block_dim, 0, stream>>>(proto, masks_in, bboxes_in, masks_out, num_dets, proto_h,
+                                                            proto_w, out_h, out_w);
+}
+
+// Box Blur Kernels
+__global__ void box_blur_horizontal(const float* src, float* dst, int w, int h, int num_masks) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int m = blockIdx.z * blockDim.z + threadIdx.z;
+    if (x >= w || y >= h || m >= num_masks)
+        return;
+    int r = 1;
+    float sum = 0.0f;
+    int count = 0;
+    int base = m * w * h + y * w;
+    for (int dx = -r; dx <= r; ++dx) {
+        int nx = x + dx;
+        if (nx >= 0 && nx < w) {
+            sum += src[base + nx];
+            count++;
+        }
+    }
+    dst[base + x] = sum / count;
+}
+__global__ void box_blur_vertical(const float* src, float* dst, int w, int h, int num_masks) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int m = blockIdx.z * blockDim.z + threadIdx.z;
+    if (x >= w || y >= h || m >= num_masks)
+        return;
+    int r = 1;
+    float sum = 0.0f;
+    int count = 0;
+    int base = m * w * h;
+    for (int dy = -r; dy <= r; ++dy) {
+        int ny = y + dy;
+        if (ny >= 0 && ny < h) {
+            sum += src[base + ny * w + x];
+            count++;
+        }
+    }
+    dst[base + y * w + x] = sum / count;
+}
+void cuda_blur_masks(float* masks_device, int num_dets, int mask_h, int mask_w, cudaStream_t stream) {
+    if (num_dets <= 0)
+        return;
+    float* tmp = nullptr;
+    CUDA_CHECK(cudaMalloc((void**)&tmp, sizeof(float) * num_dets * mask_h * mask_w));
+    dim3 block(16, 16, 1);
+    dim3 grid((mask_w + block.x - 1) / block.x, (mask_h + block.y - 1) / block.y, (num_dets + block.z - 1) / block.z);
+    box_blur_horizontal<<<grid, block, 0, stream>>>(masks_device, tmp, mask_w, mask_h, num_dets);
+    box_blur_vertical<<<grid, block, 0, stream>>>(tmp, masks_device, mask_w, mask_h, num_dets);
+    CUDA_CHECK(cudaFree(tmp));
+}
+
+// Optimized Drawing Kernels
+__global__ void gather_kept_bboxes_kernel(const float* nms_output, const int* mask_mapping, float* dense_bboxes,
+                                          int max_bboxes) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= max_bboxes)
+        return;
+    int compacted_idx = mask_mapping[i];
+    if (compacted_idx != -1) {
+        const float* pcurrent = nms_output + 1 + i * bbox_element;
+        dense_bboxes[compacted_idx * 4 + 0] = pcurrent[0];
+        dense_bboxes[compacted_idx * 4 + 1] = pcurrent[1];
+        dense_bboxes[compacted_idx * 4 + 2] = pcurrent[2];
+        dense_bboxes[compacted_idx * 4 + 3] = pcurrent[3];
+    }
+}
+
+void cuda_gather_kept_bboxes(const float* nms_output, const int* mask_mapping, float* dense_bboxes, int max_bboxes,
+                             cudaStream_t stream) {
+    int threads = 256;
+    int blocks = (max_bboxes + threads - 1) / threads;
+    gather_kept_bboxes_kernel<<<blocks, threads, 0, stream>>>(nms_output, mask_mapping, dense_bboxes, max_bboxes);
+}
+
+__global__ void draw_results_on_image_kernel(float* image_buffer, const float* final_masks, const float* dense_bboxes,
+                                             int num_dets, int mask_mode, float mask_thresh) {
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= kInputW || y >= kInputH)
+        return;
+
+    bool pixel_is_covered = false;
+    for (int i = 0; i < num_dets; ++i) {
+        float left = dense_bboxes[i * 4 + 0];
+        float top = dense_bboxes[i * 4 + 1];
+        float right = dense_bboxes[i * 4 + 2];
+        float bottom = dense_bboxes[i * 4 + 3];
+
+        float box_w = right - left;
+        float box_h = bottom - top;
+        float padding = 0.03f * fmaxf(box_w, box_h);
+        float padded_left = left - padding;
+        float padded_top = top - padding;
+        float padded_right = right + padding;
+        float padded_bottom = bottom + padding;
+
+        if (x >= padded_left && x < padded_right && y >= padded_top && y < padded_bottom) {
+            float mask_val = final_masks[i * (kInputW * kInputH) + y * kInputW + x];
+            if (mask_val > mask_thresh) {
+                pixel_is_covered = true;
+                break;
+            }
+        }
+    }
+
+    if (mask_mode == 1) {  // "Mask-Out" mode
+        if (!pixel_is_covered) {
+            int area = kInputW * kInputH;
+            image_buffer[y * kInputW + x] = 0.0f;             // R
+            image_buffer[area + y * kInputW + x] = 0.0f;      // G
+            image_buffer[2 * area + y * kInputW + x] = 0.0f;  // B
+        }
+    } else {  // "White Mask" mode
+        if (pixel_is_covered) {
+            int area = kInputW * kInputH;
+            float* r_ptr = image_buffer + y * kInputW + x;
+            float* g_ptr = r_ptr + area;
+            float* b_ptr = g_ptr + area;
+            *r_ptr = *r_ptr * 0.5f + 1.0f * 0.5f;
+            *g_ptr = *g_ptr * 0.5f + 1.0f * 0.5f;
+            *b_ptr = *b_ptr * 0.5f + 1.0f * 0.5f;
+        }
+    }
+}
+
+void cuda_draw_results(float* image_buffer, const float* final_masks, const float* nms_output, const int* mask_mapping,
+                       int num_dets, int mask_mode, float mask_thresh, cudaStream_t stream) {
+    if (num_dets == 0)
+        return;
+
+    float* dense_bboxes = nullptr;
+    CUDA_CHECK(cudaMallocAsync(&dense_bboxes, num_dets * 4 * sizeof(float), stream));
+
+    int threads = 256;
+    int blocks = (kMaxNumOutputBbox + threads - 1) / threads;
+    gather_kept_bboxes_kernel<<<blocks, threads, 0, stream>>>(nms_output, mask_mapping, dense_bboxes,
+                                                              kMaxNumOutputBbox);
+
+    dim3 block_dim(16, 16);
+    dim3 grid_dim((kInputW + block_dim.x - 1) / block_dim.x, (kInputH + block_dim.y - 1) / block_dim.y);
+
+    draw_results_on_image_kernel<<<grid_dim, block_dim, 0, stream>>>(image_buffer, final_masks, dense_bboxes, num_dets,
+                                                                     mask_mode, mask_thresh);
+
+    CUDA_CHECK(cudaFreeAsync(dense_bboxes, stream));
 }

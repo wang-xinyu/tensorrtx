@@ -39,3 +39,19 @@ void draw_bbox_obb(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Dete
 void draw_bbox_keypoints_line(std::vector<cv::Mat>& img_batch, std::vector<std::vector<Detection>>& res_batch);
 void draw_mask_bbox(cv::Mat& img, std::vector<Detection>& dets, std::vector<cv::Mat>& masks,
                     std::unordered_map<int, std::string>& labels_map);
+
+// CUDA Segmentation
+void cuda_compact_and_gather_masks(const float* decode_ptr_device, int* final_count_device,
+                                   float* compacted_masks_device, int* mask_mapping_device, int max_objects,
+                                   cudaStream_t stream);
+
+void cuda_gather_kept_bboxes(const float* nms_output, const int* mask_mapping, float* dense_bboxes, int max_bboxes,
+                             cudaStream_t stream);
+
+void cuda_process_mask(const float* proto, const float* masks_in, const float* bboxes_in, float* masks_out,
+                       int num_dets, int proto_h, int proto_w, int out_h, int out_w, cudaStream_t stream);
+
+void cuda_blur_masks(float* masks_out, int num_dets, int h, int w, cudaStream_t stream);
+
+void cuda_draw_results(float* image_buffer, const float* final_masks, const float* nms_output, const int* mask_mapping,
+                       int num_dets, int mask_mode, float mask_thresh, cudaStream_t stream);
