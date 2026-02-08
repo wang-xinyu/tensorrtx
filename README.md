@@ -17,7 +17,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
-- `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb
+- `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb, Yolo26-Cls
 - `15 Jan 2026`. [zgjja](https://github.com/zgjja) Refactor multiple old CV models to support TensorRT SDK through 7~10.
 - `8 Jan 2026`. [ydk61](https://github.com/ydk61): YOLOv13
 - `10 May 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): [YOLO11](./yolo11_tripy) writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
