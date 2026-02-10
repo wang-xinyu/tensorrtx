@@ -6,15 +6,40 @@ on:
       - master
       - trt10
 
+  push:
+    branches:
+      - master
+      - trt10
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v3
-      with:
-        # grab the history of the PR
-        fetch-depth: 0
-    - uses: actions/setup-python@v3
-    - uses: pre-commit/action@v3.0.1
-      with:
-        extra_args: --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+      - uses: actions/checkout@v5
+        with:
+          # grab the history of the PR
+          fetch-depth: 0
+
+      - name: Fetch commits
+        run: |
+          git fetch origin ${{ github.event.before }} || true
+          git fetch origin ${{ github.sha }}
+
+      - uses: actions/setup-python@v4
+
+      - uses: pre-commit/action@v3.0.1
+        if: github.event_name == 'push'
+        with:
+          extra_args: >
+            --from-ref ${{ github.event.before }}
+            --to-ref   ${{ github.sha }}
+            --show-diff-on-failure --color=always
+
+      - uses: pre-commit/action@v3.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          extra_args: >
+            --from-ref ${{ github.event.pull_request.base.sha }}
+            --to-ref   ${{ github.event.pull_request.head.sha }}
+            --show-diff-on-failure --color=always

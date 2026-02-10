@@ -1,11 +1,5 @@
 cmake_minimum_required(VERSION 3.17.0)
 
-set(TRT_VERSION
-    $ENV{TRT_VERSION}
-    CACHE
-      STRING
-      "TensorRT version, e.g. \"8.6.1.6\" or \"8.6.1.6+cuda12.0.1.011\", etc")
-
 function(_guess_path var_name required_files)
   set(_result "")
 
@@ -44,56 +38,84 @@ function(_guess_path var_name required_files)
       PARENT_SCOPE)
 endfunction()
 
-# find TensorRT include folder
-if(NOT DEFINED TensorRT_INCLUDE_DIR)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    _guess_path(
-      TensorRT_INCLUDE_DIR "NvInfer.h" "/usr/include/aarch64-linux-gnu"
-      "/usr/include" "/usr/local/cuda/targets/aarch64-linux/include")
-  else()
-    _guess_path(
-      TensorRT_INCLUDE_DIR "NvInfer.h"
-      "/usr/local/tensorrt/targets/x86_64-linux-gnu/include"
-      "/usr/include/x86_64-linux-gnu" "/usr/include")
+# add library
+add_library(TensorRT IMPORTED INTERFACE)
+add_library(TensorRT::TensorRT ALIAS TensorRT)
+
+set(TRT_VERSION
+    CACHE
+      STRING
+      "TensorRT version, e.g. \"8.6.1.6\" or \"8.6.1.6+cuda12.0.1.011\", \"8.6.1.6.Windows10.x86_64.cuda-12.0\" etc"
+)
+
+if(NOT TRT_VERSION STREQUAL "" AND NOT $ENV{TRT_VERSION} STREQUAL "")
+  message(
+    WARNING
+      "TRT_VERSION defined by cmake and environment variable both, using the later one"
+  )
+endif()
+
+if(NOT $ENV{TRT_VERSION} STREQUAL "")
+  set(TRT_VERSION $ENV{TRT_VERSION})
+endif()
+
+string(REGEX MATCH "([0-9]+)" _match ${TRT_VERSION})
+set(TRT_MAJOR_VERSION "${_match}")
+unset(_match)
+
+if(WIN32)
+  set(TensorRT_DIR "C:/Program Files/TensorRT-${TRT_VERSION}")
+  if(NOT EXISTS "${TensorRT_DIR}")
+    message(
+      FATAL_ERROR
+        "TensorRT_DIR=${TensorRT_DIR} does not exist!"
+    )
   endif()
+
+  if(${TRT_MAJOR_VERSION} GREATER_EQUAL 10)
+    set(_modules nvinfer_10 nvinfer_plugin_10 nvinfer_vc_plugin_10
+                 nvinfer_dispatch_10 nvinfer_lean_10)
+    message(DEBUG "Using ${_modules}")
+  else()
+    set(_modules nvinfer nvinfer_plugin nvinfer_vc_plugin nvinfer_dispatch
+                 nvinfer_lean)
+  endif()
+
+  set(TensorRT_LIBRARY_DIR "${TensorRT_DIR}/lib")
+  set(TensorRT_INCLUDE_DIR "${TensorRT_DIR}/include")
+elseif(UNIX)
+  string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" _trt_arch)
+  set(_trt_include_candidates)
+  if(_trt_arch MATCHES "^(aarch64|arm64|arch64)$")
+    set(_trt_include_candidates "/usr/include/aarch64-linux-gnu" "/usr/include"
+                                "/usr/local/cuda/targets/aarch64-linux/include")
+    set(_trt_library_candidates
+        "/usr/local/tensorrt/targets/aarch64-linux-gnu/lib"
+        "/usr/lib/aarch64-linux-gnu" "/usr/lib/aarch64-linux-gnu/tegra"
+        "/usr/lib")
+  elseif(_trt_arch MATCHES "^(x86_64|amd64)$")
+    set(_trt_include_candidates
+        "/usr/local/tensorrt/targets/x86_64-linux-gnu/include"
+        "/usr/include/x86_64-linux-gnu" "/usr/include")
+    set(_trt_library_candidates
+        "/usr/local/tensorrt/targets/x86_64-linux-gnu/lib"
+        "/usr/lib/x86_64-linux-gnu" "/usr/lib")
+  else()
+    message(FATAL_ERROR "Unknown architecture")
+  endif()
+
+  set(_modules nvinfer nvinfer_plugin)
+  if(${TRT_MAJOR_VERSION} GREATER_EQUAL 8)
+    list(APPEND _modules nvinfer_vc_plugin nvinfer_dispatch nvinfer_lean)
+  endif()
+
+  _guess_path(TensorRT_LIBRARY_DIR "libnvinfer.so;libnvinfer_plugin.so"
+              ${_trt_library_candidates})
+  message(STATUS "TensorRT libraries: ${TensorRT_LIBRARY_DIR}")
+  _guess_path(TensorRT_INCLUDE_DIR "NvInfer.h" ${_trt_include_candidates})
   message(STATUS "TensorRT includes: ${TensorRT_INCLUDE_DIR}")
 endif()
 
-# find TensorRT library folder
-if(NOT TensorRT_LIBRARY_DIR)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-    _guess_path(
-      TensorRT_LIBRARY_DIR "libnvinfer.so;libnvinfer_plugin.so"
-      "/usr/lib/aarch64-linux-gnu;/usr/lib/aarch64-linux-gnu/tegra" "/usr/lib")
-  else()
-    _guess_path(
-      TensorRT_LIBRARY_DIR
-      "libnvinfer.so;libnvinfer_plugin.so"
-      "/usr/lib/x86_64-linux-gnu;/usr/local/tensorrt/targets/x86_64-linux-gnu/lib;/usr/lib"
-    )
-  endif()
-  message(STATUS "TensorRT libraries: ${TensorRT_LIBRARY_DIR}")
-endif()
-
-set(TensorRT_LIBRARIES)
-
-message(STATUS "Found TensorRT lib: ${TensorRT_LIBRARIES}")
-
-# process for different TensorRT version
-if(DEFINED TRT_VERSION AND NOT TRT_VERSION STREQUAL "")
-  string(REGEX MATCH "([0-9]+)" _match ${TRT_VERSION})
-  set(TRT_MAJOR_VERSION "${_match}")
-  set(_modules nvinfer nvinfer_plugin)
-  unset(_match)
-
-  if(TRT_MAJOR_VERSION GREATER_EQUAL 8)
-    list(APPEND _modules nvinfer_vc_plugin nvinfer_dispatch nvinfer_lean)
-  endif()
-else()
-  message(FATAL_ERROR "Please set a environment variable \"TRT_VERSION\"")
-endif()
-
-# find and add all modules of TensorRT into list
 foreach(lib IN LISTS _modules)
   find_library(
     TensorRT_${lib}_LIBRARY
@@ -102,10 +124,9 @@ foreach(lib IN LISTS _modules)
   list(APPEND TensorRT_LIBRARIES ${TensorRT_${lib}_LIBRARY})
 endforeach()
 
-# make the "TensorRT target"
-add_library(TensorRT IMPORTED INTERFACE)
-add_library(TensorRT::TensorRT ALIAS TensorRT)
 target_link_libraries(TensorRT INTERFACE ${TensorRT_LIBRARIES})
+
+message(STATUS "Found TensorRT libs: ${TensorRT_LIBRARIES}")
 
 set_target_properties(
   TensorRT
@@ -119,3 +140,6 @@ set_target_properties(
 
 unset(TRT_MAJOR_VERSION)
 unset(_modules)
+unset(_trt_include_candidates)
+unset(_trt_library_candidates)
+unset(_trt_arch)

@@ -50,3 +50,19 @@ Execution time: 202us
 ====
 result: 沪BKB770
 ```
+
+## Note
+
+if you are running this demo on windows, you may need to check the code page, e.g., for Windows PowerShell, run:
+
+```ps1
+chcp
+```
+
+if the output is not **65001**, then use
+
+```ps1
+chcp 65001
+```
+
+to set the code page to utf-8, so you can get the correct literal result.

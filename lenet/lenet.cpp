@@ -1,12 +1,11 @@
-#include <algorithm>
+#include <NvInfer.h>
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <exception>
 #include <filesystem>
 #include <map>
-#include <numeric>
-#include <opencv2/core/types.hpp>
-#include <opencv2/imgcodecs.hpp>
+#include <opencv2/opencv.hpp>
 #include <vector>
 #include "logging.h"
 #include "utils.h"
@@ -15,15 +14,12 @@ using M = nvinfer1::MatrixOperation;
 using E = nvinfer1::ElementWiseOperation;
 
 // parameters we know about the lenet-5
-#define INPUT_H 32
-#define INPUT_W 32
-#define INPUT_SIZE (INPUT_H * INPUT_W)
-#define OUTPUT_SIZE 10
-constexpr static const char* NAMES[2] = {"data", "prob"};
-constexpr static const int32_t SIZES[2] = {INPUT_H * INPUT_W, 10};
-
-#define WTS_PATH "../models/lenet.wts"
-#define ENGINE_PATH "../models/lenet.engine"
+constexpr static const int64_t INPUT_H = 32;
+constexpr static const int64_t INPUT_W = 32;
+constexpr static const std::array<const char*, 2> NAMES = {"data", "prob"};
+constexpr static const std::array<const int64_t, 2> SIZES = {1ll * INPUT_H * INPUT_W, 10};
+constexpr static const char* WTS_PATH = "../models/lenet.wts";
+constexpr static const char* ENGINE_PATH = "../models/lenet.engine";
 
 static Logger gLogger;
 
@@ -38,11 +34,14 @@ static Logger gLogger;
  * @return ICudaEngine*
  */
 ICudaEngine* createLenetEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt) {
-#if TRT_VERSION >= 10000
-    auto* network = builder->createNetworkV2(0);
+#if TRT_VERSION >= 11200
+    auto flag = 1U << static_cast<int>(NetworkDefinitionCreationFlag::kSTRONGLY_TYPED);
+#elif TRT_VERSION >= 10000
+    auto flag = 0U;
 #else
-    auto* network = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    auto flag = 1U << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 #endif
+    auto* network = builder->createNetworkV2(flag);
 
     // Create input tensor of shape { 1, 1, 32, 32 } with name INPUT_NAME
     ITensor* data = network->addInput(NAMES[0], dt, Dims4{N, 1, INPUT_H, INPUT_W});
@@ -185,7 +184,7 @@ void APIToModel(int32_t N, IRuntime* runtime, IHostMemory** modelStream) {
 #endif
 }
 
-std::vector<std::vector<float>> doInference(IExecutionContext& context, void* input, int batchSize) {
+std::vector<std::vector<float>> doInference(IExecutionContext& context, void* input, int64_t batchSize) {
     const auto& engine = context.getEngine();
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
@@ -229,7 +228,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, void* in
 
     std::vector<std::vector<float>> prob;
     for (int i = 1; i < nIO; ++i) {
-        std::vector<float> tmp(batchSize * SIZES[i], std::nan(""));
+        std::vector<float> tmp(batchSize * SIZES[i], std::nanf(""));
         std::size_t size = batchSize * SIZES[i] * sizeof(float);
         CHECK(cudaMemcpyAsync(tmp.data(), buffers[i], size, cudaMemcpyDeviceToHost, stream));
         prob.emplace_back(tmp);
@@ -244,108 +243,122 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, void* in
 }
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./lenet -s   // serialize model to plan file" << std::endl;
-        std::cerr << "./lenet -d   // deserialize plan file and run inference" << std::endl;
-        return -1;
-    }
-
-    IRuntime* runtime = createInferRuntime(gLogger);
-    assert(runtime != nullptr);
-
-    char* trtModelStream{nullptr};
-    size_t size{0};
-
-    if (std::string(argv[1]) == "-s") {
-        IHostMemory* modelStream{nullptr};
-        APIToModel(1, runtime, &modelStream);
-        assert(modelStream != nullptr);
-
-        std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
-        if (!p) {
-            std::cerr << "could not open plan output file" << std::endl;
+    try {
+        if (argc != 2) {
+            std::cerr << "arguments not right!\n";
+            std::cerr << "./lenet -s   // serialize model to plan file\n";
+            std::cerr << "./lenet -d   // deserialize plan file and run inference\n";
             return -1;
         }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+
+        IRuntime* runtime = createInferRuntime(gLogger);
+        assert(runtime != nullptr);
+
+        char* trtModelStream{nullptr};
+        std::streamsize size{0};
+
+        if (std::string(argv[1]) == "-s") {
+            IHostMemory* modelStream{nullptr};
+            APIToModel(1, runtime, &modelStream);
+            assert(modelStream != nullptr);
+
+            std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
+            if (!p) {
+                std::cerr << "could not open plan output file\n";
+                return -1;
+            }
+            if (modelStream->size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
+                std::cerr << "this model is too large to serialize\n";
+                return -1;
+            }
+            const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
+            auto data_size = static_cast<std::streamsize>(modelStream->size());
+            p.write(data_ptr, data_size);
 
 #if TRT_VERSION >= 8000
-        delete modelStream;
+            delete modelStream;
 #else
-        modelStream->destroy();
+            modelStream->destroy();
 #endif
-        std::cout << "serialized weights to lenet5.engine" << std::endl;
-        return 0;
-    } else if (std::string(argv[1]) == "-d") {
-        std::ifstream file(ENGINE_PATH, std::ios::binary);
-        if (file.good()) {
-            file.seekg(0, file.end);
-            size = file.tellg();
-            file.seekg(0, file.beg);
-            trtModelStream = new char[size];
-            assert(trtModelStream);
-            file.read(trtModelStream, size);
-            file.close();
+            std::cout << "serialized weights to lenet5.engine\n";
+            return 0;
+        } else if (std::string(argv[1]) == "-d") {
+            std::ifstream file(ENGINE_PATH, std::ios::binary);
+            if (file.good()) {
+                file.seekg(0, file.end);
+                size = file.tellg();
+                file.seekg(0, file.beg);
+                trtModelStream = new char[size];
+                assert(trtModelStream);
+                file.read(trtModelStream, size);
+                file.close();
+            }
+        } else {
+            return -1;
         }
-    } else {
-        return -1;
-    }
 
-    // prepare input/output data
-    auto img = cv::imread("../assets/6.pgm", cv::IMREAD_GRAYSCALE);
-    cv::resize(img, img, cv::Size(32, 32), 0, 0, cv::INTER_LINEAR);
-    assert(img.channels() == 1);
-    img.convertTo(img, CV_32FC1, 0.00392156f, -0.1307f);
-    img = img / cv::Scalar(0.3081);
-    assert(img.total() * img.elemSize() == SIZES[0] * sizeof(float));
+        // prepare input/output data
+        auto img = cv::imread("../assets/6.pgm", cv::IMREAD_GRAYSCALE);
+        cv::resize(img, img, cv::Size(32, 32), 0, 0, cv::INTER_LINEAR);
+        assert(img.channels() == 1);
+        img.convertTo(img, CV_32FC1, 0.00392156f, -0.1307f);
+        img = img / cv::Scalar(0.3081);
+        assert(img.total() * img.elemSize() == SIZES[0] * sizeof(float));
 
 #if TRT_VERSION >= 8000
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
+        ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
 #else
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
+        ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
 #endif
-    assert(engine != nullptr);
-    IExecutionContext* context = engine->createExecutionContext();
-    assert(context != nullptr);
+        assert(engine != nullptr);
+        IExecutionContext* context = engine->createExecutionContext();
+        assert(context != nullptr);
 
-    // Run inference
-    for (int32_t i = 0; i < 100; ++i) {
-        auto _start = std::chrono::system_clock::now();
-        auto prob = doInference(*context, img.data, 1);
-        auto _end = std::chrono::system_clock::now();
-        auto _time = std::chrono::duration_cast<std::chrono::microseconds>(_end - _start).count();
-        std::cout << "Execution time: " << _time << "us" << std::endl;
+        // Run inference
+        for (int32_t i = 0; i < 100; ++i) {
+            auto _start = std::chrono::system_clock::now();
+            auto prob = doInference(*context, img.data, 1);
+            auto _end = std::chrono::system_clock::now();
+            auto _time = std::chrono::duration_cast<std::chrono::microseconds>(_end - _start).count();
+            std::cout << "Execution time: " << _time << "us\n";
 
-        for (auto vector : prob) {
-            int idx = 0;
-            for (auto v : vector) {
-                std::cout << std::setprecision(4) << v << ", " << std::flush;
-                if (++idx > 9) {
-                    std::cout << "\n====" << std::endl;
-                    break;
+            for (const auto& vector : prob) {
+                int idx = 0;
+                for (auto v : vector) {
+                    std::cout << std::setprecision(4) << v << ", " << std::flush;
+                    if (++idx > 9) {
+                        std::cout << "\n====\n";
+                        break;
+                    }
+                }
+            }
+
+            if (i == 99) {
+                std::cout << "prediction result:\n";
+                int _top = 0;
+                for (auto& [idx, logits] : topk(prob[0], 3)) {
+                    std::cout << "Top: " << _top++ << " idx: " << idx << ", logits: " << logits << ", label: " << idx
+                              << "\n";
                 }
             }
         }
 
-        if (i == 99) {
-            std::cout << "prediction result: " << std::endl;
-            int _top = 0;
-            for (auto& [idx, logits] : topk(prob[0], 3)) {
-                std::cout << "Top: " << _top++ << " idx: " << idx << ", logits: " << logits << ", label: " << idx
-                          << std::endl;
-            }
-        }
-    }
-
 #if TRT_VERSION >= 8000
-    delete context;
-    delete engine;
-    delete runtime;
+        delete context;
+        delete engine;
+        delete runtime;
 #else
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
+        context->destroy();
+        engine->destroy();
+        runtime->destroy();
 #endif
 
-    return 0;
+        return 0;
+    } catch (const std::exception& err) {
+        std::cerr << "fatal error: " << err.what() << '\n';
+        return -1;
+    } catch (...) {
+        std::cerr << "fatal error: unknown exception\n";
+        return -1;
+    }
 }

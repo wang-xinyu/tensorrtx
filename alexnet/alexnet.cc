@@ -1,6 +1,6 @@
-#include <NvInfer.h>
-#include <math.h>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <opencv2/opencv.hpp>
 #include <vector>
 #include "logging.h"
@@ -10,19 +10,20 @@
 constexpr const int32_t N = 1;
 constexpr const int32_t INPUT_H = 224;
 constexpr const int32_t INPUT_W = 224;
-constexpr const int32_t SIZES[] = {3 * INPUT_H * INPUT_W, 1000};
+constexpr const std::array<int64_t, 3> SIZES = {3ll * INPUT_H * INPUT_W, 1000};
 
-constexpr const char* NAMES[] = {"data", "prob"};
-constexpr const char ENGINE_PATH[] = "../models/alexnet.engine";
-constexpr const char WTS_PATH[] = "../models/alexnet.wts";
-constexpr const char LABELS_PATH[] = "../assets/imagenet1000_clsidx_to_labels.txt";
+constexpr const std::array<const char*, 2> NAMES = {"data", "prob"};
+constexpr const char* ENGINE_PATH = "../models/alexnet.engine";
+constexpr const char* WTS_PATH = "../models/alexnet.wts";
+constexpr const char* LABELS_PATH = "../assets/imagenet1000_clsidx_to_labels.txt";
 static constexpr const bool TRT_PREPROCESS = TRT_VERSION >= 8510 ? true : false;
-static constexpr const float mean[3] = {0.485f, 0.456f, 0.406f};
-static constexpr const float stdv[3] = {0.229f, 0.224f, 0.225f};
+static constexpr const std::array<const float, 3> mean = {0.485f, 0.456f, 0.406f};
+static constexpr const std::array<const float, 3> stdv = {0.229f, 0.224f, 0.225f};
 
 using WeightMap = std::map<std::string, Weights>;
 using M = nvinfer1::MatrixOperation;
 using E = nvinfer1::ElementWiseOperation;
+using NDCF = nvinfer1::NetworkDefinitionCreationFlag;
 
 static Logger gLogger;
 
@@ -37,20 +38,20 @@ static Logger gLogger;
  */
 ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     WeightMap weightMap = loadWeights(WTS_PATH);
-#if TRT_VERSION >= 10000
-    auto* network = builder->createNetworkV2(0);
+
+#if TRT_VERSION >= 11200
+    auto flag = 1U << static_cast<int>(NDCF::kSTRONGLY_TYPED);
+#elif TRT_VERSION >= 10000
+    auto flag = 0U;
 #else
-    auto* network = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    auto flag = 1U << static_cast<int>(NDCF::kEXPLICIT_BATCH);
 #endif
+    auto* network = builder->createNetworkV2(flag);
 
     // Create input tensor
     ITensor* input{nullptr};
     if constexpr (TRT_PREPROCESS) {
-#if TRT_VERSION > 8510
         dt = DataType::kUINT8;
-#else
-        dt = DataType::kINT8;
-#endif
         input = network->addInput(NAMES[0], dt, Dims4{N, INPUT_H, INPUT_W, 3});
         auto* trans = addTransformLayer(network, *input, true, mean, stdv);
         input = trans->getOutput(0);
@@ -110,7 +111,8 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     shuffle->setReshapeDimensions(Dims2{N, -1});  // "-1" means "256 * 6 * 6"
 
     // all classifier tensors
-    auto* fc1w = network->addConstant(DimsHW{4096, 256 * 6 * 6}, weightMap["classifier.1.weight"])->getOutput(0);
+    int64_t in_feat = 256ll * 6 * 6;
+    auto* fc1w = network->addConstant(DimsHW{4096, in_feat}, weightMap["classifier.1.weight"])->getOutput(0);
     auto* fc1b = network->addConstant(DimsHW{1, 4096}, weightMap["classifier.1.bias"])->getOutput(0);
     auto* fc2w = network->addConstant(DimsHW{4096, 4096}, weightMap["classifier.4.weight"])->getOutput(0);
     auto* fc2b = network->addConstant(DimsHW{1, 4096}, weightMap["classifier.4.bias"])->getOutput(0);
@@ -150,7 +152,7 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     network->destroy();
 #endif
 
-    std::cout << "build finished" << std::endl;
+    std::cout << "build finished\n";
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
@@ -183,7 +185,7 @@ void APIToModel(int32_t N, IRuntime* runtime, IHostMemory** modelStream) {
 }
 
 std::vector<std::vector<float>> doInference(IExecutionContext& context, const std::string& img_path,
-                                            int32_t batchSize) {
+                                            std::size_t batchSize) {
     static std::vector<float> flat_img;
     auto img = cv::imread(img_path, cv::IMREAD_COLOR);
     void* input = nullptr;
@@ -238,7 +240,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const st
 
     std::vector<std::vector<float>> prob;
     for (int i = 1; i < nIO; ++i) {
-        std::vector<float> tmp(batchSize * SIZES[i], std::nan(""));
+        std::vector<float> tmp(batchSize * SIZES[i], std::nanf(""));
         std::size_t size = batchSize * SIZES[i] * sizeof(float);
         CHECK(cudaMemcpyAsync(tmp.data(), buffers[i], size, cudaMemcpyDeviceToHost, stream));
         prob.emplace_back(tmp);
@@ -255,9 +257,9 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const st
 int main(int argc, char** argv) {
     checkTrtEnv();
     if (argc != 2) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./alexnet -s   // serialize model to plan file" << std::endl;
-        std::cerr << "./alexnet -d   // deserialize plan file and run inference" << std::endl;
+        std::cerr << "arguments not right!\n";
+        std::cerr << "./alexnet -s   // serialize model to plan file\n";
+        std::cerr << "./alexnet -d   // deserialize plan file and run inference\n";
         return -1;
     }
 
@@ -266,7 +268,7 @@ int main(int argc, char** argv) {
 
     // create a model using the API directly and serialize it to a stream
     char* trtModelStream{nullptr};
-    size_t size{0};
+    std::streamsize size{0};
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
@@ -275,17 +277,23 @@ int main(int argc, char** argv) {
 
         std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
         if (!p) {
-            std::cerr << "could not open plan output file" << std::endl;
+            std::cerr << "could not open plan output file\n";
             return -1;
         }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+        if (modelStream->size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
+            std::cerr << "this model is too large to serialize\n";
+            return -1;
+        }
+        const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
+        auto data_size = static_cast<std::streamsize>(modelStream->size());
+        p.write(data_ptr, data_size);
 
 #if TRT_VERSION >= 8000
         delete modelStream;
 #else
         modelStream->destroy();
 #endif
-        return 1;
+        return 0;
     } else if (std::string(argv[1]) == "-d") {
         std::ifstream file(ENGINE_PATH, std::ios::binary);
         if (file.good()) {
@@ -317,26 +325,26 @@ int main(int argc, char** argv) {
         auto prob = doInference(*context, img_path, N);
         auto _end = std::chrono::system_clock::now();
         auto _time = std::chrono::duration_cast<std::chrono::milliseconds>(_end - _start).count();
-        std::cout << "Execution time: " << _time << "ms" << std::endl;
+        std::cout << "Execution time: " << _time << "ms\n";
 
-        for (auto vector : prob) {
+        for (const auto& vector : prob) {
             int idx = 0;
             for (auto v : vector) {
                 std::cout << std::setprecision(4) << v << ", " << std::flush;
                 if (++idx > 20) {
-                    std::cout << "\n====" << std::endl;
+                    std::cout << "\n====\n";
                     break;
                 }
             }
         }
 
         if (i == 99) {
-            std::cout << "prediction result: " << std::endl;
+            std::cout << "prediction result:\n";
             auto labels = loadImagenetLabelMap(LABELS_PATH);
             int _top = 0;
             for (auto& [idx, logits] : topk(prob[0], 3)) {
                 std::cout << "Top: " << _top++ << " idx: " << idx << ", logits: " << logits
-                          << ", label: " << labels[idx] << std::endl;
+                          << ", label: " << labels[idx] << "\n";
             }
         }
     }

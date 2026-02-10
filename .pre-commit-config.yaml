@@ -1,33 +1,30 @@
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
-    -   id: check-merge-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: end-of-file-fixer
         types: [python]
-    -   id: check-symlinks
+      - id: trailing-whitespace
         types: [python]
-    -   id: end-of-file-fixer
-        types: [python]
-    -   id: trailing-whitespace
-        types: [python]
-    -   id: check-added-large-files
-        types: [python]
--   repo: https://github.com/pre-commit/mirrors-clang-format
+      - id: check-added-large-files
+  - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
-    -   id: clang-format
+      - id: clang-format
         types_or: [c++, c, cuda]
         args: [-style=file]
--   repo: https://github.com/PyCQA/flake8
+  - repo: https://github.com/PyCQA/flake8
     rev: 7.0.0
     hooks:
-    -   id: flake8
+      - id: flake8
         args: [--max-line-length=120]
-- repo: https://github.com/cheshirekow/cmake-format-precommit
-  rev: v0.6.13
-  hooks:
-  - id: cmake-format
-    additional_dependencies: [pyyaml]
-    args: [--in-place, -c, .cmake-format.yaml]
-    types: [file]
-    files: (\.cmake|CMakeLists.txt)(.in)?$
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        additional_dependencies: [pyyaml]
+        args: [--in-place, -c, .cmake-format.yaml]
+        types: [file]
+        files: (\.cmake|CMakeLists.txt)(.in)?$

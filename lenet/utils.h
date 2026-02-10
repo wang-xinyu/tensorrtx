@@ -1,41 +1,40 @@
 #pragma once
-#include <NvInfer.h>
 #include <cuda_runtime_api.h>
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <numeric>
 #include <opencv2/opencv.hpp>
-#include <stdexcept>
 #include <string>
 #include <vector>
+#include "macros.h"
 
 using namespace nvinfer1;
 
-#define WORKSPACE_SIZE (16 << 20)
+enum : std::uint32_t { WORKSPACE_SIZE = 16 << 20 };
 
-#define CHECK(status)                                          \
-    do {                                                       \
-        auto ret = (status);                                   \
-        if (ret != cudaSuccess) {                              \
-            std::cerr << "Cuda failure: " << ret << std::endl; \
-            abort();                                           \
-        }                                                      \
+#define CHECK(status)                                     \
+    do {                                                  \
+        auto ret = (status);                              \
+        if (ret != cudaSuccess) {                         \
+            std::cerr << "Cuda failure: " << ret << "\n"; \
+            std::abort();                                 \
+        }                                                 \
     } while (0)
 
 static void checkTrtEnv(int device = 0) {
-#if TRT_VERSION < 7220
-#error "TensorRT >= 7.2.2 is required for this demo."
-#endif
 #if TRT_VERSION < 8000
     CHECK(cudaGetDevice(&device));
     cudaDeviceProp prop{};
     CHECK(cudaGetDeviceProperties(&prop, device));
     const int sm = prop.major * 10 + prop.minor;
     if (sm > 86) {
-        throw std::runtime_error("TensorRT < 8 does not support SM > 86 on this GPU.");
+        std::cerr << "TensorRT < 8 does not support SM > 86 on this GPU.";
+        std::abort();
     }
 #endif
 }
@@ -47,8 +46,8 @@ static void checkTrtEnv(int device = 0) {
  * @param file input weight file path
  * @return std::map<std::string, nvinfer1::Weights> 
  */
-static std::map<std::string, nvinfer1::Weights> loadWeights(const std::string& file) {
-    std::cout << "Loading weights: " << file << std::endl;
+static auto loadWeights(const std::string& file) {
+    std::cout << "Loading weights: " << file << "\n";
     std::map<std::string, nvinfer1::Weights> weightMap;
 
     // Open weights file
@@ -68,9 +67,10 @@ static std::map<std::string, nvinfer1::Weights> loadWeights(const std::string& f
         input >> name >> std::dec >> wt.count;
 
         // Load blob
-        uint32_t* val = reinterpret_cast<uint32_t*>(malloc(sizeof(val) * wt.count));
-        for (uint32_t x = 0; x < wt.count; ++x) {
-            input >> std::hex >> val[x];
+        auto* val = new uint32_t[wt.count];
+        input >> std::hex;
+        for (auto x = 0ll; x < wt.count; ++x) {
+            input >> val[x];
         }
         wt.values = val;
         weightMap[name] = wt;
@@ -79,15 +79,15 @@ static std::map<std::string, nvinfer1::Weights> loadWeights(const std::string& f
     return weightMap;
 }
 
-static std::vector<std::pair<int, float>> topk(const std::vector<float>& v, int k) {
+static std::vector<std::pair<int, float>> topk(const std::vector<float>& v, int64_t k) {
     if (k <= 0)
         return {};
-    k = std::min<int>(k, v.size());
+    auto s = std::min<std::ptrdiff_t>(k, static_cast<std::ptrdiff_t>(v.size()));
 
     std::vector<int> idx(v.size());
     std::iota(idx.begin(), idx.end(), 0);
 
-    std::partial_sort(idx.begin(), idx.begin() + k, idx.end(), [&](int a, int b) { return v[a] > v[b]; });
+    std::partial_sort(idx.begin(), std::next(idx.begin(), s), idx.end(), [&](int a, int b) { return v[a] > v[b]; });
 
     std::vector<std::pair<int, float>> out;
     out.reserve(k);
@@ -109,7 +109,9 @@ static size_t getSize(DataType dt) {
             return sizeof(int16_t);
         case DataType::kINT32:
             return sizeof(int32_t);
-        default:
-            throw std::runtime_error("Unsupported data type");
+        default: {
+            std::cerr << "Unsupported data type\n";
+            std::abort();
+        }
     }
 }

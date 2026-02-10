@@ -1,3 +1,4 @@
+#include <array>
 #include <chrono>
 #include <iostream>
 #include <numeric>
@@ -7,8 +8,8 @@
 
 using namespace nvinfer1;
 
-#define INPUT_SIZE 1
-#define OUTPUT_SIZE 1
+constexpr static const int64_t INPUT_SIZE = 1;
+constexpr static const int64_t OUTPUT_SIZE = 1;
 constexpr static const char* INPUT_NAME = "data";
 constexpr static const char* OUTPUT_NAME = "out";
 constexpr static const char* WTS_PATH = "../models/mlp.wts";
@@ -27,7 +28,7 @@ static Logger gLogger;
  * @return engine: TRT model
  */
 ICudaEngine* createMLPEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt) {
-    std::cout << "[INFO]: Creating MLP using TensorRT..." << std::endl;
+    std::cout << "[INFO]: Creating MLP using TensorRT...\n";
 
     // Load Weights from relevant file
     std::map<std::string, Weights> weightMap = loadWeights(WTS_PATH);
@@ -110,7 +111,7 @@ void APIToModel(int32_t maxBatchSize, IRuntime* runtime, IHostMemory** modelStre
 #endif
 }
 
-void doInference(IExecutionContext& ctx, void* input, float* output, int batchSize = 1) {
+void doInference(IExecutionContext& ctx, void* input, float* output, int64_t batchSize = 1) {
     /**
      * Perform inference using the CUDA ctx
      *
@@ -138,7 +139,7 @@ void doInference(IExecutionContext& ctx, void* input, float* output, int batchSi
     CHECK(cudaStreamCreate(&stream));
 
     // create GPU buffers on cuda device and copy input data from host
-    std::vector<void*> buffers(2, nullptr);
+    std::vector<void*> buffers(nIO, nullptr);
     size_t inputSize = 0;
     size_t outputSize = batchSize * OUTPUT_SIZE * sizeof(float);
 #if TRT_VERSION >= 8000
@@ -156,8 +157,8 @@ void doInference(IExecutionContext& ctx, void* input, float* output, int batchSi
     for (int32_t i = 0; i < engine.getNbIOTensors(); i++) {
         auto const name = engine.getIOTensorName(i);
         auto dims = ctx.getTensorShape(name);
-        auto total = std::accumulate(dims.d, dims.d + dims.nbDims, 1, std::multiplies<int>());
-        std::cout << name << "\t" << total << std::endl;
+        auto total = std::accumulate(dims.d, dims.d + dims.nbDims, 1ll, std::multiplies<>());
+        std::cout << name << "\t" << total << "\n";
         ctx.setTensorAddress(name, buffers[i]);
     }
     assert(ctx.enqueueV3(stream));
@@ -176,16 +177,16 @@ void doInference(IExecutionContext& ctx, void* input, float* output, int batchSi
 int main(int argc, char** argv) {
     checkTrtEnv();
     if (argc != 2) {
-        std::cerr << "[ERROR]: Arguments not right!" << std::endl;
-        std::cerr << "./mlp -s   // serialize model to plan file" << std::endl;
-        std::cerr << "./mlp -d   // deserialize plan file and run inference" << std::endl;
+        std::cerr << "[ERROR]: Arguments not right!\n";
+        std::cerr << "./mlp -s   // serialize model to plan file\n";
+        std::cerr << "./mlp -d   // deserialize plan file and run inference\n";
         return 1;
     }
 
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     char* trtModelStream{nullptr};
-    size_t size{0};
+    std::streamsize size{0};
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
@@ -194,17 +195,23 @@ int main(int argc, char** argv) {
 
         std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
         if (!p.good()) {
-            std::cerr << "could not open plan output file" << std::endl;
+            std::cerr << "could not open plan output file\n";
             return 1;
         }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+        if (modelStream->size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
+            std::cerr << "this model is too large to serialize\n";
+            return -1;
+        }
+        const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
+        auto data_size = static_cast<std::streamsize>(modelStream->size());
+        p.write(data_ptr, data_size);
 
 #if TRT_VERSION >= 8000
         delete modelStream;
 #else
         modelStream->destroy();
 #endif
-        std::cout << "[INFO]: Successfully created TensorRT engine." << std::endl;
+        std::cout << "[INFO]: Successfully created TensorRT engine.\n";
         return 0;
     } else if (std::string(argv[1]) == "-d") {
         std::ifstream file(ENGINE_PATH, std::ios::binary);
@@ -231,16 +238,16 @@ int main(int argc, char** argv) {
     IExecutionContext* ctx = engine->createExecutionContext();
     assert(ctx != nullptr);
 
-    float output[1] = {-1.f};
-    float input[1] = {12.0f};
+    std::array<float, 1> output = {-1.f};
+    std::array<float, 1> input = {12.0f};
 
     for (int i = 0; i < 100; i++) {
         auto start = std::chrono::high_resolution_clock::now();
-        doInference(*ctx, input, output);
+        doInference(*ctx, input.data(), output.data());
         auto end = std::chrono::high_resolution_clock::now();
         auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        std::cout << "Execution time: " << time << "us\t"
-                  << "output: " << output[0] << std::endl;
+        std::cout << "Execution time: " << time << "us\n"
+                  << "output: " << output[0] << "\n";
     }
 
 #if TRT_VERSION >= 8000

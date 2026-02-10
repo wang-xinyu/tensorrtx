@@ -7,13 +7,13 @@ project(
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES
-      60
-      70
-      72
       75
       80
       86
-      89)
+      89
+      90
+      100
+      120)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)
@@ -42,3 +42,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}
 
 target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads CUDA::cudart
                                              TensorRT::TensorRT ${OpenCV_LIBS})
+
+if(WIN32)
+  set_target_properties(
+    ${PROJECT_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY
+                               "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()

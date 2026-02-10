@@ -165,20 +165,39 @@ static std::map<int, std::string> loadImagenetLabelMap(const std::string& path) 
 
 static ILayer* addTransformLayer(INetworkDefinition* network, ITensor& input, bool bgr2rgb, const float mean[3],
                                  const float std[3]) {
-    static const float shift_[3] = {-mean[0] / std[0], -mean[1] / std[1], -mean[2] / std[2]};
-    static const float scale_[3] = {1 / (std[0] * 255), 1 / (std[1] * 255), 1 / (std[2] * 255)};
-    static const Weights empty{DataType::kFLOAT, nullptr, 0ll};
-    static const Weights shift{DataType::kFLOAT, &shift_, 3ll};
-    static const Weights scale{DataType::kFLOAT, &scale_, 3ll};
+    struct ScaleParams {
+        std::array<float, 3> shift;
+        std::array<float, 3> scale;
+    };
+    static std::vector<std::unique_ptr<ScaleParams>> gScaleParams;
+    auto params = std::make_unique<ScaleParams>();
+    params->shift = {-mean[0] / std[0], -mean[1] / std[1], -mean[2] / std[2]};
+    params->scale = {1.f / (std[0] * 255.f), 1.f / (std[1] * 255.f), 1.f / (std[2] * 255.f)};
 
-    // Convert input image from Uint8 to FP32
-    auto* identity = network->addIdentity(input);
-    assert(identity);
-    identity->setName("Convert to FP32");
-    identity->setOutputType(0, DataType::kFLOAT);
+    static const Weights empty{DataType::kFLOAT, nullptr, 0ll};
+    const Weights shift{DataType::kFLOAT, params->shift.data(), 3ll};
+    const Weights scale{DataType::kFLOAT, params->scale.data(), 3ll};
+
+    gScaleParams.emplace_back(std::move(params));
+
+    ITensor* in = &input;
+    if (input.getType() != DataType::kFLOAT) {
+#if TRT_VERSION >= 8000
+        auto* cast = network->addCast(input, DataType::kFLOAT);
+        assert(cast);
+        cast->setName("Cast to FP32");
+        in = cast->getOutput(0);
+#else
+        auto* identity = network->addIdentity(input);
+        assert(identity);
+        identity->setName("Convert to FP32");
+        identity->setOutputType(0, DataType::kFLOAT);
+        in = identity->getOutput(0);
+#endif
+    }
 
     // Convert from NHWC to NCHW
-    auto* perm = network->addShuffle(*identity->getOutput(0));
+    auto* perm = network->addShuffle(*in);
     assert(perm);
     perm->setName("NHWC -> NCHW");
     perm->setFirstTranspose(Permutation{0, 3, 1, 2});
