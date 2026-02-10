@@ -16,6 +16,7 @@ Training code [link](https://github.com/ultralytics/ultralytics/archive/refs/tag
 
 * [✅] Yolo26n-det, Yolo26s-det, Yolo26m-det, Yolo26l-det, Yolo26sx-det, support FP32/FP16 and C++ API
 * [✅] Yolo26n-obb, Yolo26s-obb, Yolo26m-obb, Yolo26l-obb, Yolo26sx-obb, support FP32/FP16 and C++ API
+* [✅] Yolo26n-cls, Yolo26s-cls, Yolo26m-cls, Yolo26l-cls, Yolo26sx-cls, support FP32/FP16 and C++ API
 
 ## COMING FEATURES
 * [⏳] Windows OS Support
@@ -54,6 +55,13 @@ cp [PATH-TO-MAIN-FOLDER]/gen_wts.py .
 python gen_wts.py -w yolo26n-obb.pt -o yolo26n-obb.wts -t obb
 # A file 'yolo26n-obb.wts' will be generated.
 
+# Download models for Cls
+wget https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-cls.pt -O yolo26n-cls.pt # to download other models, replace 'yolo26n-cls.pt' with 'yolo26s-cls.pt', 'yolo26m-cls.pt', 'yolo26l-cls.pt' or 'yolo26x-cls.pt'
+# Generate .wts
+cp [PATH-TO-MAIN-FOLDER]/gen_wts.py .
+python gen_wts.py -w yolo26n-cls.pt -o yolo26n-cls.wts -t cls
+# A file 'yolo26n-cls.wts' will be generated.
+
 ```
 
 2. build and run
@@ -81,7 +89,20 @@ cp [PATH-TO-ultralytics]/yolo26n-obb.wts .
 # Build and serialize TensorRT engine
 ./yolo26_obb -s yolo26n-obb.wts yolo26n-obb.engine [n/s/m/l/x]
 # Run inference
-./yolo26_obb -d yolo26n.engine ../images
+./yolo26_obb -d yolo26n-obb.engine ../images
+# results saved in build directory
+```
+
+### Cls
+```shell
+Generate classification text file in build folder or download it
+# wget https://github.com/joannzhang00/ImageNet-dataset-classes-labels/blob/main/imagenet_classes.txt
+
+cp [PATH-TO-ultralytics]/yolo26n-cls.wts .
+# Build and serialize TensorRT engine
+./yolo26_cls -s yolo26n-cls.wts yolo26n-cls.engine [n/s/m/l/x]
+# Run inference
+./yolo26_cls -d yolo26n-cls.engine ../images
 # results saved in build directory
 ```
 

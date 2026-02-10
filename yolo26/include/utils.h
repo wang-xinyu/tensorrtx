@@ -47,6 +47,22 @@ static inline int read_files_in_dir(const char* p_dir_name, std::vector<std::str
     return 0;
 }
 
+inline std::vector<std::string> read_classes(std::string file_name) {
+    std::vector<std::string> classes;
+    std::ifstream ifs(file_name, std::ios::in);
+    if (!ifs.is_open()) {
+        std::cerr << file_name << " is not found, pls refer to README and download it." << std::endl;
+        assert(0);
+    }
+    std::string s;
+    while (std::getline(ifs, s)) {
+        // std::cout << "Read class: " << s << std::endl;
+        classes.push_back(s);
+    }
+    ifs.close();
+    return classes;
+}
+
 // Function to trim leading and trailing whitespace from a string
 static inline std::string trim_leading_whitespace(const std::string& str) {
     size_t first = str.find_first_not_of(' ');
