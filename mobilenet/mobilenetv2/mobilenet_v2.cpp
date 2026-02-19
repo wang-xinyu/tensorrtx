@@ -8,6 +8,7 @@
 #include "NvInfer.h"
 #include "cuda_runtime_api.h"
 #include "logging.h"
+#include "utils.h"
 
 #define CHECK(status)                                          \
     do {                                                       \
@@ -19,8 +20,6 @@
     } while (0)
 
 // stuff we know about the network and the input/output blobs
-static const int INPUT_H = 224;
-static const int INPUT_W = 224;
 static const int OUTPUT_SIZE = 1000;
 
 const char* INPUT_BLOB_NAME = "data";
@@ -29,6 +28,69 @@ const char* OUTPUT_BLOB_NAME = "prob";
 using namespace nvinfer1;
 
 static Logger gLogger;
+
+class MyStreamReaderV2 : public nvinfer1::IStreamReaderV2 {
+   public:
+    MyStreamReaderV2(const std::string& filepath) : mFile(filepath, std::ios::binary) {
+        if (!mFile) {
+            std::cerr << "Error opening engine file: " << filepath << std::endl;
+        }
+    }
+
+    ~MyStreamReaderV2() override { close(); }
+
+    bool seek(int64_t offset, nvinfer1::SeekPosition where) noexcept override {
+        switch (where) {
+            case nvinfer1::SeekPosition::kSET:
+                mFile.seekg(offset, std::ios::beg);
+                break;
+            case nvinfer1::SeekPosition::kCUR:
+                mFile.seekg(offset, std::ios_base::cur);
+                break;
+            case nvinfer1::SeekPosition::kEND:
+                mFile.seekg(offset, std::ios::end);
+                break;
+        }
+        return mFile.good();
+    }
+
+    int64_t read(void* destination, int64_t nbBytes, cudaStream_t stream) noexcept override {
+        if (!mFile.good()) {
+            return -1;
+        }
+
+        cudaPointerAttributes attributes;
+        cudaError_t err = cudaPointerGetAttributes(&attributes, destination);
+        if (err != cudaSuccess || attributes.type == cudaMemoryTypeHost ||
+            attributes.type == cudaMemoryTypeUnregistered) {
+            mFile.read(static_cast<char*>(destination), nbBytes);
+            return mFile.gcount();
+        } else if (attributes.type == cudaMemoryTypeDevice) {
+            std::unique_ptr<char[]> tmpBuf(new char[nbBytes]);
+            mFile.read(tmpBuf.get(), nbBytes);
+            int64_t bytesRead = mFile.gcount();
+            cudaMemcpyAsync(destination, tmpBuf.get(), bytesRead, cudaMemcpyHostToDevice, stream);
+            return bytesRead;
+        }
+        return -1;
+    }
+
+    void close() {
+        if (mFile.is_open()) {
+            mFile.close();
+        }
+    }
+
+    void reset() {
+        mFile.clear();
+        mFile.seekg(0);
+    }
+
+    bool isOpen() const { return mFile.is_open(); }
+
+   private:
+    std::ifstream mFile;
+};
 
 // Load weights from files shared with TensorRT samples.
 // TensorRT weight files have a simple space delimited format:
@@ -174,11 +236,10 @@ ILayer* invertedRes(INetworkDefinition* network, std::map<std::string, Weights>&
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
+IHostMemory* createPlan(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     INetworkDefinition* network = builder->createNetworkV2(0U);
 
-    // Create input tensor of shape { 3, INPUT_H, INPUT_W } with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims4{static_cast<int>(maxBatchSize), 3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights("../mobilenet.wts");
@@ -207,29 +268,31 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     IPoolingLayer* pool1 = network->addPoolingNd(*ew2->getOutput(0), PoolingType::kAVERAGE, DimsHW{7, 7});
     assert(pool1);
 
-    IFullyConnectedLayer* fc1 = network->addFullyConnected(*pool1->getOutput(0), 1000, weightMap["classifier.1.weight"],
-                                                           weightMap["classifier.1.bias"]);
-    assert(fc1);
+    auto inputReshape = network->addShuffle(*pool1->getOutput(0));
+    inputReshape->setReshapeDimensions(nvinfer1::Dims2{1, 1280});
+    IConstantLayer* filterConst = network->addConstant(nvinfer1::Dims2{1000, 1280}, weightMap["classifier.1.weight"]);
+    auto mm = network->addMatrixMultiply(*inputReshape->getOutput(0), MatrixOperation::kNONE,
+                                         *filterConst->getOutput(0), MatrixOperation::kTRANSPOSE);
+    assert(mm);
 
-    fc1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
+    IConstantLayer* biasConst = network->addConstant(Dims{2, {1, 1000}}, weightMap["classifier.1.bias"]);
+    auto add1 = network->addElementWise(*mm->getOutput(0), *biasConst->getOutput(0), ElementWiseOperation::kSUM);
+    add1->getOutput(0)->setName(OUTPUT_BLOB_NAME);
     std::cout << "set name out" << std::endl;
-    network->markOutput(*fc1->getOutput(0));
+    network->markOutput(*add1->getOutput(0));
 
     // Build engine
-    builder->setMaxBatchSize(maxBatchSize);
-    config->setMaxWorkspaceSize(1 << 20);
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, 1U << 20);
+    IHostMemory* plan = builder->buildSerializedNetwork(*network, *config);
     std::cout << "build out" << std::endl;
-
-    // Don't need the network any more
-    network->destroy();
 
     // Release host memory
     for (auto& mem : weightMap) {
         free((void*)(mem.second.values));
     }
+    delete network;
 
-    return engine;
+    return plan;
 }
 
 void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
@@ -238,128 +301,145 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     IBuilderConfig* config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
-    assert(engine != nullptr);
-
-    // Serialize the engine
-    (*modelStream) = engine->serialize();
-
-    // Close everything down
-    engine->destroy();
-    config->destroy();
-    builder->destroy();
+    IHostMemory* plan = createPlan(maxBatchSize, builder, config, DataType::kFLOAT);
+    (*modelStream) = plan;
+    delete config;
+    delete builder;
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
-    const ICudaEngine& engine = context.getEngine();
+void doInference(nvinfer1::ICudaEngine& engine, float* input, float* output, int batchSize) {
+    // Create an execution context from the engine.
+    std::unique_ptr<nvinfer1::IExecutionContext> context{engine.createExecutionContext()};
+    if (!context) {
+        std::cerr << "Failed to create execution context" << std::endl;
+        return;
+    }
 
-    // Pointers to input and output device buffers to pass to engine.
-    // Engine requires exactly IEngine::getNbBindings() number of buffers.
-    assert(engine.getNbBindings() == 2);
-    void* buffers[2];
+    // Define input tensor dimensions, assuming a 4D tensor [batchSize, channels, height, width].
+    // For MobileNet, channels are typically 3.
+    nvinfer1::Dims4 inputDims(batchSize, 3, INPUT_H, INPUT_W);
+    size_t inputSize = batchSize * 3 * INPUT_H * INPUT_W * sizeof(float);
+    size_t outputSize = batchSize * OUTPUT_SIZE * sizeof(float);
 
-    // In order to bind the buffers, we need to know the names of the input and output tensors.
-    // Note that indices are guaranteed to be less than IEngine::getNbBindings()
-    const int inputIndex = engine.getBindingIndex(INPUT_BLOB_NAME);
-    const int outputIndex = engine.getBindingIndex(OUTPUT_BLOB_NAME);
-
-    // Create GPU buffers on device
-    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * 3 * INPUT_H * INPUT_W * sizeof(float)));
-    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float)));
+    void* dInput = nullptr;
+    void* dOutput = nullptr;
+    CHECK(cudaMalloc(&dInput, inputSize));
+    CHECK(cudaMalloc(&dOutput, outputSize));
 
     // Create stream
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
 
-    // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
-    CHECK(cudaMemcpyAsync(buffers[inputIndex], input, batchSize * 3 * INPUT_H * INPUT_W * sizeof(float),
-                          cudaMemcpyHostToDevice, stream));
-    context.enqueue(batchSize, buffers, stream, nullptr);
-    CHECK(cudaMemcpyAsync(output, buffers[outputIndex], batchSize * OUTPUT_SIZE * sizeof(float), cudaMemcpyDeviceToHost,
-                          stream));
-    cudaStreamSynchronize(stream);
+    // Copy input data from host to device asynchronously
+    CHECK(cudaMemcpyAsync(dInput, input, inputSize, cudaMemcpyHostToDevice, stream));
 
-    // Release stream and buffers
-    cudaStreamDestroy(stream);
-    CHECK(cudaFree(buffers[inputIndex]));
-    CHECK(cudaFree(buffers[outputIndex]));
+    // Bind the device memory buffers to the corresponding tensor names.
+    // This uses the new interface to directly set addresses.
+    context->setTensorAddress(INPUT_BLOB_NAME, dInput);
+    context->setTensorAddress(OUTPUT_BLOB_NAME, dOutput);
+    context->setInputShape(INPUT_BLOB_NAME, inputDims);
+    context->enqueueV3(stream);
+
+    // Copy the inference output from device back to host asynchronously.
+    CHECK(cudaMemcpyAsync(output, dOutput, outputSize, cudaMemcpyDeviceToHost, stream));
+
+    CHECK(cudaStreamSynchronize(stream));
+
+    // Clean up: destroy the CUDA stream and free device buffers.
+    CHECK(cudaStreamDestroy(stream));
+    CHECK(cudaFree(dInput));
+    CHECK(cudaFree(dOutput));
 }
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
+    if (argc < 2) {
         std::cerr << "arguments not right!" << std::endl;
         std::cerr << "./mobilenet -s   // serialize model to plan file" << std::endl;
         std::cerr << "./mobilenet -d   // deserialize plan file and run inference" << std::endl;
+        std::cerr << "  image_path     // path to input image (optional, defaults to all-ones)" << std::endl;
+        std::cerr << "" << std::endl;
+        std::cerr << "Examples:" << std::endl;
+        std::cerr << "  ./mobilenet_v2 -s          # Build MobileNetV2 engine" << std::endl;
+        std::cerr << "  ./mobilenet_v2 -d dog.jpg  # Run inference on image" << std::endl;
+        std::cerr << "  ./mobilenet_v2 -d          # Run inference with all-ones test" << std::endl;
         return -1;
     }
-
-    // create a model using the API directly and serialize it to a stream
-    char* trtModelStream{nullptr};
-    size_t size{0};
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
         APIToModel(1, &modelStream);
         assert(modelStream != nullptr);
-
-        std::ofstream p("mobilenet.engine", std::ios::binary);
+        std::ofstream p("mobilenet.plan", std::ios::binary);
         if (!p) {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
         p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
-        modelStream->destroy();
-        return 1;
+        p.close();
+        delete modelStream;
+        return 0;
     } else if (std::string(argv[1]) == "-d") {
-        std::ifstream file("mobilenet.engine", std::ios::binary);
-        if (file.good()) {
-            file.seekg(0, file.end);
-            size = file.tellg();
-            file.seekg(0, file.beg);
-            trtModelStream = new char[size];
-            assert(trtModelStream);
-            file.read(trtModelStream, size);
-            file.close();
+        std::string imagePath;
+        if (argc >= 3) {
+            imagePath = std::string(argv[2]);
         }
+        std::cout << "Using image: " << imagePath << std::endl;
+
+        // Deserialize and run inference.
+        std::string engineFile = "mobilenet.plan";
+        MyStreamReaderV2 reader(engineFile);  // Construct with file path.
+        if (!reader.isOpen()) {
+            std::cerr << "Failed to open engine file: " << engineFile << std::endl;
+            return -1;
+        }
+
+        // Create runtime and deserialize engine.
+        nvinfer1::IRuntime* runtime = nvinfer1::createInferRuntime(gLogger);
+        assert(runtime != nullptr);
+        ICudaEngine* engine = runtime->deserializeCudaEngine(reader);
+        if (!engine) {
+            std::cerr << "Failed to deserialize engine." << std::endl;
+            delete runtime;
+            return -1;
+        }
+
+        // Run inference
+        std::vector<float> imageData;
+        static float prob[OUTPUT_SIZE];
+
+        std::ifstream imageFile(imagePath);
+        if (imageFile.good()) {
+            imageData = preprocessImage(imagePath);
+            std::cout << "Image preprocessed to shape: [1, 3, " << INPUT_H << ", " << INPUT_W << "]" << std::endl;
+        } else {
+            imageData.assign(3 * INPUT_H * INPUT_W, 1.0f);
+            std::cout << "Image not found, using all-ones test data" << std::endl;
+            std::cout << "Test data shape: [1, 3, " << INPUT_H << ", " << INPUT_W << "]" << std::endl;
+        }
+
+        // Run inference with real image
+        std::cout << "\nRunning inference..." << std::endl;
+        auto start = std::chrono::system_clock::now();
+        doInference(*engine, imageData.data(), prob, 1);
+        auto end = std::chrono::system_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+
+        if (imageFile.good()) {
+            printTopPredictions(prob, OUTPUT_SIZE, 5);
+        } else {
+            std::cout << "\nOutput:\n\n";
+            for (unsigned int i = 0; i < OUTPUT_SIZE; i++) {
+                std::cout << prob[i] << ", ";
+                if (i % 10 == 0)
+                    std::cout << i / 10 << std::endl;
+            }
+        }
+
+        delete engine;
+        delete runtime;
     } else {
         return -1;
     }
-
-    // Subtract mean from image
-    static float data[3 * INPUT_H * INPUT_W];
-    for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
-        data[i] = 1.0;
-
-    IRuntime* runtime = createInferRuntime(gLogger);
-    assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
-    assert(engine != nullptr);
-    IExecutionContext* context = engine->createExecutionContext();
-    assert(context != nullptr);
-    delete[] trtModelStream;
-
-    // Run inference
-    static float prob[OUTPUT_SIZE];
-    for (int i = 0; i < 100; i++) {
-        auto start = std::chrono::system_clock::now();
-        doInference(*context, data, prob, 1);
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    }
-
-    // Destroy the engine
-    context->destroy();
-    engine->destroy();
-    runtime->destroy();
-
-    // Print histogram of the output distribution
-    std::cout << "\nOutput:\n\n";
-    for (unsigned int i = 0; i < OUTPUT_SIZE; i++) {
-        std::cout << prob[i] << ", ";
-        if (i % 10 == 0)
-            std::cout << i / 10 << std::endl;
-    }
-    std::cout << std::endl;
 
     return 0;
 }
