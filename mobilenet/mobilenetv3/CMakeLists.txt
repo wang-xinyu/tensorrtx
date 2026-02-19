@@ -19,8 +19,13 @@ link_directories(/usr/local/cuda/lib64)
 include_directories(/usr/include/x86_64-linux-gnu/)
 link_directories(/usr/lib/x86_64-linux-gnu/)
 
+# Find OpenCV
+find_package(OpenCV REQUIRED)
+
 add_executable(mobilenetv3  ${PROJECT_SOURCE_DIR}/mobilenet_v3.cpp)
+target_include_directories(mobilenetv3 PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(mobilenetv3 nvinfer)
 target_link_libraries(mobilenetv3 cudart)
+target_link_libraries(mobilenetv3 ${OpenCV_LIBS})
 
 add_definitions(-O2 -pthread)

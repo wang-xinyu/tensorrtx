@@ -19,6 +19,8 @@ Following tricks are used in this mobilenet,
 
 cd tensorrtx/mobilenet/mobilenetv2
 
+sudo apt install libopencv-dev -y
+
 mkdir build
 
 cd build
@@ -30,6 +32,8 @@ make
 sudo ./mobilenet -s   // serialize model to plan file i.e. 'mobilenet.engine'
 
 sudo ./mobilenet -d   // deserialize plan file and run inference
+
+sudo ./mobilenet -d image.jpg // deserialize plan file and run inference on an image
 
 // 4. see if the output is same as pytorchx/mobilenet
 ```
