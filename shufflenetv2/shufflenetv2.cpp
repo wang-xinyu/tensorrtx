@@ -10,61 +10,71 @@
 #include "utils.h"
 
 struct ShuffleNetV2Params {
-    int repeat[3];
-    int output_chn[5];
+    std::array<int32_t, 3> repeat;
+    std::array<int32_t, 5> output_chn;
 };
 
-static constexpr ShuffleNetV2Params v2_x0_5 = {{4, 8, 4}, {24, 48, 96, 192, 1024}};
-static constexpr ShuffleNetV2Params v2_x1_0 = {{4, 8, 4}, {24, 116, 232, 464, 1024}};
-static constexpr ShuffleNetV2Params v2_x1_5 = {{4, 8, 4}, {24, 176, 352, 704, 1024}};
-static constexpr ShuffleNetV2Params v2_x2_0 = {{4, 8, 4}, {24, 244, 488, 976, 2048}};
+/**
+ * @brief choose one below as the model to be built
+ * @param v2_x0_5
+ * @param v2_x1_0
+ * @param v2_x1_5
+ * @param v2_x2_0
+ */
+[[maybe_unused]] static constexpr ShuffleNetV2Params v2_x0_5 = {{4, 8, 4}, {24, 48, 96, 192, 1024}};
+[[maybe_unused]] static constexpr ShuffleNetV2Params v2_x1_0 = {{4, 8, 4}, {24, 116, 232, 464, 1024}};
+[[maybe_unused]] static constexpr ShuffleNetV2Params v2_x1_5 = {{4, 8, 4}, {24, 176, 352, 704, 1024}};
+[[maybe_unused]] static constexpr ShuffleNetV2Params v2_x2_0 = {{4, 8, 4}, {24, 244, 488, 976, 2048}};
+
+constexpr const std::size_t WORKSPACE_SIZE = 16 << 20;
 
 // stuff we know about shufflenet-v2
-constexpr const int32_t N = 1;
+constexpr const int64_t N = 1;
 constexpr const int32_t INPUT_H = 224;
 constexpr const int32_t INPUT_W = 224;
-constexpr const int32_t SIZES[] = {3 * INPUT_H * INPUT_W, 24 * 56 * 56};  // 1000
-constexpr const char* NAMES[] = {"data", "logits"};
+constexpr const std::array<int32_t, 2> SIZES = {3 * INPUT_H * INPUT_W, 1000};
+constexpr const std::array<const char*, 2> NAMES = {"data", "logits"};
 static constexpr const bool TRT_PREPROCESS = TRT_VERSION >= 8510 ? true : false;
-static constexpr const float mean[3] = {0.485f, 0.456f, 0.406f};
-static constexpr const float stdv[3] = {0.229f, 0.224f, 0.225f};
+static constexpr const std::array<const float, 3> mean = {0.485f, 0.456f, 0.406f};
+static constexpr const std::array<const float, 3> stdv = {0.229f, 0.224f, 0.225f};
 
-constexpr char WTS_PATH[] = "../models/shufflenet_v2_x0_5.wts";
-constexpr char ENGINE_PATH[] = "../models/shufflenet.engine";
-const char LABELS_PATH[] = "../assets/imagenet1000_clsidx_to_labels.txt";
+static constexpr const char* WTS_PATH = "../models/shufflenet_v2_x0_5.wts";
+static constexpr const char* ENGINE_PATH = "../models/shufflenet.engine";
+static constexpr const char* LABELS_PATH = "../assets/imagenet1000_clsidx_to_labels.txt";
 
 using namespace nvinfer1;
 using WeightMap = std::map<std::string, Weights>;
 using M = MatrixOperation;
+using NDCF = nvinfer1::NetworkDefinitionCreationFlag;
 
 static Logger gLogger;
 
-Dims _debug_shape(const ILayer* l) {
+Dims debug_shape(const ILayer* l) {
     Dims dims = l->getOutput(0)->getDimensions();
     std::cout << l->getOutput(0)->getName() << ":\t[";
     for (int i = 0; i < dims.nbDims; i++) {
         std::cout << dims.d[i] << ", ";
     }
-    std::cout << ']' << std::endl;
+    std::cout << "]\n";
     return dims;
 }
 
-ILayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, ITensor& input, std::string lname,
+ILayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, ITensor& input, const std::string& lname,
                        float eps = 1e-3f) {
     float* gamma = (float*)weightMap[lname + ".weight"].values;
     float* beta = (float*)weightMap[lname + ".bias"].values;
     float* mean = (float*)weightMap[lname + ".running_mean"].values;
     float* var = (float*)weightMap[lname + ".running_var"].values;
-    int len = weightMap[lname + ".running_var"].count;
-    std::cout << lname << " running_var len: " << len << std::endl;
+    auto len = weightMap[lname + ".running_var"].count;
+    std::cout << lname << " running_var len: " << len << "\n";
 
-    float* scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+    auto* scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         scval[i] = gamma[i] / sqrt(var[i] + eps);
     }
     Weights scale{DataType::kFLOAT, scval, len};
 
-    float* shval = static_cast<float*>(malloc(sizeof(float) * len));
+    auto* shval = static_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
     }
@@ -94,8 +104,8 @@ ILayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, ITenso
  * @param with_relu true if with relu
  * @return ILayer*
  */
-ILayer* CBR(INetworkDefinition* network, WeightMap& m, ITensor& input, std::string lname, int ch, int k, int s = 1,
-            int p = 0, int g = 1, bool with_relu = true, int start_index = 0) {
+ILayer* CBR(INetworkDefinition* network, WeightMap& m, ITensor& input, const std::string& lname, int ch, int k,
+            int s = 1, int p = 0, int g = 1, bool with_relu = true, int start_index = 0) {
     static const Weights emptywts{DataType::kFLOAT, nullptr, 0ll};
     auto conv_name = lname + "." + std::to_string(start_index++);
     auto* conv = network->addConvolutionNd(input, ch, DimsHW{k, k}, m[conv_name + ".weight"], emptywts);
@@ -132,11 +142,11 @@ ILayer* CBR(INetworkDefinition* network, WeightMap& m, ITensor& input, std::stri
  * @param s stride
  * @return ILayer*
  */
-ILayer* invertedRes(INetworkDefinition* net, WeightMap& m, ITensor& input, std::string lname, int inch, int outch,
-                    int s) {
-    static const Weights emptywts{DataType::kFLOAT, nullptr, 0ll};
+ILayer* invertedRes(INetworkDefinition* net, WeightMap& m, ITensor& input, const std::string& lname, int inch,
+                    int outch, int s) {
     if (s < 1 || s > 3) {
-        throw std::invalid_argument("stride must be in [1, 3]");
+        std::cerr << "stride must be in [1, 3]\n";
+        std::abort();
     }
     int32_t bf /* branch features */ = outch / 2;
     ITensor *x1{nullptr}, *x2{nullptr};
@@ -147,7 +157,7 @@ ILayer* invertedRes(INetworkDefinition* net, WeightMap& m, ITensor& input, std::
         Dims4 half{d.d[0], d.d[1] / 2, d.d[2], d.d[3]};
         auto* s1 = net->addSlice(input, Dims4{0, 0, 0, 0}, half, stride);
         auto* s2 = net->addSlice(input, Dims4{0, d.d[1] / 2, 0, 0}, half, stride);
-        _debug_shape(s2);
+        debug_shape(s2);
         x1 = s1->getOutput(0);
         x2 = s2->getOutput(0);
     } else {
@@ -155,7 +165,7 @@ ILayer* invertedRes(INetworkDefinition* net, WeightMap& m, ITensor& input, std::
             auto* b1 = CBR(net, m, input, lname + ".branch1", inch, 3, s, 1, inch, false, 0);
             b1 = CBR(net, m, *b1->getOutput(0), lname + ".branch1", inch, 1, 1, 0, 1, true, 2);
             x1 = b1->getOutput(0);
-            _debug_shape(b1);
+            debug_shape(b1);
         } else {
             x1 = &input;
         }
@@ -165,15 +175,15 @@ ILayer* invertedRes(INetworkDefinition* net, WeightMap& m, ITensor& input, std::
     auto* b2 = CBR(net, m, *x2, lname + ".branch2", bf, 1, 1, 0, 1, true, 0);
     b2 = CBR(net, m, *b2->getOutput(0), lname + ".branch2", bf, 3, s, 1, bf, false, 3);
     b2 = CBR(net, m, *b2->getOutput(0), lname + ".branch2", bf, 1, 1, 0, 1, true, 5);
-    _debug_shape(b2);
+    debug_shape(b2);
 
-    ITensor* cat_tensors[] = {x1, b2->getOutput(0)};
-    auto* cat = net->addConcatenation(cat_tensors, 2);
+    std::array<ITensor*, 2> cat_tensors = {x1, b2->getOutput(0)};
+    auto* cat = net->addConcatenation(cat_tensors.data(), 2);
     auto cat_name = lname + ".cat";
     assert(cat);
     cat->setName(cat_name.c_str());
     cat->setAxis(1);
-    auto dims = _debug_shape(cat);
+    static_cast<void>(debug_shape(cat));
 
     auto* sf1 = net->addShuffle(*cat->getOutput(0));
     assert(sf1);
@@ -205,23 +215,21 @@ ILayer* invertedRes(INetworkDefinition* net, WeightMap& m, ITensor& input, std::
 ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt,
                           ShuffleNetV2Params param = v2_x0_5) {
     WeightMap m = loadWeights(WTS_PATH);
-    static const Weights emptywts{DataType::kFLOAT, nullptr, 0};
 
-#if TRT_VERSION >= 10000
-    auto* net = builder->createNetworkV2(0);
+#if TRT_VERSION >= 11200
+    auto flag = 1U << static_cast<int>(NDCF::kSTRONGLY_TYPED);
+#elif TRT_VERSION >= 10000
+    auto flag = 0U;
 #else
-    auto* net = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    auto flag = 1U << static_cast<int>(NDCF::kEXPLICIT_BATCH);
 #endif
+    auto* net = builder->createNetworkV2(flag);
 
     int32_t in_ch = 3;
     ITensor* input{nullptr};
     if constexpr (TRT_PREPROCESS) {
         // for simplicity, resize image on cpu side
-#if TRT_VERSION > 8510
         dt = DataType::kUINT8;
-#else
-        dt = DataType::kINT8;
-#endif
         input = net->addInput(NAMES[0], dt, Dims4{N, INPUT_H, INPUT_W, in_ch});
         auto* trans = addTransformLayer(net, *input, true, mean, stdv);
         input = trans->getOutput(0);
@@ -236,7 +244,7 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     assert(pool1);
     pool1->setStrideNd(DimsHW{2, 2});
     pool1->setPaddingNd(DimsHW{1, 1});
-    _debug_shape(pool1);
+    debug_shape(pool1);
 
     /** stage 2, 3, 4 */
     ILayer* _layer = pool1;
@@ -244,9 +252,9 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     for (int stage = 2; stage < 5; ++stage) {
         int32_t out_ch = param.output_chn[stage - 1];
         std::string lname = "stage" + std::to_string(stage);
-        std::cout << "================ " << lname << " ================" << std::endl;
+        std::cout << "================ " << lname << " ================\n";
         _layer = invertedRes(net, m, *_layer->getOutput(0), lname + ".0", in_ch, out_ch, 2);
-        _debug_shape(_layer);
+        debug_shape(_layer);
         for (int j = 1; j < param.repeat[stage - 2]; ++j) {
             _layer = invertedRes(net, m, *_layer->getOutput(0), lname + "." + std::to_string(j), out_ch, out_ch, 1);
         }
@@ -262,7 +270,7 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     auto* _fc = net->addMatrixMultiply(*mean->getOutput(0), M::kNONE, *fcw->getOutput(0), M::kTRANSPOSE);
     auto* fc = net->addElementWise(*_fc->getOutput(0), *fcb->getOutput(0), ElementWiseOperation::kSUM);
     fc->getOutput(0)->setName(NAMES[1]);
-    _debug_shape(fc);
+    debug_shape(fc);
 
     net->markOutput(*fc->getOutput(0));
 
@@ -277,7 +285,7 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     ICudaEngine* engine = builder->buildEngineWithConfig(*net, *config);
     net->destroy();
 #endif
-    std::cout << "build out" << std::endl;
+    std::cout << "build finished\n";
 
     // Release host memory
     for (auto& mem : m) {
@@ -310,8 +318,8 @@ void APIToModel(int32_t N, IRuntime* runtime, IHostMemory** modelStream) {
 #endif
 }
 
-std::vector<std::vector<float>> doInference(IExecutionContext& context, void* input, int batchSize) {
-    const ICudaEngine& engine = context.getEngine();
+auto doInference(IExecutionContext& context, void* input, int64_t batchSize) -> std::vector<std::vector<float>> {
+    ICudaEngine const& engine = context.getEngine();
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
     std::vector<void*> buffers;
@@ -354,7 +362,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, void* in
 
     std::vector<std::vector<float>> prob;
     for (int i = 1; i < nIO; ++i) {
-        std::vector<float> tmp(batchSize * SIZES[i], std::nan(""));
+        std::vector<float> tmp(batchSize * SIZES[i], std::nanf(""));
         std::size_t size = batchSize * SIZES[i] * sizeof(float);
         CHECK(cudaMemcpyAsync(tmp.data(), buffers[i], size, cudaMemcpyDeviceToHost, stream));
         prob.emplace_back(tmp);
@@ -371,9 +379,9 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, void* in
 int main(int argc, char** argv) {
     checkTrtEnv();
     if (argc != 2) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./shufflenet -s   // serialize model to plan file" << std::endl;
-        std::cerr << "./shufflenet -d   // deserialize plan file and run inference" << std::endl;
+        std::cerr << "arguments not right!\n";
+        std::cerr << "./shufflenet -s   // serialize model to plan file\n";
+        std::cerr << "./shufflenet -d   // deserialize plan file and run inference\n";
         return -1;
     }
 
@@ -381,7 +389,7 @@ int main(int argc, char** argv) {
     IRuntime* runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
     char* trtModelStream{nullptr};
-    size_t size{0};
+    std::streamsize size{0};
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
@@ -390,16 +398,22 @@ int main(int argc, char** argv) {
 
         std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
         if (!p) {
-            std::cerr << "could not open plan output file" << std::endl;
+            std::cerr << "could not open plan output file\n";
             return -1;
         }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+        if (modelStream->size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
+            std::cerr << "this model is too large to serialize\n";
+            return -1;
+        }
+        const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
+        auto data_size = static_cast<std::streamsize>(modelStream->size());
+        p.write(data_ptr, data_size);
 #if TRT_VERSION >= 8000
         delete modelStream;
 #else
         modelStream->destroy();
 #endif
-        return 1;
+        return 0;
     } else if (std::string(argv[1]) == "-d") {
         std::ifstream file(ENGINE_PATH, std::ios::binary);
         if (file.good()) {
@@ -444,26 +458,26 @@ int main(int argc, char** argv) {
         auto prob = doInference(*context, input, N);
         auto end = std::chrono::system_clock::now();
         auto period = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-        std::cout << period.count() << "us" << std::endl;
+        std::cout << period.count() << "us\n";
 
         for (auto& vector : prob) {
             int idx = 0;
             for (auto& v : vector) {
                 std::cout << std::setprecision(4) << v << ", " << std::flush;
                 if (++idx > 20) {
-                    std::cout << "\n====" << std::endl;
+                    std::cout << "\n====\n";
                     break;
                 }
             }
         }
 
         if (i == 99) {
-            std::cout << "prediction result: " << std::endl;
+            std::cout << "prediction result:\n";
             auto labels = loadImagenetLabelMap(LABELS_PATH);
             int _top = 0;
             for (auto& [idx, logits] : topk(prob[0], 3)) {
                 std::cout << "Top: " << _top++ << " idx: " << idx << ", logits: " << logits
-                          << ", label: " << labels[idx] << std::endl;
+                          << ", label: " << labels[idx] << "\n";
             }
         }
     }

@@ -7,13 +7,13 @@ project(
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   set(CMAKE_CUDA_ARCHITECTURES
-      60
-      70
-      72
       75
       80
       86
-      89)
+      89
+      90
+      100
+      120)
 endif()
 
 set(CMAKE_CXX_STANDARD 17)

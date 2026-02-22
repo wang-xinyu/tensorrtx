@@ -110,7 +110,8 @@ if __name__ == "__main__":
 
     model = LPRNet(class_num=len(CHARS), dropout_rate=0)
     print("loading pretrained model from %s" % model_path)
-    model.load_state_dict(torch.load(model_path))
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.load_state_dict(torch.load(model_path, map_location=device))
 
     img = preprocess("../assets/car_plate.jpg")
     model.eval()

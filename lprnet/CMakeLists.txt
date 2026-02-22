@@ -39,3 +39,11 @@ add_executable(${PROJECT_NAME} ${PROJECT_NAME}.cpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC Threads::Threads CUDA::cudart
                                              TensorRT::TensorRT ${OpenCV_LIBS})
+
+if(WIN32)
+  set_target_properties(
+    ${PROJECT_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY
+                               "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+target_compile_options(${PROJECT_NAME} PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)

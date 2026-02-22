@@ -1,5 +1,6 @@
 #include <NvInfer.h>
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -10,33 +11,39 @@
 #include <vector>
 #include "logging.h"
 #include "utils.h"
+#ifdef _WIN32
+#define NOMINMAX
+#include <Windows.h>
+#endif
 
 using namespace nvinfer1;
 
 using WeightMap = std::map<std::string, Weights>;
+using NDCF = nvinfer1::NetworkDefinitionCreationFlag;
 
 static Logger gLogger;
 
-#define DEVICE 0
+static constexpr const std::size_t WORKSPACE_SIZE = 16 << 20;
+static constexpr const int32_t DEVICE = 0;
 static constexpr const int32_t BATCH_SIZE = 1;
 static constexpr const char* WTS_PATH = "../models/LPRNet.wts";
 static constexpr const char* ENGINE_PATH = "../models/LPRNet.engine";
 // stuff we know about the network and the input/output blobs
 static constexpr const int32_t INPUT_H = 24;
 static constexpr const int32_t INPUT_W = 94;
-static constexpr const char* NAMES[2] = {"data", "prob"};
-static constexpr const int32_t SIZES[2] = {3 * INPUT_H * INPUT_W, 18 * 68};
+static constexpr const std::array<const char*, 2> NAMES = {"data", "prob"};
+static constexpr const std::array<int32_t, 2> SIZES = {3 * INPUT_H * INPUT_W, 18 * 68};
 static constexpr const bool TRT_PREPROCESS = TRT_VERSION >= 8510 ? true : false;
-static constexpr const float mean[3] = {0.5f, 0.5f, 0.5f};
-static constexpr const float stdv[3] = {1.f, 1.f, 1.f};
+static constexpr const std::array<const float, 3> mean = {0.5f, 0.5f, 0.5f};
+static constexpr const std::array<const float, 3> stdv = {1.f, 1.f, 1.f};
 
-const std::string alphabet[] = {"京", "沪", "津", "渝", "冀", "晋", "蒙", "辽", "吉", "黑", "苏", "浙", "皖", "闽",
-                                "赣", "鲁", "豫", "鄂", "湘", "粤", "桂", "琼", "川", "贵", "云", "藏", "陕", "甘",
-                                "青", "宁", "新", "0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",  "8",  "9",  "A",
-                                "B",  "C",  "D",  "E",  "F",  "G",  "H",  "J",  "K",  "L",  "M",  "N",  "P",  "Q",
-                                "R",  "S",  "T",  "U",  "V",  "W",  "X",  "Y",  "Z",  "I",  "O",  "-"};
+const std::array<const std::string, 68> alphabet = {
+        "京", "沪", "津", "渝", "冀", "晋", "蒙", "辽", "吉", "黑", "苏", "浙", "皖", "闽", "赣", "鲁", "豫",
+        "鄂", "湘", "粤", "桂", "琼", "川", "贵", "云", "藏", "陕", "甘", "青", "宁", "新", "0",  "1",  "2",
+        "3",  "4",  "5",  "6",  "7",  "8",  "9",  "A",  "B",  "C",  "D",  "E",  "F",  "G",  "H",  "J",  "K",
+        "L",  "M",  "N",  "P",  "Q",  "R",  "S",  "T",  "U",  "V",  "W",  "X",  "Y",  "Z",  "I",  "O",  "-"};
 
-IScaleLayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, ITensor& input, std::string lname,
+IScaleLayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, ITensor& input, const std::string& lname,
                             float eps = 1e-5) {
     const float* gamma = reinterpret_cast<const float*>(weightMap[lname + ".weight"].values);
     const float* beta = reinterpret_cast<const float*>(weightMap[lname + ".bias"].values);
@@ -44,19 +51,19 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, I
     const float* var = reinterpret_cast<const float*>(weightMap[lname + ".running_var"].values);
     int64_t len = weightMap[lname + ".running_var"].count;
 
-    float* scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+    auto* scval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         scval[i] = gamma[i] / sqrt(var[i] + eps);
     }
     Weights scale{DataType::kFLOAT, scval, len};
 
-    float* shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+    auto* shval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         shval[i] = beta[i] - mean[i] * gamma[i] / sqrt(var[i] + eps);
     }
     Weights shift{DataType::kFLOAT, shval, len};
 
-    float* pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
+    auto* pval = reinterpret_cast<float*>(malloc(sizeof(float) * len));
     for (int i = 0; i < len; i++) {
         pval[i] = 1.0f;
     }
@@ -72,20 +79,21 @@ IScaleLayer* addBatchNorm2d(INetworkDefinition* network, WeightMap& weightMap, I
 }
 
 IConvolutionLayer* smallBasicBlock(INetworkDefinition* network, WeightMap& w, ITensor& input, int ch_out,
-                                   std::string lname) {
+                                   const std::string& lname) {
     int o = ch_out / 4, i = 0;
     ITensor* cur_input = &input;
     IConvolutionLayer* ret{nullptr};
-    struct {
+    struct ConvParams {
         DimsHW k_dim, p_dim;
         int ch_out;
         std::string w_name, b_name;
-    } conv_params[] = {
+    };
+    const std::array<ConvParams, 4> conv_params = {{
             {DimsHW{1, 1}, DimsHW{0, 0}, o, lname + ".block.0.weight", lname + ".block.0.bias"},
             {DimsHW{3, 1}, DimsHW{1, 0}, o, lname + ".block.2.weight", lname + ".block.2.bias"},
             {DimsHW{1, 3}, DimsHW{0, 1}, o, lname + ".block.4.weight", lname + ".block.4.bias"},
             {DimsHW{1, 1}, DimsHW{0, 0}, ch_out, lname + ".block.6.weight", lname + ".block.6.bias"},
-    };
+    }};
     for (const auto& param : conv_params) {
         ret = network->addConvolutionNd(*cur_input, param.ch_out, param.k_dim, w[param.w_name], w[param.b_name]);
         assert(ret);
@@ -106,20 +114,19 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     const int nc = 68;
     WeightMap w = loadWeights(WTS_PATH);
 
-#if TRT_VERSION >= 10000
-    auto* network = builder->createNetworkV2(0);
+#if TRT_VERSION >= 11200
+    auto flag = 1U << static_cast<int>(NDCF::kSTRONGLY_TYPED);
+#elif TRT_VERSION >= 10000
+    auto flag = 0U;
 #else
-    auto* network = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
+    auto flag = 1U << static_cast<int>(NDCF::kEXPLICIT_BATCH);
 #endif
+    auto* network = builder->createNetworkV2(flag);
 
     ITensor* data{nullptr};
     if constexpr (TRT_PREPROCESS) {
         // for simplicity, resize image on cpu side
-#if TRT_VERSION > 8510
         dt = DataType::kUINT8;
-#else
-        dt = DataType::kINT8;
-#endif
         auto* input = network->addInput(NAMES[0], dt, Dims4{N, INPUT_H, INPUT_W, 3});
         auto* trans = addTransformLayer(network, *input, false, mean, stdv);
         data = trans->getOutput(0);
@@ -179,7 +186,6 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     auto* bn5 = addBatchNorm2d(network, w, *c0->getOutput(0), "backbone.21");
     auto* backbone = network->addActivation(*bn5->getOutput(0), ActivationType::kRELU);
 
-    int pow_idx = 0;
     auto makeGlobalContext = [&](ITensor* feat, bool pool5, bool pool4x10) -> ITensor* {
         static int j = 0;
         ITensor* t = feat;
@@ -232,8 +238,8 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     auto* gc1 = makeGlobalContext(relu1->getOutput(0), true, false);
     auto* gc2 = makeGlobalContext(relu3->getOutput(0), false, true);
     auto* gc3 = makeGlobalContext(backbone->getOutput(0), false, false);
-    ITensor* const gcs[] = {gc0, gc1, gc2, gc3};
-    auto* cat = network->addConcatenation(gcs, 4);
+    const std::array<ITensor*, 4> gcs = {gc0, gc1, gc2, gc3};
+    auto* cat = network->addConcatenation(gcs.data(), 4);
     assert(cat);
     cat->setAxis(1);
 
@@ -256,7 +262,7 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     network->destroy();
 #endif
 
-    std::cout << "build finished" << std::endl;
+    std::cout << "build finished\n";
     // Release host memory
     for (auto& mem : w) {
         free((void*)mem.second.values);
@@ -285,7 +291,7 @@ void APIToModel(int32_t N, IRuntime* runtime, IHostMemory** modelStream) {
 #endif
 }
 
-std::vector<std::vector<float>> doInference(IExecutionContext& context, void* input, int batchSize) {
+auto doInference(IExecutionContext& context, void* input, int64_t batchSize) -> std::vector<std::vector<float>> {
     const auto& engine = context.getEngine();
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
@@ -329,7 +335,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, void* in
 
     std::vector<std::vector<float>> prob;
     for (int i = 1; i < nIO; ++i) {
-        std::vector<float> tmp(batchSize * SIZES[i], std::nan(""));
+        std::vector<float> tmp(batchSize * SIZES[i], std::nanf(""));
         std::size_t size = batchSize * SIZES[i] * sizeof(float);
         CHECK(cudaMemcpyAsync(tmp.data(), buffers[i], size, cudaMemcpyDeviceToHost, stream));
         prob.emplace_back(tmp);
@@ -344,12 +350,15 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, void* in
 }
 
 int main(int argc, char** argv) {
+#if _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+#endif
     cudaSetDevice(DEVICE);
     checkTrtEnv(DEVICE);
     if (argc != 2) {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./LPRnet -s  // serialize model to plan file" << std::endl;
-        std::cerr << "./LPRnet -d  // deserialize plan file and run inference" << std::endl;
+        std::cerr << "arguments not right!\n";
+        std::cerr << "./LPRnet -s  // serialize model to plan file\n";
+        std::cerr << "./LPRnet -d  // deserialize plan file and run inference\n";
         return -1;
     }
 
@@ -357,7 +366,7 @@ int main(int argc, char** argv) {
     assert(runtime != nullptr);
 
     char* trtModelStream{nullptr};
-    size_t size{0};
+    std::streamsize size{0};
 
     if (std::string(argv[1]) == "-s") {
         IHostMemory* modelStream{nullptr};
@@ -366,10 +375,16 @@ int main(int argc, char** argv) {
 
         std::ofstream p(ENGINE_PATH, std::ios::binary | std::ios::trunc);
         if (!p) {
-            std::cerr << "could not open plan output file" << std::endl;
+            std::cerr << "could not open plan output file\n";
             return -1;
         }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+        if (modelStream->size() > static_cast<std::size_t>(std::numeric_limits<std::streamsize>::max())) {
+            std::cerr << "this model is too large to serialize\n";
+            return -1;
+        }
+        const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
+        auto data_size = static_cast<std::streamsize>(modelStream->size());
+        p.write(data_ptr, data_size);
 #if TRT_VERSION >= 8000
         delete modelStream;
 #else
@@ -417,14 +432,14 @@ int main(int argc, char** argv) {
         auto prob = doInference(*context, input, 1);
         auto _end = std::chrono::system_clock::now();
         auto _time = std::chrono::duration_cast<std::chrono::microseconds>(_end - _start).count();
-        std::cout << "Execution time: " << _time << "us" << std::endl;
+        std::cout << "Execution time: " << _time << "us\n";
 
-        for (auto vector : prob) {
+        for (const auto& vector : prob) {
             int idx = 0;
             for (auto v : vector) {
                 std::cout << std::setprecision(4) << v << ", " << std::flush;
                 if (++idx > 20) {
-                    std::cout << "\n====" << std::endl;
+                    std::cout << "\n====\n";
                     break;
                 }
             }
@@ -444,7 +459,7 @@ int main(int argc, char** argv) {
                     str += alphabet[best];
                 prev = best;
             }
-            std::cout << "result: " << str << std::endl;
+            std::cout << "result: " << str << "\n";
         }
     }
 
