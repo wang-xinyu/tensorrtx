@@ -15,12 +15,14 @@ For the Pytorch implementation, you can refer to [mobilenetv3.pytorch](https://g
 
 ```
 cd tensorrtx/mobilenet/mobilenetv3
+sudo apt install libopencv-dev -y
 mkdir build
 cd build
 cmake ..
 make
-sudo ./mobilenetv3 -s small(or large) // serialize model to plan file i.e. 'mobilenetv3_small.engine'
-sudo ./mobilenetv3 -d small(or large)  // deserialize plan file and run inference
+sudo ./mobilenetv3 -s small(or large)             // serialize model to plan file i.e. 'mobilenetv3_small.engine'
+sudo ./mobilenetv3 -d small(or large)             // deserialize plan file and run inference
+sudo ./mobilenetv3 -d small(or large) image.jpg   // deserialize plan file and run inference on an image
 ```
 
 4. see if the output is same as pytorch side
@@ -36,7 +38,8 @@ sudo ./mobilenetv3 -d small(or large)  // deserialize plan file and run inferenc
 
 cd tensorrtx/mobilenet/mobilenetv3
 
-python mobilenet_v2.py -s small(or large)  // serialize model to plan file i.e. 'mobilenetv2.engine'
-python mobilenet_v2.py -d small(or large)  // deserialize plan file and run inference
+python mobilenet_v2.py -s small(or large)                        // serialize model to plan file i.e. 'mobilenetv2.engine'
+python mobilenet_v2.py -d small(or large)                        // deserialize plan file and run inference
+python mobilenet_v2.py -d small(or large) --image image.jpg      // deserialize plan file and run inference on an image
 
 ```
