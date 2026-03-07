@@ -17,6 +17,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `3 Mar 2026`. [zgjja](https://github.com/zgjja) Add Vision Transformer
 - `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb, Yolo26-Cls
 - `15 Jan 2026`. [zgjja](https://github.com/zgjja) Refactor multiple old CV models to support TensorRT SDK through 7~10.
 - `8 Jan 2026`. [ydk61](https://github.com/ydk61): YOLOv13
@@ -136,6 +137,7 @@ Following models are implemented.
 | [shufflenet](./shufflenetv2)             | ShuffleNet v2 with 0.5x output channels                                                                                                                                                                                                                           |
 | [squeezenet](./squeezenet)               | SqueezeNet 1.1 model                                                                                                                                                                                                                                              |
 | [vgg](./vgg)                             | VGG 11-layer model                                                                                                                                                                                                                                                |
+| [ViT](./vit)                             | vision transformer, using weight and model from huggingface                                                                                                                                                                                                       |
 | [yolov3-tiny](./yolov3-tiny)             | weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3)                                                                                                                                                               |
 | [yolov3](./yolov3)                       | darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3)                                                                                                                                                   |
 | [yolov3-spp](./yolov3-spp)               | darknet-53, weights and pytorch implementation from [ultralytics/yolov3](https://github.com/ultralytics/yolov3)                                                                                                                                                   |
