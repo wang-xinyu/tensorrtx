@@ -10,8 +10,6 @@ cmake-build-*/
 
 # Local artifacts (kept outside the repo, e.g. on a backup mount)
 models/
-exp/
-assets/
 
 # Generated files
 *.wts
