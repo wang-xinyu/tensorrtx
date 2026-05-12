@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import argparse
 import gc
-import os
+# import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -154,8 +154,12 @@ def export_onnx(hub_id: str, num_classes: int, model_type: str, onnx_path: Path,
     model = _load_hf_model(hub_id, num_classes, model_type)
 
     class Wrap(torch.nn.Module):
-        def __init__(self, m): super().__init__(); self.m = m
-        def forward(self, x): return self.m(x).logits
+        def __init__(self, m):
+            super().__init__()
+            self.m = m
+
+        def forward(self, x):
+            return self.m(x).logits
 
     dummy = torch.zeros(1, 3, img_size, img_size, dtype=torch.float32)
     torch.onnx.export(
@@ -263,18 +267,22 @@ def trt_infer(engine_path: Path, x_np: np.ndarray, n_warmup: int, n_iters: int):
     s.record(stream)
     for _ in range(n_iters):
         ctx.execute_async_v3(stream.handle)
-    e.record(stream); e.synchronize()
+    e.record(stream)
+    e.synchronize()
     ms_enqueue = e.time_since(s) / n_iters
 
     ms_graph = float("nan")
+
     try:
         from cuda import cudart
+
         def _chk(ret):
             err = ret[0]
             if int(err) != 0:
                 raise RuntimeError(f"cudart err {err}")
             return ret[1] if len(ret) > 1 else None
-        ctx.execute_async_v3(stream.handle); stream.synchronize()
+        ctx.execute_async_v3(stream.handle)
+        stream.synchronize()
         _chk(cudart.cudaStreamBeginCapture(
             stream.handle, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeThreadLocal))
         ctx.execute_async_v3(stream.handle)
@@ -287,14 +295,16 @@ def trt_infer(engine_path: Path, x_np: np.ndarray, n_warmup: int, n_iters: int):
         gs.record(stream)
         for _ in range(n_iters):
             _chk(cudart.cudaGraphLaunch(exec_graph, stream.handle))
-        ge.record(stream); ge.synchronize()
+        ge.record(stream)
+        ge.synchronize()
         ms_graph = ge.time_since(gs) / n_iters
         cudart.cudaGraphExecDestroy(exec_graph)
         cudart.cudaGraphDestroy(graph)
     except Exception as ex:
         print(f"  [warn] CUDA Graph path failed: {ex}")
 
-    cuda.memcpy_dtoh_async(out_buf, d_out, stream); stream.synchronize()
+    cuda.memcpy_dtoh_async(out_buf, d_out, stream)
+    stream.synchronize()
     return out_buf.astype(np.float32), ms_enqueue, ms_graph
 
 
@@ -359,7 +369,8 @@ def run_variant(model_type: str, batches: List[int], tag: str = "") -> List[Dict
 
 def print_summary(rows: List[Dict]) -> None:
     if not rows:
-        print("\n[summary] no rows."); return
+        print("\n[summary] no rows.")
+        return
     print("\n=== Summary (latency in ms / iter) ===")
     hdr = ("variant", "B",
            "cos[ort]", "cos[trt-onnx]", "cos[trt-wts]",
@@ -396,7 +407,8 @@ def main():
     args = parser.parse_args()
 
     if not SAMPLE_IMG.exists():
-        print(f"missing sample image: {SAMPLE_IMG}"); sys.exit(1)
+        print(f"missing sample image: {SAMPLE_IMG}")
+        sys.exit(1)
 
     all_rows: List[Dict] = []
     for v in args.variants:

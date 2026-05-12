@@ -86,6 +86,25 @@ popd
 ./build/vit -s models/ViT-B-16.wts models/ViT-B-16.engine ViT-B/16
 ```
 
+**Build precision and dynamic-batch profile are configured in code, not on
+the CLI.** Edit the constants near the top of `vit.cc` and rebuild:
+
+```cpp
+// vit.cc
+static constexpr DataType BUILD_PRECISION = DataType::kHALF;  // FP16 (default)
+// static constexpr DataType BUILD_PRECISION = DataType::kFLOAT; // FP32 (reference)
+static constexpr int64_t BUILD_MIN_BATCH = 1;
+static constexpr int64_t BUILD_OPT_BATCH = 2;
+static constexpr int64_t BUILD_MAX_BATCH = 4;
+```
+
+The strongly-typed network (TRT 10+) propagates `BUILD_PRECISION` through
+the whole graph, including the input tensor; no `BuilderFlag::kFP16` is
+needed (and in fact rejected on strongly-typed networks). The `-d`
+runtime mode auto-detects the engine input dtype, so the same binary
+handles both FP16 and FP32 engines. FP32 engines are roughly 2× larger
+and slower than FP16 but provide the numerical reference.
+
 #### 2.3.4 Run inference on a directory of images
 
 ```bash

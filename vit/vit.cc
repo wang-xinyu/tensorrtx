@@ -18,23 +18,32 @@ using M = nvinfer1::MatrixOperation;
 using E = nvinfer1::ElementWiseOperation;
 using NDCF = nvinfer1::NetworkDefinitionCreationFlag;
 
+//      DataType::kHALF  -> FP16
+//      DataType::kFLOAT -> FP32
+static constexpr DataType BUILD_PRECISION = DataType::kHALF;
+static constexpr int64_t BUILD_MIN_BATCH = 1;
+static constexpr int64_t BUILD_OPT_BATCH = 2;
+static constexpr int64_t BUILD_MAX_BATCH = 4;
+
 // ViT model variant table.
 // All variants share the same architecture; only sizes differ.
 // `model_type` is the canonical name (e.g. "ViT-B/16"); aliases without slash
 // (e.g. "b16") are accepted via normalizeModelType().
 struct ViTConfig {
-    int64_t hidden       = 768;
-    int64_t num_layers   = 12;
-    int64_t num_heads    = 12;
-    int64_t ff_dim       = 3072;
-    int64_t num_classes  = 1000;
-    int64_t patch        = 16;
-    int64_t img_size     = 224;
+    int64_t hidden = 768;
+    int64_t num_layers = 12;
+    int64_t num_heads = 12;
+    int64_t ff_dim = 3072;
+    int64_t num_classes = 1000;
+    int64_t patch = 16;
+    int64_t img_size = 224;
     // Dynamic-batch profile: min / opt / max for the optimization profile.
-    int64_t min_batch    = 1;
-    int64_t opt_batch    = 2;
-    int64_t max_batch    = 4;
-    float   lnorm_eps    = 1e-12f;
+    // Defaults come from the build-time BUILD_*_BATCH constants above; the
+    // `-d` runtime path overwrites these from the engine's profile.
+    int64_t min_batch = BUILD_MIN_BATCH;
+    int64_t opt_batch = BUILD_OPT_BATCH;
+    int64_t max_batch = BUILD_MAX_BATCH;
+    float lnorm_eps = 1e-12f;
     std::string model_type = "ViT-B/16";
     std::string wts_path;
     std::string engine_path;
@@ -45,14 +54,22 @@ struct ViTConfig {
 static std::string normalizeModelType(const std::string& s) {
     // Accept "ViT-B/16", "vit-b/16", "b16", "B/16" -> "ViT-B/16".
     std::string t;
-    for (char c : s) if (c != '-' && c != '/' && c != ' ') t += std::toupper(c);
+    for (char c : s)
+        if (c != '-' && c != '/' && c != ' ')
+            t += std::toupper(c);
     // Strip leading "VIT"
-    if (t.rfind("VIT", 0) == 0) t = t.substr(3);
-    if (t == "B16") return "ViT-B/16";
-    if (t == "B32") return "ViT-B/32";
-    if (t == "L16") return "ViT-L/16";
-    if (t == "L32") return "ViT-L/32";
-    if (t == "H14") return "ViT-H/14";
+    if (t.rfind("VIT", 0) == 0)
+        t = t.substr(3);
+    if (t == "B16")
+        return "ViT-B/16";
+    if (t == "B32")
+        return "ViT-B/32";
+    if (t == "L16")
+        return "ViT-L/16";
+    if (t == "L32")
+        return "ViT-L/32";
+    if (t == "H14")
+        return "ViT-H/14";
     return s;  // unknown, return as-is for error reporting
 }
 
@@ -61,21 +78,46 @@ static ViTConfig getVariantConfig(const std::string& raw_name) {
     ViTConfig c;
     c.model_type = name;
     if (name == "ViT-B/16") {
-        c.hidden=768;  c.num_layers=12; c.num_heads=12; c.ff_dim=3072;
-        c.patch=16;    c.img_size=224;  c.num_classes=1000;
+        c.hidden = 768;
+        c.num_layers = 12;
+        c.num_heads = 12;
+        c.ff_dim = 3072;
+        c.patch = 16;
+        c.img_size = 224;
+        c.num_classes = 1000;
     } else if (name == "ViT-B/32") {
-        c.hidden=768;  c.num_layers=12; c.num_heads=12; c.ff_dim=3072;
-        c.patch=32;    c.img_size=384;  c.num_classes=1000;
+        c.hidden = 768;
+        c.num_layers = 12;
+        c.num_heads = 12;
+        c.ff_dim = 3072;
+        c.patch = 32;
+        c.img_size = 384;
+        c.num_classes = 1000;
     } else if (name == "ViT-L/16") {
-        c.hidden=1024; c.num_layers=24; c.num_heads=16; c.ff_dim=4096;
-        c.patch=16;    c.img_size=224;  c.num_classes=1000;
+        c.hidden = 1024;
+        c.num_layers = 24;
+        c.num_heads = 16;
+        c.ff_dim = 4096;
+        c.patch = 16;
+        c.img_size = 224;
+        c.num_classes = 1000;
     } else if (name == "ViT-L/32") {
-        c.hidden=1024; c.num_layers=24; c.num_heads=16; c.ff_dim=4096;
-        c.patch=32;    c.img_size=384;  c.num_classes=1000;
+        c.hidden = 1024;
+        c.num_layers = 24;
+        c.num_heads = 16;
+        c.ff_dim = 4096;
+        c.patch = 32;
+        c.img_size = 384;
+        c.num_classes = 1000;
     } else if (name == "ViT-H/14") {
         // HF only ships an ImageNet-21k checkpoint for huge: 21843 classes.
-        c.hidden=1280; c.num_layers=32; c.num_heads=16; c.ff_dim=5120;
-        c.patch=14;    c.img_size=224;  c.num_classes=21843;
+        c.hidden = 1280;
+        c.num_layers = 32;
+        c.num_heads = 16;
+        c.ff_dim = 5120;
+        c.patch = 14;
+        c.img_size = 224;
+        c.num_classes = 21843;
     } else {
         std::cerr << "Unknown model_type: " << raw_name
                   << " (expected ViT-B/16 | ViT-B/32 | ViT-L/16 | ViT-L/32 | ViT-H/14)\n";
@@ -137,9 +179,9 @@ static void convertWeightMapToHalf(WeightMap& w) {
 struct ViTParam {
     uint32_t index;
     uint32_t head_num;
-    int64_t  hidden;
-    int64_t  ff_dim;
-    float    lnorm_eps = 1e-12f;
+    int64_t hidden;
+    int64_t ff_dim;
+    float lnorm_eps = 1e-12f;
 };
 
 static auto addGeLU(INetworkDefinition* net, ITensor& input) -> ILayer* {
@@ -315,8 +357,8 @@ auto ViTLayer(INetworkDefinition* net, WeightMap& w, ITensor& input, const ViTPa
 }
 
 // Creat the engine using only the API without any parser.
-auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config,
-                  DataType dt) -> ICudaEngine* {
+auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt)
+        -> ICudaEngine* {
     WeightMap w = loadWeights(cfg.wts_path);
     if (dt == DataType::kHALF) {
         convertWeightMapToHalf(w);
@@ -339,8 +381,12 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
 #endif
 
     // 1. patch embedding
-    Dims input_dims; input_dims.nbDims = 4;
-    input_dims.d[0] = -1; input_dims.d[1] = 3; input_dims.d[2] = IMG; input_dims.d[3] = IMG;
+    Dims input_dims;
+    input_dims.nbDims = 4;
+    input_dims.d[0] = -1;
+    input_dims.d[1] = 3;
+    input_dims.d[2] = IMG;
+    input_dims.d[3] = IMG;
     ITensor* data = net->addInput(NAMES[0], dt, input_dims);
     std::string name = "vit.embeddings.patch_embeddings.projection.";
     auto* embed = net->addConvolutionNd(*data, H, DimsHW{P, P}, w[name + "weight"], w[name + "bias"]);
@@ -355,21 +401,43 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
     auto* pos_embed = net->addConstant(Dims3{1, SEQ, H}, w["vit.embeddings.position_embeddings"]);
     // Broadcast cls_token to dynamic batch [B,1,H] using Slice with stride=0 on batch dim.
     auto* shape_data = net->addShape(*data)->getOutput(0);  // shape tensor [4]
-    Dims one_d; one_d.nbDims = 1; one_d.d[0] = 1;
-    Dims sl_start; sl_start.nbDims=1; sl_start.d[0]=0;
-    Dims sl_size; sl_size.nbDims=1; sl_size.d[0]=1;
-    Dims sl_stride; sl_stride.nbDims=1; sl_stride.d[0]=1;
+    Dims one_d;
+    one_d.nbDims = 1;
+    one_d.d[0] = 1;
+    Dims sl_start;
+    sl_start.nbDims = 1;
+    sl_start.d[0] = 0;
+    Dims sl_size;
+    sl_size.nbDims = 1;
+    sl_size.d[0] = 1;
+    Dims sl_stride;
+    sl_stride.nbDims = 1;
+    sl_stride.d[0] = 1;
     auto* batch_dim = net->addSlice(*shape_data, sl_start, sl_size, sl_stride)->getOutput(0);
     static const int64_t one_h_data[2] = {1, static_cast<int64_t>(H)};
     Weights one_h_w{DataType::kINT64, one_h_data, 2};
-    Dims two_d; two_d.nbDims = 1; two_d.d[0] = 2;
+    Dims two_d;
+    two_d.nbDims = 1;
+    two_d.d[0] = 2;
     auto* one_h_const = net->addConstant(two_d, one_h_w)->getOutput(0);
     const std::array<ITensor*, 2> shp_in = {batch_dim, one_h_const};
     auto* tgt_shape = net->addConcatenation(shp_in.data(), 2);
     tgt_shape->setAxis(0);
-    Dims start3; start3.nbDims = 3; start3.d[0]=0; start3.d[1]=0; start3.d[2]=0;
-    Dims stride3; stride3.nbDims = 3; stride3.d[0]=0; stride3.d[1]=1; stride3.d[2]=1;
-    Dims dummy3; dummy3.nbDims=3; dummy3.d[0]=1; dummy3.d[1]=1; dummy3.d[2]=H;
+    Dims start3;
+    start3.nbDims = 3;
+    start3.d[0] = 0;
+    start3.d[1] = 0;
+    start3.d[2] = 0;
+    Dims stride3;
+    stride3.nbDims = 3;
+    stride3.d[0] = 0;
+    stride3.d[1] = 1;
+    stride3.d[2] = 1;
+    Dims dummy3;
+    dummy3.nbDims = 3;
+    dummy3.d[0] = 1;
+    dummy3.d[1] = 1;
+    dummy3.d[2] = H;
     auto* cls_slice = net->addSlice(*cls_token->getOutput(0), start3, dummy3, stride3);
     cls_slice->setInput(2, *tgt_shape->getOutput(0));
     const std::array<ITensor*, 2> _cat = {cls_slice->getOutput(0), s->getOutput(0)};
@@ -382,11 +450,12 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
     // 3. transformer encoder layers
     ITensor* input = pos_added->getOutput(0);
     for (auto i = 0u; i < cfg.num_layers; i++) {
-        auto* vit = ViTLayer(net, w, *input, {.index = i,
-                                                .head_num = static_cast<uint32_t>(cfg.num_heads),
-                                                .hidden = H,
-                                                .ff_dim = cfg.ff_dim,
-                                                .lnorm_eps = cfg.lnorm_eps});
+        auto* vit = ViTLayer(net, w, *input,
+                             {.index = i,
+                              .head_num = static_cast<uint32_t>(cfg.num_heads),
+                              .hidden = H,
+                              .ff_dim = cfg.ff_dim,
+                              .lnorm_eps = cfg.lnorm_eps});
         input = vit;
     }
 
@@ -398,7 +467,9 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
     // 6. classifier head -- take CLS token (index 0 along seq axis) via Gather
     static int32_t cls_idx_data = 0;
     Weights cls_idx_w{DataType::kINT32, &cls_idx_data, 1};
-    Dims idx_dims; idx_dims.nbDims = 1; idx_dims.d[0] = 1;
+    Dims idx_dims;
+    idx_dims.nbDims = 1;
+    idx_dims.d[0] = 1;
     auto* idx_const = net->addConstant(idx_dims, cls_idx_w)->getOutput(0);
     auto* gather = net->addGather(*post_lnorm->getOutput(0), *idx_const, 1);
     auto* shuffle = net->addShuffle(*gather->getOutput(0));
@@ -410,12 +481,37 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
     cls_1->getOutput(0)->setName(NAMES[1]);
     net->markOutput(*cls_1->getOutput(0));
 
-    Dims _min; _min.nbDims=4; _min.d[0]=MIB; _min.d[1]=3; _min.d[2]=IMG; _min.d[3]=IMG;
-    Dims _opt; _opt.nbDims=4; _opt.d[0]=OPB; _opt.d[1]=3; _opt.d[2]=IMG; _opt.d[3]=IMG;
-    Dims _max; _max.nbDims=4; _max.d[0]=MAB; _max.d[1]=3; _max.d[2]=IMG; _max.d[3]=IMG;
+    Dims _min;
+    _min.nbDims = 4;
+    _min.d[0] = MIB;
+    _min.d[1] = 3;
+    _min.d[2] = IMG;
+    _min.d[3] = IMG;
+    Dims _opt;
+    _opt.nbDims = 4;
+    _opt.d[0] = OPB;
+    _opt.d[1] = 3;
+    _opt.d[2] = IMG;
+    _opt.d[3] = IMG;
+    Dims _max;
+    _max.nbDims = 4;
+    _max.d[0] = MAB;
+    _max.d[1] = 3;
+    _max.d[2] = IMG;
+    _max.d[3] = IMG;
 #if TRT_VERSION >= 8000
     config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, WORKSPACE_SIZE);
     config->setBuilderOptimizationLevel(5);
+#if TRT_VERSION < 10000
+    // Strongly-typed networks (TRT 10+) take their precision from the
+    // tensor types declared on inputs/weights and reject BuilderFlag::kFP16.
+    // Pre-TRT-10 networks are weakly typed, so explicitly request FP16
+    // tactics when BUILD_PRECISION == kHALF; otherwise TRT may fall back
+    // to FP32 kernels even though the inputs/weights are half.
+    if (BUILD_PRECISION == DataType::kHALF) {
+        config->setFlag(BuilderFlag::kFP16);
+    }
+#endif
     auto* profile = builder->createOptimizationProfile();
     profile->setDimensions(NAMES[0], OptProfileSelector::kMIN, _min);
     profile->setDimensions(NAMES[0], OptProfileSelector::kOPT, _opt);
@@ -448,8 +544,8 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
     return engine;
 }
 
-std::vector<std::vector<float>> doInference(IExecutionContext& context, __half* input,
-                                            std::size_t batchSize, const ViTConfig& cfg) {
+std::vector<std::vector<float>> doInference(IExecutionContext& context, const void* input, std::size_t batchSize,
+                                            const ViTConfig& cfg) {
     const ICudaEngine& engine = context.getEngine();
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
@@ -467,10 +563,13 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, __half* 
     // SIZES per IO: input is C*H*W per sample; output is num_classes per sample.
     const int64_t in_per_sample = 3LL * cfg.img_size * cfg.img_size;
     const int64_t out_per_sample = cfg.num_classes;
-    auto sizeOf = [&](int i) -> int64_t { return i == 0 ? in_per_sample : out_per_sample; };
+    auto sizeOf = [&](int i) -> int64_t {
+        return i == 0 ? in_per_sample : out_per_sample;
+    };
 
 #if TRT_VERSION >= 8000
-    Dims in_dims; in_dims.nbDims = 4;
+    Dims in_dims;
+    in_dims.nbDims = 4;
     in_dims.d[0] = static_cast<int64_t>(batchSize);
     in_dims.d[1] = 3;
     in_dims.d[2] = cfg.img_size;
@@ -517,16 +616,23 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, __half* 
     }
 
 #if TRT_VERSION >= 8000
-    if (!context.enqueueV3(stream)) { std::cerr << "enqueueV3 failed\n"; std::abort(); }
+    if (!context.enqueueV3(stream)) {
+        std::cerr << "enqueueV3 failed\n";
+        std::abort();
+    }
 #else
-    if (!context.enqueueV2(buffers.data(), stream, nullptr)) { std::cerr << "enqueueV2 failed\n"; std::abort(); }
+    if (!context.enqueueV2(buffers.data(), stream, nullptr)) {
+        std::cerr << "enqueueV2 failed\n";
+        std::abort();
+    }
 #endif
 
     std::vector<std::vector<float>> prob;
     for (int i = 0; i < nIO; ++i) {
 #if TRT_VERSION >= 8000
         auto* tensor_name = engine.getIOTensorName(i);
-        if (engine.getTensorIOMode(tensor_name) != TensorIOMode::kOUTPUT) continue;
+        if (engine.getTensorIOMode(tensor_name) != TensorIOMode::kOUTPUT)
+            continue;
         const auto dtype = engine.getTensorDataType(tensor_name);
         std::size_t count = batchSize * out_per_sample;
         std::size_t size = count * bytesPerElement(dtype);
@@ -540,7 +646,8 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, __half* 
             CHECK(cudaMemcpyAsync(tmp_h.data(), out_ptr, size, cudaMemcpyDeviceToHost, stream));
             CHECK(cudaStreamSynchronize(stream));
             std::vector<float> tmp(count);
-            for (std::size_t j = 0; j < tmp.size(); ++j) tmp[j] = __half2float(tmp_h[j]);
+            for (std::size_t j = 0; j < tmp.size(); ++j)
+                tmp[j] = __half2float(tmp_h[j]);
             prob.emplace_back(std::move(tmp));
         } else {
             std::vector<float> tmp(count, std::nanf(""));
@@ -548,7 +655,8 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, __half* 
             prob.emplace_back(std::move(tmp));
         }
 #else
-        if (i == 0) continue;
+        if (i == 0)
+            continue;
         std::vector<float> tmp(batchSize * sizeOf(i), std::nanf(""));
         std::size_t size = batchSize * sizeOf(i) * sizeof(float);
         CHECK(cudaMemcpyAsync(tmp.data(), buffers[i], size, cudaMemcpyDeviceToHost, stream));
@@ -573,7 +681,7 @@ void APIToModel(const ViTConfig& cfg, IRuntime* runtime, IHostMemory** modelStre
     IBuilder* builder = createInferBuilder(gLogger);
     IBuilderConfig* config = builder->createBuilderConfig();
 
-    ICudaEngine* engine = createEngine(cfg, runtime, builder, config, DataType::kHALF);
+    ICudaEngine* engine = createEngine(cfg, runtime, builder, config, BUILD_PRECISION);
     assert(engine != nullptr);
 
     (*modelStream) = engine->serialize();
@@ -625,9 +733,11 @@ static std::vector<std::string> collectImages(const std::string& path) {
         out.push_back(path);
     } else if (fs::is_directory(p)) {
         for (auto& e : fs::directory_iterator(p)) {
-            if (!e.is_regular_file()) continue;
+            if (!e.is_regular_file())
+                continue;
             auto ext = e.path().extension().string();
-            for (auto& c : ext) c = std::tolower(c);
+            for (auto& c : ext)
+                c = std::tolower(c);
             if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp") {
                 out.push_back(e.path().string());
             }
@@ -639,14 +749,13 @@ static std::vector<std::string> collectImages(const std::string& path) {
 
 auto main(int argc, char** argv) -> int {
     std::cout << "TensorRT version: " << TRT_VERSION << "\n";
-    if (argc < 2 ||
-        (std::string(argv[1]) == "-s" && argc != 5) ||
-        (std::string(argv[1]) == "-d" && argc != 4)) {
+    if (argc < 2 || (std::string(argv[1]) == "-s" && argc != 5) || (std::string(argv[1]) == "-d" && argc != 4)) {
         std::cerr << "usage:\n"
                   << "  ./vit -s <wts_path> <engine_path> <model_type>\n"
                   << "  ./vit -d <engine_path> <image_dir>\n"
                   << "  model_type: ViT-B/16 | ViT-B/32 | ViT-L/16 | ViT-L/32 | ViT-H/14\n"
-                  << "              (aliases: b16, b32, l16, l32, h14 also accepted)\n";
+                  << "              (aliases: b16, b32, l16, l32, h14 also accepted)\n"
+                  << "  build precision is configured in code via BUILD_PRECISION (see top of vit.cc).\n";
         return 1;
     }
     std::string mode = argv[1];
@@ -664,13 +773,12 @@ auto main(int argc, char** argv) -> int {
         ViTConfig cfg = getVariantConfig(model_type);
         cfg.wts_path = wts_path;
         cfg.engine_path = engine_path;
-        std::cout << "[cfg] " << cfg.model_type
-                  << " hidden=" << cfg.hidden << " layers=" << cfg.num_layers
-                  << " heads=" << cfg.num_heads << " ff=" << cfg.ff_dim
-                  << " patch=" << cfg.patch << " img=" << cfg.img_size
-                  << " classes=" << cfg.num_classes
+        const char* prec_str = (BUILD_PRECISION == DataType::kHALF) ? "fp16" : "fp32";
+        std::cout << "[cfg] " << cfg.model_type << " hidden=" << cfg.hidden << " layers=" << cfg.num_layers
+                  << " heads=" << cfg.num_heads << " ff=" << cfg.ff_dim << " patch=" << cfg.patch
+                  << " img=" << cfg.img_size << " classes=" << cfg.num_classes
                   << " batch[min/opt/max]=" << cfg.min_batch << "/" << cfg.opt_batch << "/" << cfg.max_batch
-                  << "\n[wts]    " << wts_path << "\n[engine] " << engine_path << "\n";
+                  << " precision=" << prec_str << "\n[wts]    " << wts_path << "\n[engine] " << engine_path << "\n";
 
         IHostMemory* modelStream{nullptr};
         APIToModel(cfg, runtime, &modelStream);
@@ -739,23 +847,40 @@ auto main(int argc, char** argv) -> int {
             input_buf.insert(input_buf.end(), one.begin(), one.end());
         }
 
+        // Match the engine's declared input dtype. The engine input is FP16 when
+        // built with `-s ... fp16` (default) and FP32 when built with `... fp32`.
+        const auto in_dtype = engine->getTensorDataType(NAMES[0]);
+        std::vector<float> input_buf_f32;
+        const void* input_ptr = nullptr;
+        if (in_dtype == DataType::kHALF) {
+            input_ptr = input_buf.data();
+        } else if (in_dtype == DataType::kFLOAT) {
+            input_buf_f32.resize(input_buf.size());
+            for (std::size_t k = 0; k < input_buf.size(); ++k)
+                input_buf_f32[k] = __half2float(input_buf[k]);
+            input_ptr = input_buf_f32.data();
+        } else {
+            std::cerr << "unsupported engine input dtype\n";
+            return -1;
+        }
+
         Profiler profiler("VisionTransformerProfiler");
 
         for (int i = 0; i < 5; ++i) {
-            (void)doInference(*context, input_buf.data(), infer_batch, cfg);
+            (void)doInference(*context, input_ptr, infer_batch, cfg);
         }
 
         context->setProfiler(&profiler);
         for (int i = 0; i < 20; ++i) {
             auto start = std::chrono::system_clock::now();
-            auto prob = doInference(*context, input_buf.data(), infer_batch, cfg);
+            auto prob = doInference(*context, input_ptr, infer_batch, cfg);
             auto end = std::chrono::system_clock::now();
             auto period = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
             std::cout << period.count() << "us\n";
 
             if (i == 19) {
-                auto labels = (cfg.num_classes == 1000) ? loadImagenetLabelMap(LABELS_PATH)
-                                                        : std::map<int, std::string>{};
+                auto labels =
+                        (cfg.num_classes == 1000) ? loadImagenetLabelMap(LABELS_PATH) : std::map<int, std::string>{};
                 for (int64_t b = 0; b < infer_batch; ++b) {
                     std::cout << "[sample " << b << "] " << images[b] << "\n";
                     int _top = 0;
@@ -763,7 +888,8 @@ auto main(int argc, char** argv) -> int {
                                               prob[0].begin() + (b + 1) * cfg.num_classes);
                     for (auto& [idx, logits] : topk(sample, 3)) {
                         std::cout << "  Top: " << _top++ << " idx: " << idx << ", logits: " << logits;
-                        if (!labels.empty()) std::cout << ", label: " << labels[idx];
+                        if (!labels.empty())
+                            std::cout << ", label: " << labels[idx];
                         std::cout << "\n";
                     }
                 }

@@ -40,9 +40,9 @@ static void checkTrtEnv(int device = 0) {
 /**
  * @brief TensorRT weight files have a simple space delimited format:
  * [type] [size] <data x size in hex>
- * 
+ *
  * @param file input weight file path
- * @return std::map<std::string, nvinfer1::Weights> 
+ * @return std::map<std::string, nvinfer1::Weights>
  */
 static auto loadWeights(const std::string& file) {
     std::cout << "Loading weights: " << file << "\n";
@@ -79,7 +79,7 @@ static auto loadWeights(const std::string& file) {
 
 /**
  * @brief a preprocess function aligning with ImageNet preprocess in torchvision, only support 3-channel image
- * 
+ *
  * @param img opencv image with BGR layout
  * @param bgr2rgb whether to convert BGR to RGB
   * @param mean_std subtract mean, then divide std
