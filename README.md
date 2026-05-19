@@ -17,6 +17,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `19 May 2026`. [lindsayshuo](https://github.com/lindsayshuo): PP-OCRv5, PP-Structure and PP-FormulaNet
 - `3 Mar 2026`. [zgjja](https://github.com/zgjja) Add Vision Transformer
 - `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb, Yolo26-Cls
 - `15 Jan 2026`. [zgjja](https://github.com/zgjja) Refactor multiple old CV models to support TensorRT SDK through 7~10.
