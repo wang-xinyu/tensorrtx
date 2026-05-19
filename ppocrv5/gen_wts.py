@@ -161,17 +161,35 @@ def find_standard_model_dir(root, official_name, tag):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Export PP-OCRv5 Paddle PIR weights to WTS")
-    parser.add_argument("model_type", nargs="?", default="", help="Optional model type for -w/-o, for example m_det, s_rec, layout, formula")
+    parser.add_argument(
+        "model_type",
+        nargs="?",
+        default="",
+        help="Optional model type for -w/-o, for example m_det, s_rec, layout, formula",
+    )
     parser.add_argument("-w", "--weights", default="", help="Paddle inference model directory for one WTS export")
-    parser.add_argument("-o", "--output", default="", help="Output WTS path, or an output directory when model_type is set")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="",
+        help="Output WTS path, or an output directory when model_type is set",
+    )
     parser.add_argument("--det-model", default=DEFAULT_DET_MODEL)
     parser.add_argument("--rec-model", default=DEFAULT_REC_MODEL)
     parser.add_argument("--det-tag", default="")
     parser.add_argument("--rec-tag", default="")
     parser.add_argument("--model", action="append", default=[], help="Export an arbitrary Paddle inference model dir")
     parser.add_argument("--tag", action="append", default=[], help="Tag for the matching --model entry")
-    parser.add_argument("--official-model-dir", default="", help="Export the standard supported model set below this root")
-    parser.add_argument("--all-official-models", default="", help="Export all Paddle inference models below this directory")
+    parser.add_argument(
+        "--official-model-dir",
+        default="",
+        help="Export the standard supported model set below this root",
+    )
+    parser.add_argument(
+        "--all-official-models",
+        default="",
+        help="Export all Paddle inference models below this directory",
+    )
     parser.add_argument("--out-dir", default="build")
     return parser.parse_args()
 

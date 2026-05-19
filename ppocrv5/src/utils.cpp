@@ -10,7 +10,7 @@
 namespace {
 
 bool isDirectory(const std::string& path) {
-    struct stat st{};
+    struct stat st {};
     return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
 }
 
@@ -145,7 +145,7 @@ std::string makeOutputPath(const std::string& imagePath, const std::string& suff
 }
 
 bool fileExists(const std::string& path) {
-    struct stat st{};
+    struct stat st {};
     return stat(path.c_str(), &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
