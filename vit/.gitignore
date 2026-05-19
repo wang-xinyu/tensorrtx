@@ -1,0 +1,23 @@
+# Build outputs
+build/
+build_*/
+cmake-build-*/
+
+# IDE / editor
+.idea/
+.vscode/
+.cache/
+
+# Local artifacts (kept outside the repo, e.g. on a backup mount)
+models/
+
+# Generated files
+*.wts
+*.engine
+*.onnx
+*.onnx.data
+*.ppm
+
+# Python
+__pycache__/
+*.pyc
