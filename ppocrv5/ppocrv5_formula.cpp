@@ -100,8 +100,10 @@ size_t dataTypeSize(DataType dtype) {
             return 1;
         case DataType::kUINT8:
             return 1;
+#if NV_TENSORRT_MAJOR >= 10
         case DataType::kINT64:
             return 8;
+#endif
         default:
             throw std::runtime_error("unsupported TensorRT data type");
     }
@@ -515,6 +517,20 @@ void uploadValues(TensorState& state, const std::vector<T>& values) {
     CUDA_CHECK(cudaMemcpy(state.buffer.ptr, values.data(), bytes, cudaMemcpyHostToDevice));
 }
 
+void uploadIndexValues(TensorState& state, const std::vector<int64_t>& values) {
+#if NV_TENSORRT_MAJOR >= 10
+    if (state.dtype == DataType::kINT64) {
+        uploadValues(state, values);
+        return;
+    }
+#endif
+    std::vector<int32_t> values32(values.size());
+    for (size_t i = 0; i < values.size(); ++i) {
+        values32[i] = static_cast<int32_t>(values[i]);
+    }
+    uploadValues(state, values32);
+}
+
 TensorState makeInitialState(ICudaEngine* decoder, int index) {
     std::string name = "state_" + std::to_string(index);
     TensorState state;
@@ -525,10 +541,10 @@ TensorState makeInitialState(ICudaEngine* decoder, int index) {
         uploadBool(state, false);
     } else if (index == 2) {
         state.dims = makeDims({1});
-        uploadValues(state, std::vector<int64_t>{0});
+        uploadIndexValues(state, std::vector<int64_t>{0});
     } else if (index == 3 || index == 5) {
         state.dims = makeDims({1, 1});
-        uploadValues(state, std::vector<int64_t>{kFormulaBosId});
+        uploadIndexValues(state, std::vector<int64_t>{kFormulaBosId});
     } else if (index == 4) {
         state.dims = makeDims({});
         uploadValues(state, std::vector<float>{0.0f});
@@ -539,7 +555,7 @@ TensorState makeInitialState(ICudaEngine* decoder, int index) {
         uploadZeros(state);
     } else if (index == 38) {
         state.dims = makeDims({1});
-        uploadValues(state, std::vector<int64_t>{1});
+        uploadIndexValues(state, std::vector<int64_t>{1});
     } else {
         throw std::runtime_error("unexpected FormulaNet decoder state index");
     }
@@ -591,8 +607,23 @@ std::vector<int64_t> downloadInt64Tensor(const TensorState& state) {
     int64_t count = volume(state.dims);
     std::vector<int64_t> values(static_cast<size_t>(std::max<int64_t>(0, count)));
     if (!values.empty()) {
-        CUDA_CHECK(
-                cudaMemcpy(values.data(), state.buffer.ptr, values.size() * sizeof(int64_t), cudaMemcpyDeviceToHost));
+#if NV_TENSORRT_MAJOR >= 10
+        if (state.dtype == DataType::kINT64) {
+            CUDA_CHECK(cudaMemcpy(values.data(), state.buffer.ptr, values.size() * sizeof(int64_t),
+                                  cudaMemcpyDeviceToHost));
+            return values;
+        }
+#endif
+        if (state.dtype == DataType::kINT32) {
+            std::vector<int32_t> values32(values.size());
+            CUDA_CHECK(cudaMemcpy(values32.data(), state.buffer.ptr, values32.size() * sizeof(int32_t),
+                                  cudaMemcpyDeviceToHost));
+            for (size_t i = 0; i < values.size(); ++i) {
+                values[i] = values32[i];
+            }
+            return values;
+        }
+        throw std::runtime_error("unexpected FormulaNet index tensor data type");
     }
     return values;
 }

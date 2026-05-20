@@ -175,10 +175,12 @@ class DumpOutputAllocator : public IOutputAllocator {
         return ptr_;
     }
 
+#if NV_TENSORRT_MAJOR >= 10
     void* reallocateOutputAsync(char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment,
                                 cudaStream_t) noexcept override {
         return reallocateOutput(tensorName, currentMemory, size, alignment);
     }
+#endif
 
     void notifyShape(char const*, Dims const& dims) noexcept override { dims_ = dims; }
 

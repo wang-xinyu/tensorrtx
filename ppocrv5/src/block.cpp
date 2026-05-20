@@ -1267,7 +1267,40 @@ ITensor* addSiluTensor(INetworkDefinition* network, ITensor& input, const std::s
 }
 
 ITensor* addGeluTensor(INetworkDefinition* network, ITensor& input, const std::string& lname) {
-    IActivationLayer* gelu = network->addActivation(input, ActivationType::kGELU_ERF);
+    Dims dims{};
+    dims.nbDims = input.getDimensions().nbDims;
+    for (int i = 0; i < dims.nbDims; ++i) {
+        dims.d[i] = 1;
+    }
+
+    static const float kInvSqrt2 = 0.7071067811865475f;
+    static const float kOne = 1.0f;
+    static const float kHalf = 0.5f;
+
+    IConstantLayer* invSqrt2 = network->addConstant(dims, Weights{DataType::kFLOAT, &kInvSqrt2, 1});
+    assert(invSqrt2);
+    invSqrt2->setName((lname + "_inv_sqrt2").c_str());
+    IElementWiseLayer* scaled = network->addElementWise(input, *invSqrt2->getOutput(0), ElementWiseOperation::kPROD);
+    assert(scaled);
+    scaled->setName((lname + "_scale").c_str());
+    IUnaryLayer* erf = network->addUnary(*scaled->getOutput(0), UnaryOperation::kERF);
+    assert(erf);
+    erf->setName((lname + "_erf").c_str());
+    IConstantLayer* one = network->addConstant(dims, Weights{DataType::kFLOAT, &kOne, 1});
+    assert(one);
+    one->setName((lname + "_one").c_str());
+    IElementWiseLayer* shifted =
+            network->addElementWise(*erf->getOutput(0), *one->getOutput(0), ElementWiseOperation::kSUM);
+    assert(shifted);
+    shifted->setName((lname + "_shift").c_str());
+    IElementWiseLayer* product = network->addElementWise(input, *shifted->getOutput(0), ElementWiseOperation::kPROD);
+    assert(product);
+    product->setName((lname + "_prod").c_str());
+    IConstantLayer* half = network->addConstant(dims, Weights{DataType::kFLOAT, &kHalf, 1});
+    assert(half);
+    half->setName((lname + "_half").c_str());
+    IElementWiseLayer* gelu =
+            network->addElementWise(*product->getOutput(0), *half->getOutput(0), ElementWiseOperation::kPROD);
     assert(gelu);
     gelu->setName(lname.c_str());
     return gelu->getOutput(0);

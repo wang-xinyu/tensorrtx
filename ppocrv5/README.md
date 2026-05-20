@@ -106,6 +106,8 @@ PY
 
 Required components are TensorRT, CUDA, OpenCV, CMake, and PaddlePaddle for WTS export. The active TensorRT/CUDA/OpenCV build paths and architecture are read from `CMakeLists.txt`; runtime constants such as TensorRT workspace cap, builder optimization level, OCR thresholds, OCR tensor names, and FormulaNet limits are in `include/config.h`.
 
+Builds have been verified with TensorRT 10.13.3.9 and TensorRT 8.6.1.6. To use another TensorRT package, pass `-DTENSORRT_ROOT=/path/to/TensorRT-x.y.z` when configuring CMake.
+
 If TensorRT runtime libraries are not in the shell environment, add the TensorRT library directory configured by the local `CMakeLists.txt` to `LD_LIBRARY_PATH`.
 
 ### Memory Limits
@@ -781,6 +783,8 @@ python -m pip install paddlepaddle==3.2.0 numpy==2.2.6
 ```
 
 TensorRT、CUDA、OpenCV、CMake 路径从本机 `CMakeLists.txt` 读取。默认 TensorRT workspace 上限是 `2048 MiB`，builder optimization level 是 `0`，适合按模型串行构建 engine。
+
+已验证 TensorRT 10.13.3.9 和 TensorRT 8.6.1.6 可以编译通过。使用其他 TensorRT 目录时，在 CMake 配置阶段传入 `-DTENSORRT_ROOT=/path/to/TensorRT-x.y.z`。
 
 ### 编译和 WTS
 

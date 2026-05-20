@@ -277,11 +277,27 @@ Weights addOwnedBoolWeights(std::map<std::string, Weights>& weightMap, const std
 
 Weights addOwnedInt64Weights(std::map<std::string, Weights>& weightMap, const std::string& name,
                              const std::vector<int64_t>& values) {
+#if NV_TENSORRT_MAJOR >= 10
     auto* data = reinterpret_cast<int64_t*>(malloc(sizeof(int64_t) * values.size()));
     std::memcpy(data, values.data(), sizeof(int64_t) * values.size());
     Weights wt{DataType::kINT64, data, static_cast<int64_t>(values.size())};
+#else
+    auto* data = reinterpret_cast<int32_t*>(malloc(sizeof(int32_t) * values.size()));
+    for (size_t i = 0; i < values.size(); ++i) {
+        data[i] = static_cast<int32_t>(values[i]);
+    }
+    Weights wt{DataType::kINT32, data, static_cast<int64_t>(values.size())};
+#endif
     weightMap[name] = wt;
     return wt;
+}
+
+DataType formulaIndexDataType() {
+#if NV_TENSORRT_MAJOR >= 10
+    return DataType::kINT64;
+#else
+    return DataType::kINT32;
+#endif
 }
 
 ITensor* addFloatConstantTensor(INetworkDefinition* network, std::map<std::string, Weights>& weightMap,
@@ -2772,15 +2788,15 @@ IHostMemory* buildPPFormulaNetDecoderDirect(IBuilder* builder, IBuilderConfig* c
 
     std::vector<ITensor*> states(kFormulaStateCount + 1, nullptr);
     states[1] = network->addInput("state_1", DataType::kBOOL, Dims{});
-    states[2] = network->addInput("state_2", DataType::kINT64, makeDims1(1));
-    states[3] = network->addInput("state_3", DataType::kINT64, Dims2{1, -1});
+    states[2] = network->addInput("state_2", formulaIndexDataType(), makeDims1(1));
+    states[3] = network->addInput("state_3", formulaIndexDataType(), Dims2{1, -1});
     states[4] = network->addInput("state_4", DataType::kFLOAT, Dims{});
-    states[5] = network->addInput("state_5", DataType::kINT64, Dims2{1, -1});
+    states[5] = network->addInput("state_5", formulaIndexDataType(), Dims2{1, -1});
     for (int i = 6; i <= 37; ++i) {
         std::string name = "state_" + std::to_string(i);
         states[i] = network->addInput(name.c_str(), dt, Dims4{1, 16, -1, 32});
     }
-    states[38] = network->addInput("state_38", DataType::kINT64, makeDims1(1));
+    states[38] = network->addInput("state_38", formulaIndexDataType(), makeDims1(1));
     for (int i = 1; i <= kFormulaStateCount; ++i) {
         if (!states[i]) {
             throw std::runtime_error("failed to add PP-FormulaNet decoder state input");
@@ -2817,7 +2833,7 @@ IHostMemory* buildPPFormulaNetDecoderDirect(IBuilder* builder, IBuilderConfig* c
     assert(topk);
     topk->setName("formula_argmax");
     IShuffleLayer* nextTokenI32 = addShuffle(network, *topk->getOutput(1), Dims2{1, 1}, "formula_next_token_i32");
-    ICastLayer* nextTokenCast = network->addCast(*nextTokenI32->getOutput(0), DataType::kINT64);
+    ICastLayer* nextTokenCast = network->addCast(*nextTokenI32->getOutput(0), formulaIndexDataType());
     assert(nextTokenCast);
     nextTokenCast->setName("formula_next_token");
     ITensor* nextToken = nextTokenCast->getOutput(0);

@@ -106,8 +106,10 @@ size_t dataTypeSize(DataType dtype) {
             return 1;
         case DataType::kUINT8:
             return 1;
+#if NV_TENSORRT_MAJOR >= 10
         case DataType::kINT64:
             return 8;
+#endif
         default:
             throw std::runtime_error("unsupported TensorRT data type");
     }
@@ -152,8 +154,10 @@ std::string dtypeName(DataType dtype) {
             return "bool";
         case DataType::kUINT8:
             return "uint8";
+#if NV_TENSORRT_MAJOR >= 10
         case DataType::kINT64:
             return "int64";
+#endif
         default:
             return "unknown";
     }
@@ -215,10 +219,12 @@ class OutputAllocator : public IOutputAllocator {
         return ptr_;
     }
 
+#if NV_TENSORRT_MAJOR >= 10
     void* reallocateOutputAsync(char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment,
                                 cudaStream_t) noexcept override {
         return reallocateOutput(tensorName, currentMemory, size, alignment);
     }
+#endif
 
     void notifyShape(char const*, Dims const& dims) noexcept override { dims_ = dims; }
 
