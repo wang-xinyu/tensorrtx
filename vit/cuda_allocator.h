@@ -17,7 +17,7 @@ class CudaOutputAllocator final : public nvinfer1::IOutputAllocator {
     explicit CudaOutputAllocator(cudaStream_t stream, OutputAllocKind kind, int device = 0);
     ~CudaOutputAllocator() override;
 
-#if TRT_VERSION < 10000
+#if TRT_VERSION_LT(10, 0, 0)
     void* reallocateOutput(const char* tensorName, void* currentMemory, uint64_t size,
                            uint64_t alignment) TRT_NOEXCEPT override;
 #else
@@ -32,7 +32,7 @@ class CudaOutputAllocator final : public nvinfer1::IOutputAllocator {
 
    private:
     struct Allocation;
-    Allocation allocate(std::size_t size);
+    Allocation allocate(std::size_t size, cudaStream_t stream);
     void release(const std::string& tensorName, Allocation& alloc);
 
     cudaStream_t stream_{};

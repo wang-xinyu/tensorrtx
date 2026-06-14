@@ -16,6 +16,7 @@ struct CudaOutputAllocator::Allocation {
     void* ptr{nullptr};
     std::size_t size{0};
     OutputAllocKind kind{OutputAllocKind::kCudaMallocManaged};
+    cudaStream_t stream{};
     CUmemGenericAllocationHandle handle{};
     CUdeviceptr addr{};
     std::size_t mapped_size{0};
@@ -61,7 +62,7 @@ CudaOutputAllocator::~CudaOutputAllocator() {
     }
 }
 
-#if TRT_VERSION < 10000
+#if TRT_VERSION_LT(10, 0, 0)
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void* CudaOutputAllocator::reallocateOutput(const char* tensorName, void* currentMemory, uint64_t size,
                                             uint64_t alignment) TRT_NOEXCEPT {
@@ -80,7 +81,7 @@ void* CudaOutputAllocator::reallocateOutput(const char* tensorName, void* curren
         return currentMemory;
     }
 
-    Allocation fresh = allocate(static_cast<std::size_t>(size));
+    Allocation fresh = allocate(static_cast<std::size_t>(size), stream_);
     if (!fresh.ptr) {
         return nullptr;
     }
@@ -98,10 +99,12 @@ void* CudaOutputAllocator::reallocateOutputAsync(const char* tensorName, void* c
     if (stream == nullptr) {
         stream = stream_;
     }
-    stream_ = stream;
     std::lock_guard<std::mutex> lock(mutex_);
     auto& alloc = allocations_[tensorName];
     if (alloc.ptr && size <= alloc.size) {
+        if (alloc.kind == OutputAllocKind::kCudaMallocAsync) {
+            alloc.stream = stream;
+        }
         return alloc.ptr;
     }
     if (alloc.ptr) {
@@ -110,7 +113,7 @@ void* CudaOutputAllocator::reallocateOutputAsync(const char* tensorName, void* c
         return currentMemory;
     }
 
-    Allocation fresh = allocate(static_cast<std::size_t>(size));
+    Allocation fresh = allocate(static_cast<std::size_t>(size), stream);
     if (!fresh.ptr) {
         return nullptr;
     }
@@ -121,19 +124,26 @@ void* CudaOutputAllocator::reallocateOutputAsync(const char* tensorName, void* c
 
 void CudaOutputAllocator::notifyShape(const char* /*tensorName*/, nvinfer1::Dims const& /*dims*/) TRT_NOEXCEPT {}
 
-CudaOutputAllocator::Allocation CudaOutputAllocator::allocate(std::size_t size) {
+CudaOutputAllocator::Allocation CudaOutputAllocator::allocate(std::size_t size, cudaStream_t stream) {
     Allocation alloc{};
     if (size == 0) {
         return alloc;
     }
+    if (stream == nullptr) {
+        stream = stream_;
+    }
+    if (cudaSetDevice(device_) != cudaSuccess) {
+        return alloc;
+    }
     if (kind_ == OutputAllocKind::kCudaMallocAsync) {
         void* ptr = nullptr;
-        if (cudaMallocAsync(&ptr, size, stream_) != cudaSuccess) {
+        if (cudaMallocAsync(&ptr, size, stream) != cudaSuccess) {
             return alloc;
         }
         alloc.ptr = ptr;
         alloc.size = size;
         alloc.kind = OutputAllocKind::kCudaMallocAsync;
+        alloc.stream = stream;
         return alloc;
     }
     if (kind_ == OutputAllocKind::kCudaMallocManaged) {
@@ -147,9 +157,6 @@ CudaOutputAllocator::Allocation CudaOutputAllocator::allocate(std::size_t size) 
         return alloc;
     }
 
-    if (cudaSetDevice(device_) != cudaSuccess) {
-        return alloc;
-    }
     if (cuInit(0) != CUDA_SUCCESS) {
         return alloc;
     }
@@ -205,8 +212,9 @@ void CudaOutputAllocator::release(const std::string& /*tensorName*/, Allocation&
     if (!alloc.ptr) {
         return;
     }
+    CHECK(cudaSetDevice(device_));
     if (alloc.kind == OutputAllocKind::kCudaMallocAsync) {
-        cudaFreeAsync(alloc.ptr, stream_);
+        cudaFreeAsync(alloc.ptr, alloc.stream);
     } else if (alloc.kind == OutputAllocKind::kCudaMallocManaged) {
         cudaFree(alloc.ptr);
     } else if (alloc.kind == OutputAllocKind::kCuMem) {

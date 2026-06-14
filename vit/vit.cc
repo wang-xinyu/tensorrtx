@@ -6,18 +6,19 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
+
 #include "cuda_allocator.h"
 #include "logging.h"
 #include "macros.h"
@@ -36,6 +37,12 @@ static constexpr DataType BUILD_PRECISION = DataType::kHALF;
 static constexpr int64_t BUILD_MIN_BATCH = 1;
 static constexpr int64_t BUILD_OPT_BATCH = 1;
 static constexpr int64_t BUILD_MAX_BATCH = 2;
+
+template <std::integral T>
+requires(sizeof(T) > sizeof(int32_t)) static auto toI32(T value) -> int32_t {
+    assert(std::in_range<int32_t>(value));
+    return static_cast<int32_t>(value);
+}
 
 // ViT model variant table.
 // All variants share the same architecture; only sizes differ.
@@ -155,10 +162,10 @@ static auto bytesPerElement(DataType t) -> std::size_t {
             return 8;
         case DataType::kINT32:
             return 4;
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         case DataType::kBOOL:
 #endif
-#if TRT_VERSION >= 8500
+#if TRT_VERSION_GE(8, 5, 0)
         case DataType::kUINT8:
 #endif
         case DataType::kINT8:
@@ -241,7 +248,8 @@ static auto addShapeConstant(INetworkDefinition* net, std::initializer_list<int6
     Dims dims{};
     dims.nbDims = 1;
     dims.d[0] = static_cast<int64_t>(data.size());
-    auto* c = net->addConstant(dims, Weights{DataType::kINT64, data.data(), static_cast<int64_t>(data.size())});
+    auto* c = net->addConstant(
+            dims, Weights{.type = DataType::kINT64, .values = data.data(), .count = static_cast<int64_t>(data.size())});
     return c->getOutput(0);
 }
 
@@ -260,7 +268,7 @@ static auto addBatchedConstantSlice(INetworkDefinition* net, ITensor& input, ITe
     auto* batch = net->addSlice(*input_shape->getOutput(0), batch_start, batch_size, batch_stride);
     auto* size_tail = addShapeConstant(net, {dim1, dim2}, storage);
     const std::array<ITensor*, 2> size_inputs = {batch->getOutput(0), size_tail};
-    auto* size = net->addConcatenation(size_inputs.data(), static_cast<int32_t>(size_inputs.size()));
+    auto* size = net->addConcatenation(size_inputs.data(), toI32(size_inputs.size()));
     size->setAxis(0);
 
     auto* start = addShapeConstant(net, {0, 0, 0}, storage);
@@ -275,7 +283,7 @@ static auto addBatchedConstantSlice(INetworkDefinition* net, ITensor& input, ITe
 }
 
 static auto addGeLU(INetworkDefinition* net, ITensor& input) -> ILayer* {
-#if TRT_VERSION < 10000
+#if TRT_VERSION_LT(10, 0, 0)
     // tanh approximation: 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
     const auto inputDims = input.getDimensions();
 
@@ -289,10 +297,11 @@ static auto addGeLU(INetworkDefinition* net, ITensor& input) -> ILayer* {
     static float _one = 1.0f;
     static float _sqrt_2_div_pi = std::sqrt(2.0f / M_PI);
     static float _coeff = 0.044715f;
-    auto* _w_half = net->addConstant(scalarDims, Weights{DataType::kFLOAT, &_half, 1});
-    auto* _w_one = net->addConstant(scalarDims, Weights{DataType::kFLOAT, &_one, 1});
-    auto* _w_sqrt_2_div_pi = net->addConstant(scalarDims, Weights{DataType::kFLOAT, &_sqrt_2_div_pi, 1});
-    auto* _w_coeff = net->addConstant(scalarDims, Weights{DataType::kFLOAT, &_coeff, 1});
+    auto* _w_half = net->addConstant(scalarDims, Weights{.type = DataType::kFLOAT, .values = &_half, .count = 1});
+    auto* _w_one = net->addConstant(scalarDims, Weights{.type = DataType::kFLOAT, .values = &_one, .count = 1});
+    auto* _w_sqrt_2_div_pi =
+            net->addConstant(scalarDims, Weights{.type = DataType::kFLOAT, .values = &_sqrt_2_div_pi, .count = 1});
+    auto* _w_coeff = net->addConstant(scalarDims, Weights{.type = DataType::kFLOAT, .values = &_coeff, .count = 1});
 
     auto* _x2 = net->addElementWise(input, input, E::kPROD);
     auto* x3_0 = net->addElementWise(*_x2->getOutput(0), input, E::kPROD);
@@ -312,7 +321,7 @@ static auto addGeLU(INetworkDefinition* net, ITensor& input) -> ILayer* {
 
 static auto addLinearNorm(INetworkDefinition* net, ITensor& input, ITensor& scale, ITensor& bias,
                           uint32_t axesMask) noexcept -> ILayer* {
-#if TRT_VERSION >= 11500
+#if TRT_VERSION_GE(10, 15, 0)
     auto* ln = net->addNormalizationV2(input, scale, bias, axesMask);
 #else
     auto* ln = net->addNormalization(input, scale, bias, axesMask);
@@ -378,12 +387,12 @@ auto ViTLayer(INetworkDefinition* net, WeightMap& w, ITensor& input, const ViTPa
     auto* qk_scale_w = net->addConstant(Dims4{1, 1, 1, 1}, w.at(attn_name + ".scale"));
 
     // 2.3 QKV attention output and reshape
-#if TRT_VERSION >= 11400 && TRT_VERSION < 11500
+#if TRT_VERSION_GE(10, 14, 0) && TRT_VERSION_LT(10, 15, 0)
     gLogger.log(Severity::kWARNING,
                 "IAttention is available in TensorRT 10.14.1 SDK but have bugs, use 10.15.1+ to enable native fused "
                 "kernel");
 #endif
-#if TRT_VERSION >= 11500
+#if TRT_VERSION_GE(10, 15, 0)
     using ANO = AttentionNormalizationOp;
     auto* q_scaled = net->addElementWise(*q_s->getOutput(0), *qk_scale_w->getOutput(0), E::kPROD)->getOutput(0);
     auto* attn = net->addAttention(*q_scaled, *k_s->getOutput(0), *v_s->getOutput(0), ANO::kSOFTMAX, false);
@@ -458,7 +467,7 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
 
     RepeatedWeightsStorage repeated_storage;
 
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
     auto* net = builder->createNetworkV2(1U << static_cast<uint32_t>(NDCF::kSTRONGLY_TYPED));
 #else
     auto* net = builder->createNetworkV2(1U << static_cast<int>(NDCF::kEXPLICIT_BATCH));
@@ -526,10 +535,10 @@ auto createEngine(const ViTConfig& cfg, IRuntime* runtime, IBuilder* builder, IB
     cls_1->getOutput(0)->setName(NAMES[1]);
     net->markOutput(*cls_1->getOutput(0));
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, WORKSPACE_SIZE);
     config->setBuilderOptimizationLevel(5);
-#if TRT_VERSION < 10000
+#if TRT_VERSION_LT(10, 0, 0)
     // Strongly-typed networks (TRT 10+) take their precision from the
     // tensor types declared on inputs/weights and reject BuilderFlag::kFP16.
     // Pre-TRT-10 networks are weakly typed, so explicitly request FP16
@@ -580,11 +589,11 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const vo
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
     std::vector<void*> buffers;
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
     auto allocator = CudaOutputAllocator::Create(stream);
 #endif
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     const int32_t nIO = engine.getNbIOTensors();
 #else
     const int32_t nIO = engine.getNbBindings();
@@ -597,7 +606,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const vo
         return i == 0 ? in_per_sample : out_per_sample;
     };
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     if (engine.getTensorShape(NAMES[0]).d[0] == -1) {
         Dims in_dims{.nbDims = 4, .d = {static_cast<int64_t>(batchSize), 3, cfg.img_size, cfg.img_size}};
         if (!context.setInputShape(NAMES[0], in_dims)) {
@@ -610,11 +619,11 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const vo
     buffers.resize(nIO, nullptr);
     for (auto i = 0; i < nIO; ++i) {
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         auto* tensor_name = engine.getIOTensorName(i);
         const auto dtype = engine.getTensorDataType(tensor_name);
         std::size_t size = batchSize * sizeOf(i) * bytesPerElement(dtype);
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
         if (engine.getTensorIOMode(tensor_name) == TensorIOMode::kINPUT) {
             CHECK(cudaMalloc(&buffers[i], size));
             CHECK(cudaMemcpyAsync(buffers[i], input, size, cudaMemcpyHostToDevice, stream));
@@ -648,7 +657,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const vo
 #endif
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     if (!context.enqueueV3(stream)) {
         std::cerr << "enqueueV3 failed\n";
         std::abort();
@@ -662,14 +671,14 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const vo
 
     std::vector<std::vector<float>> prob;
     for (int i = 0; i < nIO; ++i) {
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         auto* tensor_name = engine.getIOTensorName(i);
         if (engine.getTensorIOMode(tensor_name) != TensorIOMode::kOUTPUT)
             continue;
         const auto dtype = engine.getTensorDataType(tensor_name);
         std::size_t count = batchSize * out_per_sample;
         std::size_t size = count * bytesPerElement(dtype);
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
         void* out_ptr = allocator->getBuffer(tensor_name);
 #else
         void* out_ptr = buffers[i];
@@ -703,7 +712,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const vo
             CHECK(cudaFree(buffer));
         }
     }
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
     allocator.reset();
 #endif
     CHECK(cudaStreamDestroy(stream));
@@ -719,7 +728,7 @@ void APIToModel(const ViTConfig& cfg, IRuntime* runtime, IHostMemory** modelStre
 
     (*modelStream) = engine->serialize();
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     delete engine;
     delete config;
     delete builder;
@@ -798,10 +807,11 @@ static std::vector<std::string> collectImages(const std::string& path) {
 
 auto main(int argc, char** argv) -> int {
     std::cout << "TensorRT version: " << TRT_VERSION << "\n";
-    if (argc < 2 || (std::string(argv[1]) == "-s" && argc != 5) || (std::string(argv[1]) == "-d" && argc != 4)) {
+    if (argc < 2 || (std::string(argv[1]) == "-s" && argc != 5) ||
+        (std::string(argv[1]) == "-d" && argc != 4 && argc != 5)) {
         std::cerr << "usage:\n"
                   << "  ./vit -s <wts_path> <engine_path> <model_type>\n"
-                  << "  ./vit -d <engine_path> <image_dir>\n"
+                  << "  ./vit -d <engine_path> <image_dir> [--profile]\n"
                   << "  model_type: ViT-B/16 | ViT-B/32 | ViT-L/16 | ViT-L/32 | ViT-H/14\n"
                   << "              (aliases: b16, b32, l16, l32, h14 also accepted)\n"
                   << "  build precision is configured in code via BUILD_PRECISION (see top of vit.cc).\n";
@@ -840,7 +850,7 @@ auto main(int argc, char** argv) -> int {
         const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
         auto data_size = static_cast<std::streamsize>(modelStream->size());
         p.write(data_ptr, data_size);
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         delete modelStream;
 #else
         modelStream->destroy();
@@ -849,6 +859,14 @@ auto main(int argc, char** argv) -> int {
     } else if (mode == "-d") {
         std::string engine_path = argv[2];
         std::string image_dir = argv[3];
+        bool enable_profile = false;
+        if (argc == 5) {
+            if (std::string(argv[4]) != "--profile") {
+                std::cerr << "unknown option: " << argv[4] << "\n";
+                return 1;
+            }
+            enable_profile = true;
+        }
 
         std::ifstream file(engine_path, std::ios::binary);
         if (!file.good()) {
@@ -866,14 +884,20 @@ auto main(int argc, char** argv) -> int {
         file.read(trtModelStream.data(), size);
         file.close();
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream.data(), size);
 #else
         ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream.data(), size, nullptr);
 #endif
         assert(engine != nullptr);
+        trtModelStream.clear();
+        trtModelStream.shrink_to_fit();
         auto* context = engine->createExecutionContext();
         assert(context != nullptr);
+        Profiler profiler("VisionTransformerProfiler");
+        if (enable_profile) {
+            context->setProfiler(&profiler);
+        }
 
         ViTConfig cfg = configFromEngine(*engine);
         std::cout << "[engine] img=" << cfg.img_size << " classes=" << cfg.num_classes
@@ -896,8 +920,7 @@ auto main(int argc, char** argv) -> int {
                 std::cerr << "cannot read image: " << images[i] << "\n";
                 return -1;
             }
-            auto one = preprocess_img(img, false, mean, stdv, 1, static_cast<int32_t>(cfg.img_size),
-                                      static_cast<int32_t>(cfg.img_size));
+            auto one = preprocess_img(img, false, mean, stdv, 1, toI32(cfg.img_size), toI32(cfg.img_size));
             input_buf.insert(input_buf.end(), one.begin(), one.end());
         }
 
@@ -918,36 +941,39 @@ auto main(int argc, char** argv) -> int {
             return -1;
         }
 
-        Profiler profiler("VisionTransformerProfiler");
-
         for (int i = 0; i < 5; ++i) {
             (void)doInference(*context, input_ptr, infer_batch, cfg);
         }
 
-        context->setProfiler(&profiler);
-        for (int i = 0; i < 20; ++i) {
-            auto start = std::chrono::system_clock::now();
-            auto prob = doInference(*context, input_ptr, infer_batch, cfg);
-            auto end = std::chrono::system_clock::now();
-            auto period = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-            std::cout << period.count() << "us\n";
-
-            if (i == 19) {
-                auto labels = (cfg.num_classes == 1000) ? loadLabels() : std::map<int, std::string>{};
-                for (int64_t b = 0; b < infer_batch; ++b) {
-                    std::cout << "[sample " << b << "] " << images[b] << "\n";
-                    int _top = 0;
-                    std::vector<float> sample(prob[0].begin() + b * cfg.num_classes,
-                                              prob[0].begin() + (b + 1) * cfg.num_classes);
-                    for (auto& [idx, logits] : topk(sample, 3)) {
-                        std::cout << "  Top: " << _top++ << " idx: " << idx << ", logits: " << logits;
-                        if (!labels.empty())
-                            std::cout << ", label: " << labels[idx];
-                        std::cout << "\n";
-                    }
+        auto firstProb = doInference(*context, input_ptr, infer_batch, cfg);
+        auto labels = (cfg.num_classes == 1000) ? loadLabels() : std::map<int, std::string>{};
+        for (int64_t b = 0; b < infer_batch; ++b) {
+            std::cout << "[sample " << b << "] " << images[b] << "\n";
+            std::vector<float> sample(firstProb[0].begin() + b * cfg.num_classes,
+                                      firstProb[0].begin() + (b + 1) * cfg.num_classes);
+            printFirstOutputs("vit", sample.data(), sample.size());
+            int _top = 0;
+            for (auto& [idx, logits] : topk(sample, 3)) {
+                std::cout << "  Top: " << _top++ << " idx: " << idx << ", logits: " << logits;
+                if (!labels.empty()) {
+                    std::cout << ", label: " << labels[idx];
                 }
-                std::cout << profiler << "\n";
+                std::cout << "\n";
             }
+        }
+
+        std::vector<double> latencies;
+        latencies.reserve(kBenchmarkRuns);
+        for (int i = 0; i < kBenchmarkRuns; ++i) {
+            auto start = std::chrono::steady_clock::now();
+            (void)doInference(*context, input_ptr, infer_batch, cfg);
+            auto end = std::chrono::steady_clock::now();
+            auto period = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            latencies.push_back(static_cast<double>(period.count()) / 1000.0);
+        }
+        printBenchmark("vit", latencies, infer_batch);
+        if (enable_profile) {
+            std::cout << profiler;
         }
         return 0;
     }
