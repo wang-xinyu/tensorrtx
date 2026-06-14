@@ -1,11 +1,17 @@
 #pragma once
 #include <cuda_runtime_api.h>
+#include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <map>
+#include <numeric>
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include "macros.h"
 
 using namespace nvinfer1;
@@ -22,7 +28,7 @@ constexpr const std::size_t WORKSPACE_SIZE = 16 << 20;
     } while (0)
 
 static void checkTrtEnv(int device = 0) {
-#if TRT_VERSION < 8000
+#if TRT_VERSION_LT(8, 0, 0)
     CHECK(cudaGetDevice(&device));
     cudaDeviceProp prop{};
     CHECK(cudaGetDeviceProperties(&prop, device));
@@ -76,7 +82,7 @@ static auto loadWeights(const std::string& file) {
 
 static size_t getSize(DataType dt) {
     switch (dt) {
-#if TRT_VERSION >= 8510
+#if TRT_VERSION_GE(8, 5, 1)
         case DataType::kUINT8:
 #endif
         case DataType::kINT8:
@@ -92,4 +98,42 @@ static size_t getSize(DataType dt) {
             std::abort();
         }
     }
+}
+
+static constexpr int32_t kBenchmarkRuns = 200;
+static constexpr std::size_t kMaxFirstOutputs = 10;
+
+inline auto percentile(const std::vector<double>& sorted, double percent) -> double {
+    assert(!sorted.empty());
+    const double rank = percent / 100.0 * static_cast<double>(sorted.size() - 1);
+    const auto lower = static_cast<std::size_t>(rank);
+    const auto upper = std::min<std::size_t>(lower + 1, sorted.size() - 1);
+    if (lower == upper) {
+        return sorted[lower];
+    }
+    const double weight = rank - static_cast<double>(lower);
+    return sorted[lower] * (1.0 - weight) + sorted[upper] * weight;
+}
+
+inline void printBenchmark(const std::string& tag, const std::vector<double>& latenciesMs, int64_t batchSize = 1) {
+    assert(!latenciesMs.empty());
+    auto sorted = latenciesMs;
+    std::sort(sorted.begin(), sorted.end());
+    const double avg =
+            std::accumulate(latenciesMs.begin(), latenciesMs.end(), 0.0) / static_cast<double>(latenciesMs.size());
+    std::cout << "[" << tag << "] benchmark_runs=" << latenciesMs.size() << " batch=" << batchSize << " AVG=" << avg
+              << "ms P50=" << percentile(sorted, 50.0) << "ms P90=" << percentile(sorted, 90.0)
+              << "ms P95=" << percentile(sorted, 95.0) << "ms P99=" << percentile(sorted, 99.0) << "ms\n";
+}
+
+inline void printFirstOutputs(const std::string& tag, const float* values, std::size_t count) {
+    const auto limit = std::min(count, kMaxFirstOutputs);
+    std::cout << "[" << tag << "] first_outputs=";
+    for (std::size_t i = 0; i < limit; ++i) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << std::setprecision(4) << values[i];
+    }
+    std::cout << '\n';
 }

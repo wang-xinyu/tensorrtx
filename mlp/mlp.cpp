@@ -4,6 +4,7 @@
 #include <iostream>
 #include <numeric>
 #include <vector>
+
 #include "logging.h"
 #include "utils.h"
 
@@ -35,7 +36,7 @@ ICudaEngine* createMLPEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IB
     std::map<std::string, Weights> weightMap = loadWeights(WTS_PATH);
 
     // Create an empty network
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
     auto* network = builder->createNetworkV2(0);
 #else
     auto* network = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
@@ -62,7 +63,7 @@ ICudaEngine* createMLPEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IB
     // mark the output
     network->markOutput(*output);
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     IHostMemory* serialized_mem = builder->buildSerializedNetwork(*network, *config);
     ICudaEngine* engine = runtime->deserializeCudaEngine(serialized_mem->data(), serialized_mem->size());
     delete network;
@@ -101,7 +102,7 @@ void APIToModel(int32_t maxBatchSize, IRuntime* runtime, IHostMemory** modelStre
     // serialize the engine into binary stream
     (*modelStream) = engine->serialize();
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     delete engine;
     delete config;
     delete builder;
@@ -124,7 +125,7 @@ void doInference(IExecutionContext& ctx, void* input, float* output, int64_t bat
     // Get engine from the ctx
     const ICudaEngine& engine = ctx.getEngine();
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     int32_t nIO = engine.getNbIOTensors();
     const int inputIndex = 0;
     const int outputIndex = engine.getNbIOTensors() - 1;
@@ -143,7 +144,7 @@ void doInference(IExecutionContext& ctx, void* input, float* output, int64_t bat
     std::vector<void*> buffers(nIO, nullptr);
     size_t inputSize = 0;
     size_t outputSize = batchSize * OUTPUT_SIZE * sizeof(float);
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     auto* input_name = engine.getIOTensorName(inputIndex);
     inputSize = batchSize * INPUT_SIZE * getSize(engine.getTensorDataType(input_name));
 #else
@@ -154,12 +155,9 @@ void doInference(IExecutionContext& ctx, void* input, float* output, int64_t bat
     CHECK(cudaMemcpyAsync(buffers[inputIndex], input, inputSize, cudaMemcpyHostToDevice, stream));
 
     // execute inference using ctx provided by engine
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     for (int32_t i = 0; i < engine.getNbIOTensors(); i++) {
         auto const name = engine.getIOTensorName(i);
-        auto dims = ctx.getTensorShape(name);
-        auto total = std::accumulate(dims.d, dims.d + dims.nbDims, 1ll, std::multiplies<>());
-        std::cout << name << "\t" << total << "\n";
         if (!ctx.setTensorAddress(name, buffers[i])) {
             std::cerr << "setTensorAddress failed\n";
             std::abort();
@@ -216,7 +214,7 @@ int main(int argc, char** argv) {
         auto data_size = static_cast<std::streamsize>(modelStream->size());
         p.write(data_ptr, data_size);
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         delete modelStream;
 #else
         modelStream->destroy();
@@ -237,7 +235,7 @@ int main(int argc, char** argv) {
         }
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
 #else
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
@@ -251,16 +249,21 @@ int main(int argc, char** argv) {
     std::array<float, 1> output = {-1.f};
     std::array<float, 1> input = {12.0f};
 
-    for (int i = 0; i < 100; i++) {
-        auto start = std::chrono::high_resolution_clock::now();
-        doInference(*ctx, input.data(), output.data());
-        auto end = std::chrono::high_resolution_clock::now();
-        auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-        std::cout << "Execution time: " << time << "us\n"
-                  << "output: " << output[0] << "\n";
-    }
+    doInference(*ctx, input.data(), output.data());
+    printFirstOutputs("mlp", output.data(), output.size());
 
-#if TRT_VERSION >= 8000
+    std::vector<double> latencies;
+    latencies.reserve(kBenchmarkRuns);
+    for (int i = 0; i < kBenchmarkRuns; i++) {
+        auto start = std::chrono::steady_clock::now();
+        doInference(*ctx, input.data(), output.data());
+        auto end = std::chrono::steady_clock::now();
+        auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        latencies.push_back(static_cast<double>(time) / 1000.0);
+    }
+    printBenchmark("mlp", latencies);
+
+#if TRT_VERSION_GE(8, 0, 0)
     delete ctx;
     delete engine;
     delete runtime;

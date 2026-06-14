@@ -18,7 +18,7 @@ constexpr const std::array<const char*, 2> NAMES = {"data", "prob"};
 constexpr const char* ENGINE_PATH = "../models/alexnet.engine";
 constexpr const char* WTS_PATH = "../models/alexnet.wts";
 constexpr const char* LABELS_PATH = "../assets/imagenet1000_clsidx_to_labels.txt";
-static constexpr const bool TRT_PREPROCESS = TRT_VERSION >= 8510 ? true : false;
+static constexpr const bool TRT_PREPROCESS = TRT_VERSION_GE(8, 5, 1) ? true : false;
 static constexpr const std::array<const float, 3> mean = {0.485f, 0.456f, 0.406f};
 static constexpr const std::array<const float, 3> stdv = {0.229f, 0.224f, 0.225f};
 
@@ -41,9 +41,9 @@ static Logger gLogger;
 ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuilderConfig* config, DataType dt) {
     WeightMap weightMap = loadWeights(WTS_PATH);
 
-#if TRT_VERSION >= 11200
+#if TRT_VERSION_GE(10, 12, 0)
     auto flag = 1U << static_cast<int>(NDCF::kSTRONGLY_TYPED);
-#elif TRT_VERSION >= 10000
+#elif TRT_VERSION_GE(10, 0, 0)
     auto flag = 0U;
 #else
     auto flag = 1U << static_cast<int>(NDCF::kEXPLICIT_BATCH);
@@ -142,7 +142,7 @@ ICudaEngine* createEngine(int32_t N, IRuntime* runtime, IBuilder* builder, IBuil
     network->markOutput(*fc3_1->getOutput(0));
 
     // Build engine
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, WORKSPACE_SIZE);
     auto* host_mem = builder->buildSerializedNetwork(*network, *config);
     auto* engine = runtime->deserializeCudaEngine(host_mem->data(), host_mem->size());
@@ -175,7 +175,7 @@ void APIToModel(int32_t N, IRuntime* runtime, IHostMemory** modelStream) {
     (*modelStream) = engine->serialize();
 
     // Close everything down
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     delete engine;
     delete config;
     delete builder;
@@ -208,7 +208,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const st
     CHECK(cudaStreamCreate(&stream));
     std::vector<void*> buffers;
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     const int32_t nIO = engine.getNbIOTensors();
 #else
     const int32_t nIO = engine.getNbBindings();
@@ -216,7 +216,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const st
 
     buffers.resize(nIO);
     for (auto i = 0; i < nIO; ++i) {
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         auto* tensor_name = engine.getIOTensorName(i);
         auto s = getSize(engine.getTensorDataType(tensor_name));
         std::size_t size = s * batchSize * SIZES[i];
@@ -237,7 +237,7 @@ std::vector<std::vector<float>> doInference(IExecutionContext& context, const st
         }
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     if (!context.enqueueV3(stream)) {
         std::cerr << "enqueueV3 failed\n";
         std::abort();
@@ -299,7 +299,7 @@ int main(int argc, char** argv) {
         auto data_size = static_cast<std::streamsize>(modelStream->size());
         p.write(data_ptr, data_size);
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         delete modelStream;
 #else
         modelStream->destroy();
@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
 #else
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
@@ -331,36 +331,28 @@ int main(int argc, char** argv) {
     assert(context != nullptr);
 
     const std::string img_path = "../assets/cats.jpg";
-    for (int32_t i = 0; i < 100; ++i) {
-        auto _start = std::chrono::system_clock::now();
-        auto prob = doInference(*context, img_path, N);
-        auto _end = std::chrono::system_clock::now();
-        auto _time = std::chrono::duration_cast<std::chrono::milliseconds>(_end - _start).count();
-        std::cout << "Execution time: " << _time << "ms\n";
-
-        for (const auto& vector : prob) {
-            int idx = 0;
-            for (auto v : vector) {
-                std::cout << std::setprecision(4) << v << ", " << std::flush;
-                if (++idx > 20) {
-                    std::cout << "\n====\n";
-                    break;
-                }
-            }
-        }
-
-        if (i == 99) {
-            std::cout << "prediction result:\n";
-            auto labels = loadImagenetLabelMap(LABELS_PATH);
-            int _top = 0;
-            for (auto& [idx, logits] : topk(prob[0], 3)) {
-                std::cout << "Top: " << _top++ << " idx: " << idx << ", logits: " << logits
-                          << ", label: " << labels[idx] << "\n";
-            }
-        }
+    auto firstProb = doInference(*context, img_path, N);
+    printFirstOutputs("alexnet", firstProb[0].data(), firstProb[0].size());
+    std::cout << "prediction result:\n";
+    auto labels = loadImagenetLabelMap(LABELS_PATH);
+    int _top = 0;
+    for (auto& [idx, logits] : topk(firstProb[0], 3)) {
+        std::cout << "Top: " << _top++ << " idx: " << idx << ", logits: " << logits << ", label: " << labels[idx]
+                  << "\n";
     }
 
-#if TRT_VERSION >= 8000
+    std::vector<double> latencies;
+    latencies.reserve(kBenchmarkRuns);
+    for (int32_t i = 0; i < kBenchmarkRuns; ++i) {
+        auto _start = std::chrono::steady_clock::now();
+        (void)doInference(*context, img_path, N);
+        auto _end = std::chrono::steady_clock::now();
+        auto _time = std::chrono::duration_cast<std::chrono::microseconds>(_end - _start).count();
+        latencies.push_back(static_cast<double>(_time) / 1000.0);
+    }
+    printBenchmark("alexnet", latencies, N);
+
+#if TRT_VERSION_GE(8, 0, 0)
     delete context;
     delete engine;
     delete runtime;

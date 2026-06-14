@@ -73,8 +73,11 @@ if(WIN32)
   endif()
 
   if(${TRT_MAJOR_VERSION} GREATER_EQUAL 10)
-    set(_modules nvinfer_10 nvinfer_plugin_10 nvinfer_vc_plugin_10
-                 nvinfer_dispatch_10 nvinfer_lean_10)
+    set(_trt_lib_suffix "_${TRT_MAJOR_VERSION}")
+    set(_modules nvinfer${_trt_lib_suffix} nvinfer_plugin${_trt_lib_suffix}
+                 nvinfer_vc_plugin${_trt_lib_suffix}
+                 nvinfer_dispatch${_trt_lib_suffix}
+                 nvinfer_lean${_trt_lib_suffix})
     message(DEBUG "Using ${_modules}")
   else()
     set(_modules nvinfer nvinfer_plugin nvinfer_vc_plugin nvinfer_dispatch
@@ -140,6 +143,7 @@ set_target_properties(
 
 unset(TRT_MAJOR_VERSION)
 unset(_modules)
+unset(_trt_lib_suffix)
 unset(_trt_include_candidates)
 unset(_trt_library_candidates)
 unset(_trt_arch)

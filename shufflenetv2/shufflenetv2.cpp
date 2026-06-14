@@ -14,6 +14,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+
 #include "logging.h"
 #include "utils.h"
 
@@ -31,7 +32,7 @@ static constexpr const int32_t INPUT_H = 224;
 static constexpr const int32_t INPUT_W = 224;
 static constexpr const std::array<int32_t, 2> SIZES = {3 * INPUT_H * INPUT_W, 1000};
 static constexpr const std::array<const char*, 2> NAMES = {"data", "logits"};
-static constexpr const bool TRT_PREPROCESS = TRT_VERSION >= 8510;
+static constexpr const bool TRT_PREPROCESS = TRT_VERSION_GE(8, 5, 1);
 static constexpr const std::array<const float, 3> mean = {0.485f, 0.456f, 0.406f};
 static constexpr const std::array<const float, 3> stdv = {0.229f, 0.224f, 0.225f};
 static constexpr const char* LABELS_PATH = "assets/imagenet1000_clsidx_to_labels.txt";
@@ -158,7 +159,7 @@ static auto addInvertedResidual(INetworkDefinition* network, WeightMap& weight_m
                             1, true, 5);
 
     std::array<ITensor*, 2> cat_tensors = {branch1_output, branch2->getOutput(0)};
-    auto* cat = network->addConcatenation(cat_tensors.data(), static_cast<int32_t>(cat_tensors.size()));
+    auto* cat = network->addConcatenation(cat_tensors.data(), toI32(cat_tensors.size()));
     assert(cat);
     cat->setName((lname + ".cat").c_str());
     cat->setAxis(1);
@@ -181,9 +182,9 @@ static auto createEngine(int32_t batch_size, IRuntime* runtime, IBuilder* builde
                          const ShuffleNetV2Variant& variant) -> ICudaEngine* {
     WeightMap weight_map = loadWeights(variant.wts_path);
 
-#if TRT_VERSION >= 11200
+#if TRT_VERSION_GE(10, 12, 0)
     auto flag = 1U << static_cast<int>(NDCF::kSTRONGLY_TYPED);
-#elif TRT_VERSION >= 10000
+#elif TRT_VERSION_GE(10, 0, 0)
     auto flag = 0U;
 #else
     auto flag = 1U << static_cast<int>(NDCF::kEXPLICIT_BATCH);
@@ -235,7 +236,7 @@ static auto createEngine(int32_t batch_size, IRuntime* runtime, IBuilder* builde
     fc->getOutput(0)->setName(NAMES[1]);
     network->markOutput(*fc->getOutput(0));
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, WORKSPACE_SIZE);
     IHostMemory* mem = builder->buildSerializedNetwork(*network, *config);
     assert(mem);
@@ -265,7 +266,7 @@ static void APIToModel(int32_t batch_size, IRuntime* runtime, IHostMemory** mode
 
     (*model_stream) = engine->serialize();
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     delete engine;
     delete config;
     delete builder;
@@ -283,7 +284,7 @@ static auto doInference(IExecutionContext& context, void* input,
     CHECK(cudaStreamCreate(&stream));
     std::vector<void*> buffers;
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     const int32_t nIO = engine.getNbIOTensors();
 #else
     const int32_t nIO = engine.getNbBindings();
@@ -292,7 +293,7 @@ static auto doInference(IExecutionContext& context, void* input,
     buffers.resize(nIO);
     for (auto i = 0; i < nIO; ++i) {
         std::size_t size = 0;
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         auto* tensor_name = engine.getIOTensorName(i);
         const std::string name = tensor_name;
         auto element_size = getSize(engine.getTensorDataType(tensor_name));
@@ -317,7 +318,7 @@ static auto doInference(IExecutionContext& context, void* input,
 #endif
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     if (!context.enqueueV3(stream)) {
         std::cerr << "enqueueV3 failed\n";
         std::abort();
@@ -331,7 +332,7 @@ static auto doInference(IExecutionContext& context, void* input,
 
     std::vector<std::vector<float>> prob;
     for (int i = 0; i < nIO; ++i) {
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         const std::string name = engine.getIOTensorName(i);
         if (name == NAMES[0]) {
             continue;
@@ -391,7 +392,7 @@ auto main(int argc, char** argv) -> int {
         const auto* data_ptr = reinterpret_cast<const char*>(model_stream->data());
         const auto data_size = static_cast<std::streamsize>(model_stream->size());
         plan.write(data_ptr, data_size);
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         delete model_stream;
         delete runtime;
 #else
@@ -415,7 +416,7 @@ auto main(int argc, char** argv) -> int {
         return -1;
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     ICudaEngine* engine = runtime->deserializeCudaEngine(trt_model_stream, size);
 #else
     ICudaEngine* engine = runtime->deserializeCudaEngine(trt_model_stream, size, nullptr);
@@ -436,28 +437,31 @@ auto main(int argc, char** argv) -> int {
         input = flat_img.data();
     }
 
-    for (int i = 0; i < 100; ++i) {
-        auto start = std::chrono::system_clock::now();
-        auto prob = doInference(*context, input, N);
-        auto end = std::chrono::system_clock::now();
-        auto period = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-        std::cout << period.count() << "us\n";
-
-        if (i == 99) {
-            std::cout << "prediction result:\n";
-            auto labels = loadImagenetLabelMap(LABELS_PATH);
-            if (labels.empty()) {
-                std::cerr << "failed to load labels from " << LABELS_PATH << "\n";
-                std::abort();
-            }
-            int top = 0;
-            for (auto& [idx, logits] : topk(prob[0], 3)) {
-                std::cout << "Top: " << top++ << " idx: " << idx << ", logits: " << std::setprecision(4) << logits
-                          << ", label: " << labels[idx] << "\n";
-            }
-        }
+    auto firstProb = doInference(*context, input, N);
+    printFirstOutputs("shufflenetv2", firstProb[0].data(), firstProb[0].size());
+    std::cout << "prediction result:\n";
+    auto labels = loadImagenetLabelMap(LABELS_PATH);
+    if (labels.empty()) {
+        std::cerr << "failed to load labels from " << LABELS_PATH << "\n";
+        std::abort();
     }
-#if TRT_VERSION >= 8000
+    int top = 0;
+    for (auto& [idx, logits] : topk(firstProb[0], 3)) {
+        std::cout << "Top: " << top++ << " idx: " << idx << ", logits: " << std::setprecision(4) << logits
+                  << ", label: " << labels[idx] << "\n";
+    }
+
+    std::vector<double> latencies;
+    latencies.reserve(kBenchmarkRuns);
+    for (int i = 0; i < kBenchmarkRuns; ++i) {
+        auto start = std::chrono::steady_clock::now();
+        (void)doInference(*context, input, N);
+        auto end = std::chrono::steady_clock::now();
+        auto period = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        latencies.push_back(static_cast<double>(period.count()) / 1000.0);
+    }
+    printBenchmark("shufflenetv2", latencies, N);
+#if TRT_VERSION_GE(8, 0, 0)
     delete context;
     delete engine;
     delete runtime;
