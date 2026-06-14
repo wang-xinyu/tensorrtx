@@ -13,6 +13,7 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <variant>
+
 #include "NvInfer.h"
 #include "utils.h"
 
@@ -120,7 +121,7 @@ auto createEngine(int32_t maxBatchSize, IRuntime* runtime, IBuilder* builder, IB
                   DataType dt) -> ICudaEngine* {
     WeightMap w = loadWeights(WTS_PATH);
 
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
     auto* network = builder->createNetworkV2(0);
 #else
     auto* network = builder->createNetworkV2(1u << static_cast<int>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH));
@@ -145,7 +146,7 @@ auto createEngine(int32_t maxBatchSize, IRuntime* runtime, IBuilder* builder, IB
     profile->setDimensions(NAMES[0], O::kMAX, Dims4(maxBatchSize, 3, MAX_INPUT_SIZE, MAX_INPUT_SIZE));
     config->addOptimizationProfile(profile);
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     config->setMemoryPoolLimit(MemoryPoolType::kWORKSPACE, WORKSPACE_SIZE);
     auto* serialized = builder->buildSerializedNetwork(*network, *config);
     auto* engine = runtime->deserializeCudaEngine(serialized->data(), serialized->size());
@@ -175,7 +176,7 @@ void APIToModel(int32_t batch_size, IRuntime* runtime, IHostMemory** model_strea
 
     (*model_stream) = engine->serialize();
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     delete engine;
     delete config;
     delete builder;
@@ -192,7 +193,7 @@ std::vector<DummyTensor> doInference(IExecutionContext& context, void* input, in
     CHECK(cudaStreamCreate(&stream));
     std::vector<void*> buffers;
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     const int32_t nIO = engine.getNbIOTensors();
 #else
     const int32_t nIO = engine.getNbBindings();
@@ -203,7 +204,7 @@ std::vector<DummyTensor> doInference(IExecutionContext& context, void* input, in
     std::size_t out_size;
     context.setOptimizationProfileAsync(0, stream);
     for (auto i = 0; i < nIO; ++i) {
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         const auto* tensor_name = engine.getIOTensorName(i);
         auto s = getSize(engine.getTensorDataType(tensor_name));
         if (i == 0) {
@@ -220,7 +221,7 @@ std::vector<DummyTensor> doInference(IExecutionContext& context, void* input, in
             out_shape = context.getTensorShape(tensor_name);
             out_size = std::accumulate(out_shape.d, out_shape.d + out_shape.nbDims, 1ULL, std::multiplies<>());
             CHECK(cudaMalloc(&buffers[i], s * out_size));
-#if TRT_VERSION >= 10000
+#if TRT_VERSION_GE(10, 0, 0)
             if (!context.setOutputTensorAddress(tensor_name, buffers[i])) {
                 std::cerr << "setOutputTensorAddress failed\n";
                 std::abort();
@@ -250,7 +251,7 @@ std::vector<DummyTensor> doInference(IExecutionContext& context, void* input, in
 #endif
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     if (!context.enqueueV3(stream)) {
         std::cerr << "enqueueV3 failed\n";
         std::abort();
@@ -307,7 +308,7 @@ static auto mainImpl(int argc, char** argv) -> int {
         const auto* data_ptr = reinterpret_cast<const char*>(modelStream->data());
         auto data_size = static_cast<std::streamsize>(modelStream->size());
         p.write(data_ptr, data_size);
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
         delete modelStream;
 #else
         modelStream->destroy();
@@ -329,7 +330,7 @@ static auto mainImpl(int argc, char** argv) -> int {
         return -1;
     }
 
-#if TRT_VERSION >= 8000
+#if TRT_VERSION_GE(8, 0, 0)
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
 #else
     ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size, nullptr);
@@ -358,38 +359,34 @@ static auto mainImpl(int argc, char** argv) -> int {
         }
     }
 
-    // run inference
-    for (int32_t i = 0; i < 100; ++i) {
-        auto _start = std::chrono::system_clock::now();
-        auto output = doInference(*context, data.data(), 1);
-        auto _end = std::chrono::system_clock::now();
+    auto output = doInference(*context, data.data(), 1);
+    const auto* data_ptr = reinterpret_cast<const float*>(output[0].data);
+
+    DummyTensor& t = output[0];
+    const auto out_h = t.dims.d[2];
+    const auto out_w = t.dims.d[3];
+    auto stride = static_cast<std::ptrdiff_t>(out_h) * out_w;
+    printFirstOutputs("csrnet", data_ptr, static_cast<std::size_t>(stride));
+    float num = std::accumulate(data_ptr, data_ptr + stride, 0.0f);
+    cv::Mat density((int)out_h, (int)out_w, CV_32FC1, t.data);
+    cv::Mat scaled, heatmap, save;
+    cv::normalize(density, scaled, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    cv::applyColorMap(scaled, heatmap, cv::COLORMAP_JET);
+    cv::resize(heatmap, heatmap, img.size(), 0., 0., cv::INTER_LINEAR);
+    cv::addWeighted(img, 0.7, heatmap, 0.3, 0, save);
+    cv::imwrite("../assets/csrnet_output_tensorrt.jpg", save);
+    std::cout << "approximate people num: " << std::ceil(num) << "\nsave to ../assets/csrnet_output_tensorrt.jpg\n";
+
+    std::vector<double> latencies;
+    latencies.reserve(kBenchmarkRuns);
+    for (int32_t i = 0; i < kBenchmarkRuns; ++i) {
+        auto _start = std::chrono::steady_clock::now();
+        (void)doInference(*context, data.data(), 1);
+        auto _end = std::chrono::steady_clock::now();
         auto _time = std::chrono::duration_cast<std::chrono::microseconds>(_end - _start).count();
-        std::cout << "Execution time: " << _time << "us\n";
-
-        const auto* data_ptr = reinterpret_cast<const float*>(output[0].data);
-        for (int j = 0; j < 10; ++j) {
-            std::cout << data_ptr[j] << " " << std::flush;
-        }
-        std::cout << "\n====\n";
-
-        if (i == 99) {
-            // write output to jpg
-            DummyTensor& t = output[0];
-            const auto out_h = t.dims.d[2];
-            const auto out_w = t.dims.d[3];
-            auto stride = static_cast<std::ptrdiff_t>(out_h) * out_w;
-            float num = std::accumulate(data_ptr, data_ptr + stride, 0.0f);
-            cv::Mat density((int)out_h, (int)out_w, CV_32FC1, t.data);
-            cv::Mat scaled, heatmap, save;
-            cv::normalize(density, scaled, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-            cv::applyColorMap(scaled, heatmap, cv::COLORMAP_JET);
-            cv::resize(heatmap, heatmap, img.size(), 0., 0., cv::INTER_LINEAR);
-            cv::addWeighted(img, 0.7, heatmap, 0.3, 0, save);
-            cv::imwrite("../assets/csrnet_output_tensorrt.jpg", save);
-            std::cout << "approximate people num: " << std::ceil(num)
-                      << "\nsave to ../assets/csrnet_output_tensorrt.jpg\n";
-        }
+        latencies.push_back(static_cast<double>(_time) / 1000.0);
     }
+    printBenchmark("csrnet", latencies);
 
     return 0;
 }

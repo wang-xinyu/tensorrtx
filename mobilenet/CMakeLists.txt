@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(
-  resnet
+  mobilenet
   VERSION 0.1
   LANGUAGES C CXX CUDA)
 
@@ -31,12 +31,11 @@ find_package(OpenCV REQUIRED)
 
 if(NOT TARGET TensorRT::TensorRT)
   include(FindTensorRT.cmake)
-else()
-  message("TensorRT has been found, skipping for ${PROJECT_NAME}")
 endif()
 
 add_executable(${PROJECT_NAME} ${PROJECT_NAME}.cpp)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR} ${OpenCV_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads CUDA::cudart TensorRT::TensorRT ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads CUDA::cudart
+                                             TensorRT::TensorRT ${OpenCV_LIBS})

@@ -1,0 +1,311 @@
+#pragma once
+#include <cuda_runtime_api.h>
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <numeric>
+#include <opencv2/opencv.hpp>
+#include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
+#include "macros.h"
+
+using namespace nvinfer1;
+
+#define CHECK(status)                                     \
+    do {                                                  \
+        auto ret = (status);                              \
+        if (ret != cudaSuccess) {                         \
+            std::cerr << "Cuda failure: " << ret << "\n"; \
+            std::abort();                                 \
+        }                                                 \
+    } while (0)
+
+static void checkTrtEnv(int device = 0) {
+#if TRT_VERSION_LT(8, 0, 0)
+    CHECK(cudaGetDevice(&device));
+    cudaDeviceProp prop{};
+    CHECK(cudaGetDeviceProperties(&prop, device));
+    const int sm = prop.major * 10 + prop.minor;
+    if (sm > 86) {
+        std::cerr << "TensorRT < 8 does not support SM > 86 on this GPU.";
+        std::abort();
+    }
+#endif
+}
+
+template <typename T>
+static auto toI32(T value) -> int32_t {
+    static_assert(std::is_integral<T>::value, "toI32 requires an integral type.");
+    static_assert(sizeof(T) > sizeof(int32_t), "toI32 is only for values wider than int32_t.");
+    if constexpr (std::is_signed<T>::value) {
+        assert(value >= static_cast<T>(std::numeric_limits<int32_t>::min()));
+    }
+    assert(value <= static_cast<T>(std::numeric_limits<int32_t>::max()));
+    return static_cast<int32_t>(value);
+}
+
+/**
+ * @brief TensorRT weight files have a simple space delimited format:
+ * [type] [size] <data x size in hex>
+ * 
+ * @param file input weight file path
+ * @return std::map<std::string, nvinfer1::Weights> 
+ */
+static std::map<std::string, nvinfer1::Weights> loadWeights(const std::string& file) {
+    std::cout << "Loading weights: " << file << "\n";
+    std::map<std::string, nvinfer1::Weights> weightMap;
+
+    // Open weights file
+    std::ifstream input(file);
+    assert(input.is_open() && "Unable to load weight file.");
+
+    // Read number of weight blobs
+    int32_t count;
+    input >> count;
+    assert(count > 0 && "Invalid weight map file.");
+
+    while (count--) {
+        nvinfer1::Weights wt{nvinfer1::DataType::kFLOAT, nullptr, 0};
+
+        // Read name and type of blob
+        std::string name;
+        input >> name >> std::dec >> wt.count;
+
+        // Load blob
+        auto* val = static_cast<uint32_t*>(std::malloc(sizeof(uint32_t) * static_cast<std::size_t>(wt.count)));
+        if (val == nullptr) {
+            std::cerr << "weight allocation failed\n";
+            std::abort();
+        }
+        input >> std::hex;
+        for (auto x = 0ll; x < wt.count; ++x) {
+            input >> val[x];
+        }
+        wt.values = val;
+        weightMap[name] = wt;
+    }
+
+    return weightMap;
+}
+
+/**
+ * @brief a preprocess function aligning with ImageNet preprocess in torchvision, only support 3-channel image
+ * 
+ * @param img opencv image with BGR layout
+ * @param bgr2rgb whether to convert BGR to RGB
+ * @param mean subtract mean
+ * @param std divide std
+ * @param n batch size
+ * @param h resize height
+ * @param w resize width
+ * @return std::vector<float> contiguous flatten image data in float32 type
+ */
+static std::vector<float> preprocess_img(cv::Mat& img, bool bgr2rgb, const std::array<const float, 3>& mean,
+                                         const std::array<const float, 3>& std, int n, int h, int w) {
+    const auto c = img.channels();
+    const auto size = c * h * w;
+    if (c != 3) {
+        std::cerr << "this demo only supports 3 channel input image.\n";
+        std::abort();
+    }
+    if (bgr2rgb) {
+        cv::cvtColor(img, img, cv::COLOR_BGR2RGB);
+    }
+    cv::resize(img, img, cv::Size(w, h), 0, 0, cv::INTER_LINEAR);
+    img.convertTo(img, CV_32FC3, 1.f / 255);
+    img = (img - cv::Scalar(mean[0], mean[1], mean[2])) / cv::Scalar(std[0], std[1], std[2]);
+    std::vector<float> chw(static_cast<std::size_t>(n) * c * h * w, 0.f);
+
+    // fill all batch with the same input image
+    for (int i = 0; i < n; ++i) {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                const cv::Vec3f v = img.at<cv::Vec3f>(y, x);
+                chw[i * size + 0 * h * w + y * w + x] = v[0];
+                chw[i * size + 1 * h * w + y * w + x] = v[1];
+                chw[i * size + 2 * h * w + y * w + x] = v[2];
+            }
+        }
+    }
+    return chw;
+}
+
+static auto topk(const std::vector<float>& v, int k) -> std::vector<std::pair<int, float>> {
+    if (k <= 0)
+        return {};
+    auto stride = std::min<std::ptrdiff_t>(k, static_cast<int64_t>(v.size()));
+
+    std::vector<int> idx(v.size());
+    std::iota(idx.begin(), idx.end(), 0);
+
+    std::partial_sort(idx.begin(), idx.begin() + k, idx.end(), [&](int a, int b) { return v[a] > v[b]; });
+
+    std::vector<std::pair<int, float>> out;
+    out.reserve(stride);
+    for (auto i = 0; i < stride; ++i)
+        out.emplace_back(idx[i], v[idx[i]]);
+    return out;
+}
+
+static std::map<int, std::string> loadImagenetLabelMap(const std::string& path) {
+    std::map<int, std::string> labels;
+    std::ifstream in(path);
+    if (!in.is_open()) {
+        return labels;
+    }
+    std::string line;
+    while (std::getline(in, line)) {
+        auto colon = line.find(':');
+        if (colon == std::string::npos) {
+            continue;
+        }
+        auto first_quote = line.find('\'', colon);
+        if (first_quote == std::string::npos) {
+            continue;
+        }
+        auto second_quote = line.find('\'', first_quote + 1);
+        if (second_quote == std::string::npos) {
+            continue;
+        }
+        int idx = std::stoi(line.substr(0, colon));
+        labels[idx] = line.substr(first_quote + 1, second_quote - first_quote - 1);
+    }
+    return labels;
+}
+
+static ILayer* addTransformLayer(INetworkDefinition* network, ITensor& input, bool bgr2rgb,
+                                 const std::array<const float, 3>& mean, const std::array<const float, 3>& std) {
+    struct ScaleParams {
+        std::array<float, 3> shift;
+        std::array<float, 3> scale;
+    };
+    static std::vector<std::unique_ptr<ScaleParams>> gScaleParams;
+    auto params = std::make_unique<ScaleParams>();
+    params->shift = {-mean[0] / std[0], -mean[1] / std[1], -mean[2] / std[2]};
+    params->scale = {1.f / (std[0] * 255.f), 1.f / (std[1] * 255.f), 1.f / (std[2] * 255.f)};
+
+    static const Weights empty{DataType::kFLOAT, nullptr, 0ll};
+    const Weights shift{DataType::kFLOAT, params->shift.data(), 3ll};
+    const Weights scale{DataType::kFLOAT, params->scale.data(), 3ll};
+
+    gScaleParams.emplace_back(std::move(params));
+
+    ITensor* in = &input;
+    if (input.getType() != DataType::kFLOAT) {
+#if TRT_VERSION_GE(8, 0, 0)
+        auto* cast = network->addCast(input, DataType::kFLOAT);
+        assert(cast);
+        cast->setName("Cast to FP32");
+        in = cast->getOutput(0);
+#else
+        auto* identity = network->addIdentity(input);
+        assert(identity);
+        identity->setName("Convert to FP32");
+        identity->setOutputType(0, DataType::kFLOAT);
+        in = identity->getOutput(0);
+#endif
+    }
+    // Convert from NHWC to NCHW
+    auto* perm = network->addShuffle(*in);
+    assert(perm);
+    perm->setName("NHWC -> NCHW");
+    perm->setFirstTranspose(Permutation{0, 3, 1, 2});
+
+    // Convert from BGR to RGB (optional)
+    ITensor* data{nullptr};
+    if (bgr2rgb) {
+        auto add_slice = [&](int c, const char* name) -> ITensor* {
+            auto dims = perm->getOutput(0)->getDimensions();
+            Dims4 start = {0, c, 0, 0}, stride = {1, 1, 1, 1};
+            Dims4 size = {dims.d[0], 1, dims.d[2], dims.d[3]};
+            auto* _slice = network->addSlice(*perm->getOutput(0), start, size, stride);
+            _slice->setName(name);
+            assert(_slice && _slice->getNbOutputs() == 1);
+            return _slice->getOutput(0);
+        };
+        std::array<ITensor*, 3> channels = {add_slice(2, "R"), add_slice(1, "G"), add_slice(0, "B")};
+        auto* cat = network->addConcatenation(channels.data(), 3);
+        assert(cat);
+        cat->setName("RGB");
+        cat->setAxis(1);
+        data = cat->getOutput(0);
+    } else {
+        data = perm->getOutput(0);
+    }
+
+    // Normalize
+    auto* trans = network->addScale(*data, ScaleMode::kCHANNEL, shift, scale, empty);
+    assert(trans);
+    trans->setName("mean & std");
+#if TRT_VERSION_GE(8, 0, 0)
+    trans->setChannelAxis(1);
+#endif
+    return trans;
+}
+
+static size_t getSize(DataType dt) {
+    switch (dt) {
+#if TRT_VERSION_GE(8, 5, 1)
+        case DataType::kUINT8:
+#endif
+        case DataType::kINT8:
+            return sizeof(int8_t);
+        case DataType::kFLOAT:
+            return sizeof(float);
+        case DataType::kHALF:
+            return sizeof(int16_t);
+        case DataType::kINT32:
+            return sizeof(int32_t);
+        default: {
+            std::cerr << "Unsupported data type\n";
+            std::abort();
+        }
+    }
+}
+
+static constexpr int32_t kBenchmarkRuns = 200;
+static constexpr std::size_t kMaxFirstOutputs = 10;
+
+inline auto percentile(const std::vector<double>& sorted, double percent) -> double {
+    assert(!sorted.empty());
+    const double rank = percent / 100.0 * static_cast<double>(sorted.size() - 1);
+    const auto lower = static_cast<std::size_t>(rank);
+    const auto upper = std::min<std::size_t>(lower + 1, sorted.size() - 1);
+    if (lower == upper) {
+        return sorted[lower];
+    }
+    const double weight = rank - static_cast<double>(lower);
+    return sorted[lower] * (1.0 - weight) + sorted[upper] * weight;
+}
+
+inline void printBenchmark(const std::string& tag, const std::vector<double>& latenciesMs, int64_t batchSize = 1) {
+    assert(!latenciesMs.empty());
+    auto sorted = latenciesMs;
+    std::sort(sorted.begin(), sorted.end());
+    const double avg =
+            std::accumulate(latenciesMs.begin(), latenciesMs.end(), 0.0) / static_cast<double>(latenciesMs.size());
+    std::cout << "[" << tag << "] benchmark_runs=" << latenciesMs.size() << " batch=" << batchSize << " AVG=" << avg
+              << "ms P50=" << percentile(sorted, 50.0) << "ms P90=" << percentile(sorted, 90.0)
+              << "ms P95=" << percentile(sorted, 95.0) << "ms P99=" << percentile(sorted, 99.0) << "ms\n";
+}
+
+inline void printFirstOutputs(const std::string& tag, const float* values, std::size_t count) {
+    const auto limit = std::min(count, kMaxFirstOutputs);
+    std::cout << "[" << tag << "] first_outputs=";
+    for (std::size_t i = 0; i < limit; ++i) {
+        if (i > 0) {
+            std::cout << ", ";
+        }
+        std::cout << std::setprecision(4) << values[i];
+    }
+    std::cout << '\n';
+}
