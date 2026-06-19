@@ -22,9 +22,9 @@ The basic workflow of TensorRTx is:
 - `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb, Yolo26-Cls
 - `15 Jan 2026`. [zgjja](https://github.com/zgjja) Refactor multiple old CV models to support TensorRT SDK through 7~10.
 - `8 Jan 2026`. [ydk61](https://github.com/ydk61): YOLOv13
-- `10 May 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): [YOLO11](./yolo11_tripy) writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
+- `10 May 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): [YOLO11](./yolo11_tripy) written in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `2 May 2025`. [fazligorkembal](https://github.com/fazligorkembal): YOLO12
-- `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First [Lenet](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model) example writen in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
+- `12 Apr 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): First [Lenet](https://github.com/wang-xinyu/tensorrtx/tree/master/lenet#tripy-new-tensorrt-python-programming-model) example written in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
 - `11 Apr 2025`. [mpj1234](https://github.com/mpj1234): [YOLO11-obb](https://github.com/wang-xinyu/tensorrtx/tree/master/yolo11)
 - `22 Oct 2024`. [lindsayshuo](https://github.com/lindsayshuo): YOLOv8-obb
 - `18 Oct 2024`. [zgjja](https://github.com/zgjja): Refactor docker image.
