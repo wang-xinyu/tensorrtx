@@ -17,6 +17,7 @@ The basic workflow of TensorRTx is:
 
 ## News
 
+- `11 Jul 2026`.[mpj1234](https://github.com/mpj1234) Support [Qwen3-0.6B](./qwen3) model.
 - `24 Jun 2026`. Switched to trt10(main branch) as the default branch.
 - `19 May 2026`. [lindsayshuo](https://github.com/lindsayshuo): PP-OCRv5, PP-Structure and PP-FormulaNet
 - `3 Mar 2026`. [zgjja](https://github.com/zgjja) Add Vision Transformer
