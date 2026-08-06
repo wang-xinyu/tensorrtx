@@ -177,7 +177,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Det(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv3_0_2->setNbGroups(1);
 
     nvinfer1::IShuffleLayer* reshape23_3 = network->addShuffle(*conv23_one2one_cv3_0_2->getOutput(0));
-    reshape23_3->setReshapeDimensions(nvinfer1::Dims3{1, kNumClass, -1});
+    reshape23_3->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, kNumClass, -1});
 
     /////////////////////////////////////////////////////
 
@@ -199,7 +199,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Det(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv3_1_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_4 = network->addShuffle(*conv23_one2one_cv3_1_2->getOutput(0));
-    reshape23_4->setReshapeDimensions(nvinfer1::Dims3{1, kNumClass, -1});
+    reshape23_4->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, kNumClass, -1});
 
     /////////////////////////////////////////////////////
     nvinfer1::IElementWiseLayer* conv23_one2one_cv3_2_0_0;
@@ -227,7 +227,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Det(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv3_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv3_2_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_5 = network->addShuffle(*conv23_one2one_cv3_2_2->getOutput(0));
-    reshape23_5->setReshapeDimensions(nvinfer1::Dims3{1, kNumClass, -1});
+    reshape23_5->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, kNumClass, -1});
 
     /////////////////////////////////////////////////////
 
@@ -253,7 +253,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Det(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv2_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv2_0_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23 = network->addShuffle(*conv23_one2one_cv2_0_2->getOutput(0));
-    reshape23->setReshapeDimensions(nvinfer1::Dims3{1, 4, -1});
+    reshape23->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 4, -1});
 
     /////////////////////////////////////////////////////
 
@@ -269,7 +269,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Det(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv2_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv2_1_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_1 = network->addShuffle(*conv23_one2one_cv2_1_2->getOutput(0));
-    reshape23_1->setReshapeDimensions(nvinfer1::Dims3{1, 4, -1});
+    reshape23_1->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 4, -1});
 
     /////////////////////////////////////////////////////
 
@@ -285,7 +285,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Det(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv2_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv2_2_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_2 = network->addShuffle(*conv23_one2one_cv2_2_2->getOutput(0));
-    reshape23_2->setReshapeDimensions(nvinfer1::Dims3{1, 4, -1});
+    reshape23_2->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 4, -1});
 
     /////////////////////////////////////////////////////
 
@@ -547,7 +547,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv2_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv2_0_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23 = network->addShuffle(*conv23_one2one_cv2_0_2->getOutput(0));
-    reshape23->setReshapeDimensions(nvinfer1::Dims3{1, 4, -1});
+    reshape23->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 4, -1});
 
     nvinfer1::IElementWiseLayer* conv23_one2one_cv2_1_0 =
             convBnSiLU(network, weightMap, *block19->getOutput(0), c2 / 4, {3, 3}, 1, "model.23.one2one_cv2.1.0", 1);
@@ -561,7 +561,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv2_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv2_1_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_1 = network->addShuffle(*conv23_one2one_cv2_1_2->getOutput(0));
-    reshape23_1->setReshapeDimensions(nvinfer1::Dims3{1, 4, -1});
+    reshape23_1->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 4, -1});
 
     nvinfer1::IElementWiseLayer* conv23_one2one_cv2_2_0 =
             convBnSiLU(network, weightMap, *block22->getOutput(0), c2 / 4, {3, 3}, 1, "model.23.one2one_cv2.2.0", 1);
@@ -575,7 +575,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv2_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv2_2_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_2 = network->addShuffle(*conv23_one2one_cv2_2_2->getOutput(0));
-    reshape23_2->setReshapeDimensions(nvinfer1::Dims3{1, 4, -1});
+    reshape23_2->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 4, -1});
 
     nvinfer1::ITensor* inputTensors23[] = {reshape23->getOutput(0), reshape23_1->getOutput(0),
                                            reshape23_2->getOutput(0)};
@@ -596,7 +596,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv4_0_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv4_0_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_6 = network->addShuffle(*conv23_one2one_cv4_0_2->getOutput(0));
-    reshape23_6->setReshapeDimensions(nvinfer1::Dims3{1, 1, -1});
+    reshape23_6->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 1, -1});
 
     nvinfer1::IElementWiseLayer* conv23_one2one_cv4_1_0 =
             convBnSiLU(network, weightMap, *block19->getOutput(0), c2 / 4, {3, 3}, 1, "model.23.one2one_cv4.1.0", 1);
@@ -610,7 +610,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv4_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv4_1_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_7 = network->addShuffle(*conv23_one2one_cv4_1_2->getOutput(0));
-    reshape23_7->setReshapeDimensions(nvinfer1::Dims3{1, 1, -1});
+    reshape23_7->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 1, -1});
 
     nvinfer1::IElementWiseLayer* conv23_one2one_cv4_2_0 =
             convBnSiLU(network, weightMap, *block22->getOutput(0), c2 / 4, {3, 3}, 1, "model.23.one2one_cv4.2.0", 1);
@@ -624,7 +624,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv4_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv4_2_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_8 = network->addShuffle(*conv23_one2one_cv4_2_2->getOutput(0));
-    reshape23_8->setReshapeDimensions(nvinfer1::Dims3{1, 1, -1});
+    reshape23_8->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, 1, -1});
 
     nvinfer1::ITensor* inputTensors23_2[] = {reshape23_6->getOutput(0), reshape23_7->getOutput(0),
                                              reshape23_8->getOutput(0)};
@@ -779,7 +779,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv3_0_2->setNbGroups(1);
 
     nvinfer1::IShuffleLayer* reshape23_3 = network->addShuffle(*conv23_one2one_cv3_0_2->getOutput(0));
-    reshape23_3->setReshapeDimensions(nvinfer1::Dims3{1, kObbNumClass, -1});
+    reshape23_3->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, kObbNumClass, -1});
 
     nvinfer1::IElementWiseLayer* conv23_one2one_cv3_1_0_0 = convBnSiLU(
             network, weightMap, *block19->getOutput(0), c2 * 2, {3, 3}, 1, "model.23.one2one_cv3.1.0.0", c2 * 2);
@@ -799,7 +799,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv3_1_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv3_1_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_4 = network->addShuffle(*conv23_one2one_cv3_1_2->getOutput(0));
-    reshape23_4->setReshapeDimensions(nvinfer1::Dims3{1, kObbNumClass, -1});
+    reshape23_4->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, kObbNumClass, -1});
 
     nvinfer1::IElementWiseLayer* conv23_one2one_cv3_2_0_0;
     if (type == "m" || type == "l" || type == "x") {
@@ -826,7 +826,7 @@ nvinfer1::IHostMemory* buildEngineYolo26Obb(nvinfer1::IBuilder* builder, nvinfer
     conv23_one2one_cv3_2_2->setPaddingNd(nvinfer1::DimsHW{0, 0});
     conv23_one2one_cv3_2_2->setNbGroups(1);
     nvinfer1::IShuffleLayer* reshape23_5 = network->addShuffle(*conv23_one2one_cv3_2_2->getOutput(0));
-    reshape23_5->setReshapeDimensions(nvinfer1::Dims3{1, kObbNumClass, -1});
+    reshape23_5->setReshapeDimensions(nvinfer1::Dims3{kBatchSize, kObbNumClass, -1});
 
     nvinfer1::ITensor* tensor23_1[] = {reshape23_3->getOutput(0), reshape23_4->getOutput(0), reshape23_5->getOutput(0)};
     nvinfer1::IConcatenationLayer* cat23_1 = network->addConcatenation(tensor23_1, 3);
@@ -945,15 +945,15 @@ nvinfer1::IHostMemory* buildEngineYolo26Cls(nvinfer1::IBuilder* builder, nvinfer
     nvinfer1::IConstantLayer* block10_linear_weight =
             network->addConstant(nvinfer1::Dims2{kClsNumClass, 1280}, weightMap["model.10.linear.weight"]);
     nvinfer1::IConstantLayer* block10_linear_bias =
-            network->addConstant(nvinfer1::Dims2{kClsNumClass, 1}, weightMap["model.10.linear.bias"]);
+            network->addConstant(nvinfer1::Dims2{1, kClsNumClass}, weightMap["model.10.linear.bias"]);
     nvinfer1::IMatrixMultiplyLayer* block10_linear_matrix_multiply =
             network->addMatrixMultiply(*block10_reshape->getOutput(0), nvinfer1::MatrixOperation::kNONE,
                                        *block10_linear_weight->getOutput(0), nvinfer1::MatrixOperation::kTRANSPOSE);
     nvinfer1::IElementWiseLayer* block10_linear_add =
             network->addElementWise(*block10_linear_matrix_multiply->getOutput(0), *block10_linear_bias->getOutput(0),
                                     nvinfer1::ElementWiseOperation::kSUM);
-    nvinfer1::IActivationLayer* output =
-            network->addActivation(*block10_linear_add->getOutput(0), nvinfer1::ActivationType::kSIGMOID);
+    nvinfer1::ISoftMaxLayer* output = network->addSoftMax(*block10_linear_add->getOutput(0));
+    output->setAxes(1 << 1);
     assert(output);
 
     output->getOutput(0)->setName(kOutputTensorName);

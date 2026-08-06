@@ -67,7 +67,7 @@ class API YoloLayerPlugin : public IPluginV2IOExt {
     void detachFromContext() TRT_NOEXCEPT override;
 
    private:
-    void gatherKernelLauncher(const float* const* inputs, float* outputs, cudaStream_t stream, int batchSize);
+    void gatherKernelLauncher(const float* const* inputs, float* outputs, cudaStream_t stream);
     int mThreadCount = 256;
     const char* mPluginNamespace = "";
     int mClassCount;

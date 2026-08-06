@@ -165,8 +165,7 @@ nvinfer1::IPluginV2IOExt* YoloLayerPlugin::clone() const TRT_NOEXCEPT {
 
 int YoloLayerPlugin::enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace,
                              cudaStream_t stream) TRT_NOEXCEPT {
-    gatherKernelLauncher(reinterpret_cast<const float* const*>(inputs), reinterpret_cast<float*>(outputs[0]), stream,
-                         batchSize);
+    gatherKernelLauncher(reinterpret_cast<const float* const*>(inputs), reinterpret_cast<float*>(outputs[0]), stream);
 
     return 0;
 }
@@ -175,14 +174,19 @@ __device__ float Logist(float data) {
     return 1.f / (1.f + expf(-data));
 }
 
-__global__ void gatherKernel(const float* input, float* output, int num_elements, int max_out_object, int class_count,
+__global__ void gatherKernel(const float* input, float* output, int anchor_num, int max_out_object, int class_count,
                              int nk, int output_elem, bool is_detection, bool is_segmentation, bool is_pose,
                              bool is_obb) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= num_elements)
+    int total_elements = anchor_num * kBatchSize;
+    if (idx >= total_elements)
         return;
 
-    int outputIdx = 0 * output_elem;  // TODO: ADD BATCH SUPPORT HERE
+    // kBatchSize is a compile-time constant (config.h): the engine's input batch dim is
+    // static, so every batch item's anchors live back-to-back in `input`/`output`.
+    int batch_idx = idx / anchor_num;
+    int anchor_idx = idx % anchor_num;
+
     int anchor_size = -1;
     float angle = 0.0f;
 
@@ -190,18 +194,24 @@ __global__ void gatherKernel(const float* input, float* output, int num_elements
         anchor_size = 4 + class_count;
     } else if (is_obb) {
         anchor_size = 5 + class_count;
-        angle = input[idx * (anchor_size) + 4 + class_count];
     }
 
-    float xmin = input[idx * (anchor_size) + 0];
-    float ymin = input[idx * (anchor_size) + 1];
-    float xmax = input[idx * (anchor_size) + 2];
-    float ymax = input[idx * (anchor_size) + 3];
+    const float* batch_input = input + (size_t)batch_idx * anchor_num * anchor_size;
+    float* batch_output = output + (size_t)batch_idx * output_elem;
+
+    if (is_obb) {
+        angle = batch_input[anchor_idx * (anchor_size) + 4 + class_count];
+    }
+
+    float xmin = batch_input[anchor_idx * (anchor_size) + 0];
+    float ymin = batch_input[anchor_idx * (anchor_size) + 1];
+    float xmax = batch_input[anchor_idx * (anchor_size) + 2];
+    float ymax = batch_input[anchor_idx * (anchor_size) + 3];
 
     float score = 0.0f;
     int class_id = -1;
     for (int c = 0; c < class_count; c++) {
-        float conf = input[idx * (anchor_size) + 4 + c];
+        float conf = batch_input[anchor_idx * (anchor_size) + 4 + c];
         if (conf > score) {
             score = conf;
             class_id = c;
@@ -212,13 +222,13 @@ __global__ void gatherKernel(const float* input, float* output, int num_elements
         return;
     }
 
-    int count = (int)atomicAdd(output + outputIdx, 1);
+    int count = (int)atomicAdd(batch_output, 1);
     if (count >= max_out_object) {
         return;
     }
 
     int det_size = sizeof(Detection) / sizeof(float);
-    Detection* det = (Detection*)(output + outputIdx + 1 + count * det_size);
+    Detection* det = (Detection*)(batch_output + 1 + count * det_size);
 
     /*
     float scale = fminf(640.0f / 1080.0f, 640.0f / 608.0f);    // TODO: GET FROM PARAMETERS WITH SCALE!
@@ -248,22 +258,20 @@ __global__ void gatherKernel(const float* input, float* output, int num_elements
     // TODO: ADD KEYPOINTS, SEGMENTATION, OBB HERE
 }
 
-void YoloLayerPlugin::gatherKernelLauncher(const float* const* inputs, float* outputs, cudaStream_t stream,
-                                           int batchSize) {
-    // TODO: ADD BATCH SUPPORT, CURRENTLY ONLY BATCH=1 IS SUPPORTED
+void YoloLayerPlugin::gatherKernelLauncher(const float* const* inputs, float* outputs, cudaStream_t stream) {
     // TODO: ADD SEGMENTATION, POSE, OBB SUPPORT
-    // TODO: num_elem = batch_size * anchor_num
     const float* input = inputs[0];
 
     int outputElem = mMaxDetections * sizeof(Detection) / sizeof(float) + 1;
-    int num_elem = mAnchorCount;  // Use anchor count from model configuration
+    int anchor_num = mAnchorCount;  // Use anchor count from model configuration
+    int total_elements = anchor_num * kBatchSize;
 
     dim3 blockSize(mThreadCount);
-    dim3 gridSize((num_elem + mThreadCount - 1) / mThreadCount);
+    dim3 gridSize((total_elements + mThreadCount - 1) / mThreadCount);
 
-    cudaMemsetAsync(outputs, 0, batchSize * outputElem * sizeof(float), stream);  // TODO: adjust for batch size
+    cudaMemsetAsync(outputs, 0, kBatchSize * outputElem * sizeof(float), stream);
 
-    gatherKernel<<<gridSize, blockSize, 0, stream>>>(input, outputs, num_elem, mMaxDetections, mClassCount,
+    gatherKernel<<<gridSize, blockSize, 0, stream>>>(input, outputs, anchor_num, mMaxDetections, mClassCount,
                                                      mNumberOfPoints, outputElem, mIsDetection, mIsSegmentation,
                                                      mIsPose, mIsObb);
 }
