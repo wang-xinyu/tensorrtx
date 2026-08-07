@@ -194,6 +194,8 @@ __global__ void gatherKernel(const float* input, float* output, int anchor_num, 
         anchor_size = 4 + class_count;
     } else if (is_obb) {
         anchor_size = 5 + class_count;
+    } else if (is_pose) {
+        anchor_size = 4 + class_count + nk * 3;
     }
 
     const float* batch_input = input + (size_t)batch_idx * anchor_num * anchor_size;
@@ -255,11 +257,17 @@ __global__ void gatherKernel(const float* input, float* output, int anchor_num, 
         det->angle = angle;
     }
 
-    // TODO: ADD KEYPOINTS, SEGMENTATION, OBB HERE
+    if (is_pose) {
+        for (int k = 0; k < nk * 3; k++) {
+            det->keypoints[k] = batch_input[anchor_idx * (anchor_size) + 4 + class_count + k];
+        }
+    }
+
+    // TODO: ADD SEGMENTATION HERE
 }
 
 void YoloLayerPlugin::gatherKernelLauncher(const float* const* inputs, float* outputs, cudaStream_t stream) {
-    // TODO: ADD SEGMENTATION, POSE, OBB SUPPORT
+    // TODO: ADD SEGMENTATION SUPPORT
     const float* input = inputs[0];
 
     int outputElem = mMaxDetections * sizeof(Detection) / sizeof(float) + 1;
