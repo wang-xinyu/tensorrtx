@@ -196,6 +196,8 @@ __global__ void gatherKernel(const float* input, float* output, int anchor_num, 
         anchor_size = 5 + class_count;
     } else if (is_pose) {
         anchor_size = 4 + class_count + nk * 3;
+    } else if (is_segmentation) {
+        anchor_size = 4 + class_count + 32;
     }
 
     const float* batch_input = input + (size_t)batch_idx * anchor_num * anchor_size;
@@ -263,11 +265,14 @@ __global__ void gatherKernel(const float* input, float* output, int anchor_num, 
         }
     }
 
-    // TODO: ADD SEGMENTATION HERE
+    if (is_segmentation) {
+        for (int k = 0; k < 32; k++) {
+            det->mask[k] = batch_input[anchor_idx * (anchor_size) + 4 + class_count + k];
+        }
+    }
 }
 
 void YoloLayerPlugin::gatherKernelLauncher(const float* const* inputs, float* outputs, cudaStream_t stream) {
-    // TODO: ADD SEGMENTATION SUPPORT
     const float* input = inputs[0];
 
     int outputElem = mMaxDetections * sizeof(Detection) / sizeof(float) + 1;

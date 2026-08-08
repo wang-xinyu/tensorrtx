@@ -18,11 +18,11 @@ Training code [link](https://github.com/ultralytics/ultralytics/archive/refs/tag
 * [✅] Yolo26n-obb, Yolo26s-obb, Yolo26m-obb, Yolo26l-obb, Yolo26sx-obb, support FP32/FP16 and C++ API
 * [✅] Yolo26n-cls, Yolo26s-cls, Yolo26m-cls, Yolo26l-cls, Yolo26sx-cls, support FP32/FP16 and C++ API
 * [✅] Yolo26n-pose, Yolo26s-pose, Yolo26m-pose, Yolo26l-pose, Yolo26sx-pose, support FP32/FP16 and C++ API
+* [✅] Yolo26n-seg, Yolo26s-seg, Yolo26m-seg, Yolo26l-seg, Yolo26sx-seg, support FP32/FP16 and C++ API
 
 ## COMING FEATURES
 * [⏳] Windows OS Support
 * [⏳] Support Quantization
-* [⏳] Yolo26-seg models
 
 ## Config
 
@@ -66,6 +66,13 @@ wget https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-pose
 cp [PATH-TO-MAIN-FOLDER]/gen_wts.py .
 python gen_wts.py -w yolo26n-pose.pt -o yolo26n-pose.wts -t pose
 # A file 'yolo26n-pose.wts' will be generated.
+
+# Download models for Seg
+wget https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26n-seg.pt -O yolo26n-seg.pt # to download other models, replace 'yolo26n-seg.pt' with 'yolo26s-seg.pt', 'yolo26m-seg.pt', 'yolo26l-seg.pt' or 'yolo26x-seg.pt'
+# Generate .wts
+cp [PATH-TO-MAIN-FOLDER]/gen_wts.py .
+python gen_wts.py -w yolo26n-seg.pt -o yolo26n-seg.wts -t seg
+# A file 'yolo26n-seg.wts' will be generated.
 
 ```
 
@@ -118,6 +125,18 @@ cp [PATH-TO-ultralytics]/yolo26n-pose.wts .
 ./yolo26_pose -s yolo26n-pose.wts yolo26n-pose.engine [n/s/m/l/x]
 # Run inference
 ./yolo26_pose -d yolo26n-pose.engine ../images
+# results saved in build directory
+```
+
+### Seg
+```shell
+Generate coco text file in build folder or download it
+
+cp [PATH-TO-ultralytics]/yolo26n-seg.wts .
+# Build and serialize TensorRT engine
+./yolo26_seg -s yolo26n-seg.wts yolo26n-seg.engine [n/s/m/l/x]
+# Run inference
+./yolo26_seg -d yolo26n-seg.engine ../images
 # results saved in build directory
 ```
 

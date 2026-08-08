@@ -19,7 +19,7 @@ The basic workflow of TensorRTx is:
 
 - `19 May 2026`. [lindsayshuo](https://github.com/lindsayshuo): PP-OCRv5, PP-Structure and PP-FormulaNet
 - `3 Mar 2026`. [zgjja](https://github.com/zgjja) Add Vision Transformer
-- `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb, Yolo26-Cls
+- `2 Feb 2026`. [fazligorkembal](https://github.com/fazligorkembal) Yolo26-Det, Yolo26-Obb, Yolo26-Cls, Yolo26-Pose, Yolo26-Seg
 - `15 Jan 2026`. [zgjja](https://github.com/zgjja) Refactor multiple old CV models to support TensorRT SDK through 7~10.
 - `8 Jan 2026`. [ydk61](https://github.com/ydk61): YOLOv13
 - `10 May 2025`. [pranavm-nvidia](https://github.com/pranavm-nvidia): [YOLO11](./yolo11_tripy) written in [Tripy](https://github.com/NVIDIA/TensorRT-Incubator/tree/main/tripy).
